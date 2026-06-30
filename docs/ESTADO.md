@@ -23,13 +23,27 @@
   el store local. La escritura a Sheets vía n8n se conecta en Fase 2.
 - El estado de **workflows n8n** es en vivo si n8n corre en `localhost:5678`.
 
-## 🟡 Fase 2 — Pendiente (estructura placeholder)
-- Tab Pipeline (Kanban dnd-kit) — placeholder visual.
-- Tab Campañas (wizard, templates) — placeholder visual.
-- Disparo de workflows n8n desde campañas + escritura a Sheets.
+## ✅ Fase 2 — COMPLETADA (funcional)
+
+| Pieza | Estado |
+|-------|--------|
+| **Conexión real a Google Sheets vía n8n** (`src/services/crmApi.ts` + workflows `n8n/CRM_API_Leer_Sheets.json` / `n8n/CRM_API_Escribir_Sheets.json`) | ✅ Funcional si los webhooks están importados/activos en n8n |
+| **Tab Pipeline**: Kanban 8 columnas con drag-and-drop (dnd-kit), cards con avatar/score/prioridad/canal/días en columna, alertas de leads estancados (7+ días, borde rojo pulsante), totales $ y conteo por columna, forecast mensual ponderado por probabilidad de etapa, filtros (nicho/valor/prioridad/responsable), vista lista, botón "+" por columna, drawer de lead reutilizado, sync a Sheets en cada movimiento | ✅ Funcional |
+| **Tab Automatizaciones**: lista real de workflows n8n, toggle activo/inactivo, "Ejecutar ahora", link "Abrir en n8n", stats de ejecuciones (total/% éxito), panel lateral con últimas 20 ejecuciones + gráfico de 14 días, sección de integraciones (Sheets/Gmail/IMAP/WhatsApp/Claude/Apify/Calendar conectadas, Instagram/LinkedIn/Stripe próximamente) | ✅ Funcional (requiere n8n corriendo en `localhost:5678` con API key) |
+| **Tab Campañas**: grid de campañas con métricas, wizard de 3 pasos (info → selección de leads con filtros y "seleccionar todos" → template/horario), generador de template básico por nicho/idioma (placeholder local, sin llamada a IA real todavía), vista detalle con timeline/leads/pausar-reanudar/duplicar/enviar seguimiento, librería de templates editable | ✅ Funcional con persistencia local (Zustand); el envío real y el "Generar con IA" via Claude quedan conectados a nivel de disparo de workflow n8n, pendientes de credenciales productivas |
+
+### Notas Fase 2
+- El proxy de Sheets vía n8n (`crmApi`) es la fuente preferida; si los webhooks no están
+  importados/activos, el sistema cae automáticamente a lectura directa de Sheets API y
+  luego a datos de ejemplo — sin romper la UI.
+- Las campañas y templates viven en un store local (Zustand) hidratado desde datos de
+  ejemplo; "Lanzar campaña" y "Enviar seguimiento" disparan los workflows reales de n8n
+  (`ITdsEWd94R8ptUlb`, `ZMQkvDXtD2tdMuYN`) de forma best-effort (no bloquean la UI si fallan).
+- El botón "Generar con IA" de campañas usa un generador local basado en nicho/ciudad/idioma
+  (sin llamada de red); conectar a la API de Claude vía n8n es el siguiente paso natural.
 
 ## 🟡 Fase 3 — Pendiente (estructura placeholder)
-- Tab Bandeja (IMAP), Tab Mensajes (multicanal), Tab Automatizaciones (control n8n).
+- Tab Bandeja (IMAP), Tab Mensajes (multicanal).
 
 ## 🟡 Fase 4 — Pendiente (estructura placeholder)
 - Tab Analíticas (reportes, heatmaps, sankey), Tab Configuración completa, notificaciones.
