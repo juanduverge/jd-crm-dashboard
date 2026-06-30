@@ -1,0 +1,91 @@
+{
+  "name": "CRM API - Leer Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "crm/sheets/:tab",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-read",
+      "name": "Webhook GET",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-260, 0],
+      "webhookId": "crm-sheets-read"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Whitelist de hojas permitidas; evita lecturas arbitrarias.\nconst allowed = ['prospects', 'outreach', 'pipeline', 'messages', 'config'];\nconst tab = ($json.params && $json.params.tab) || '';\nif (!allowed.includes(tab)) {\n  throw new Error('Hoja no permitida: ' + tab);\n}\nreturn [{ json: { tab } }];"
+      },
+      "id": "validate",
+      "name": "Validar hoja",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-40, 0]
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $json.tab }}",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "id": "read-sheet",
+      "name": "Leer hoja",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [200, 0],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Empaqueta todas las filas en una sola respuesta { rows: [...] }.\nconst rows = items.map((i) => i.json);\nreturn [{ json: { rows } }];"
+      },
+      "id": "pack",
+      "name": "Empaquetar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "respond",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 0]
+    }
+  ],
+  "connections": {
+    "Webhook GET": { "main": [[{ "node": "Validar hoja", "type": "main", "index": 0 }]] },
+    "Validar hoja": { "main": [[{ "node": "Leer hoja", "type": "main", "index": 0 }]] },
+    "Leer hoja": { "main": [[{ "node": "Empaquetar", "type": "main", "index": 0 }]] },
+    "Empaquetar": { "main": [[{ "node": "Responder", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

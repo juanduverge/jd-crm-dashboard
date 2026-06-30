@@ -2,6 +2,7 @@ import axios from 'axios'
 import { config } from '@/lib/config'
 import type { Lead, Message } from '@/types'
 import { mockLeads, mockMessages } from './mockData'
+import { crmApi, type SheetTab } from './crmApi'
 
 /**
  * Lectura de Google Sheets.
@@ -32,6 +33,20 @@ function rowsToObjects(rows: string[][]): Record<string, string>[] {
     .map((r) => Object.fromEntries(header.map((h, i) => [h.trim(), (r[i] ?? '').trim()])))
 }
 
+/**
+ * Lee una hoja como objetos, priorizando el CRM API (webhooks n8n) y cayendo
+ * a la lectura directa con Google API key. Si ambos fallan devuelve [].
+ */
+async function getRows(tab: SheetTab): Promise<Record<string, string>[]> {
+  try {
+    const rows = await crmApi.readSheet(tab)
+    if (rows.length) return rows
+  } catch {
+    /* webhook no disponible -> fallback API directa */
+  }
+  return rowsToObjects(await readRange(tab))
+}
+
 const num = (v?: string) => {
   const n = parseFloat((v ?? '').replace(/[^0-9.-]/g, ''))
   return isNaN(n) ? 0 : n
@@ -50,15 +65,14 @@ export const sheetsService = {
   /** Lee prospects + pipeline y los combina en objetos Lead. */
   async getLeads(): Promise<Lead[]> {
     try {
-      const [prospectsRows, pipelineRows] = await Promise.all([
-        readRange('prospects'),
-        readRange('pipeline'),
+      const [prospects, pipelineRowObjs] = await Promise.all([
+        getRows('prospects'),
+        getRows('pipeline'),
       ])
-      const prospects = rowsToObjects(prospectsRows)
       if (!prospects.length) return mockLeads
 
       const pipelineByLead = new Map(
-        rowsToObjects(pipelineRows).map((p) => [p['ID Lead'], p]),
+        pipelineRowObjs.map((p) => [p['ID Lead'], p]),
       )
 
       return prospects.map((p): Lead => {
@@ -106,7 +120,7 @@ export const sheetsService = {
 
   async getMessages(): Promise<Message[]> {
     try {
-      const rows = rowsToObjects(await readRange('messages'))
+      const rows = await getRows('messages')
       if (!rows.length) return mockMessages
       return rows.map((m) => ({
         idLead: m['ID Lead'],
@@ -133,8 +147,24 @@ export const sheetsService = {
     }
   },
 
+  /** Persiste el cambio de etapa de un lead en Sheets vía n8n (best-effort). */
+  async movePipeline(lead: Lead): Promise<boolean> {
+    try {
+      await crmApi.updatePipeline({
+        idLead: lead.id,
+        estado: lead.estado,
+        valorEstimado: lead.valorEstimado,
+        prioridad: lead.prioridad,
+        responsable: lead.responsable,
+      })
+      return true
+    } catch {
+      return false
+    }
+  },
+
   isLive() {
-    return !!config.sheets.apiKey
+    return !!config.sheets.apiKey || crmApi.enabled()
   },
 }
 

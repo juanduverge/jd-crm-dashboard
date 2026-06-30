@@ -7,6 +7,11 @@ export const config = {
     apiKey: import.meta.env.VITE_N8N_API_KEY || '',
     // En dev usamos el proxy de vite (/n8n-api) para evitar CORS.
     base: import.meta.env.DEV ? '/n8n-api' : `${import.meta.env.VITE_N8N_URL || 'http://localhost:5678'}/api/v1`,
+    // Base de los webhooks del "CRM API" (lectura/escritura de Sheets vía n8n).
+    // En dev pasa por el proxy de vite (/n8n-hook) -> http://localhost:5678/webhook
+    hookBase: import.meta.env.DEV ? '/n8n-hook' : `${import.meta.env.VITE_N8N_URL || 'http://localhost:5678'}/webhook`,
+    // Token compartido opcional que validan los webhooks (header X-CRM-TOKEN).
+    hookToken: import.meta.env.VITE_N8N_HOOK_TOKEN || '',
   },
   sheets: {
     id: import.meta.env.VITE_GOOGLE_SHEETS_ID || '',
@@ -35,10 +40,10 @@ export const PIPELINE_STAGES = [
   { id: 'nuevo', label: 'Nuevo', color: '#94a3b8', probability: 0.05 },
   { id: 'contactado', label: 'Contactado', color: '#0082f3', probability: 0.1 },
   { id: 'seguimiento', label: 'Seguimiento', color: '#6248ff', probability: 0.2 },
-  { id: 'respondio', label: 'Respondió', color: '#f38744', probability: 0.35 },
-  { id: 'reunion', label: 'Reunión Agendada', color: '#ff7448', probability: 0.55 },
-  { id: 'propuesta', label: 'Propuesta Enviada', color: '#ef6820', probability: 0.7 },
-  { id: 'negociacion', label: 'Negociación', color: '#f59e0b', probability: 0.85 },
+  { id: 'respondio', label: 'Respondió', color: '#f38744', probability: 0.4 },
+  { id: 'reunion', label: 'Reunión Agendada', color: '#ff7448', probability: 0.6 },
+  { id: 'propuesta', label: 'Propuesta Enviada', color: '#ef6820', probability: 0.75 },
+  { id: 'negociacion', label: 'Negociación', color: '#f59e0b', probability: 0.9 },
   { id: 'ganado', label: 'Cerrado Ganado', color: '#16a34a', probability: 1 },
   { id: 'perdido', label: 'Cerrado Perdido', color: '#ff4848', probability: 0 },
 ] as const

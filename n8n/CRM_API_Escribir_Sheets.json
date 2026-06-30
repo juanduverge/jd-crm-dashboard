@@ -1,0 +1,120 @@
+{
+  "name": "CRM API - Escribir Sheets",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crm/sheets/:action",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-write",
+      "name": "Webhook POST",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-320, 0],
+      "webhookId": "crm-sheets-write"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Da forma a la fila según la acción y mapea a los nombres de columna reales.\nconst action = ($json.params && $json.params.action) || '';\nconst b = $json.body || {};\nconst now = new Date().toISOString();\n\nif (action === 'pipeline-update') {\n  return [{ json: {\n    __action: action,\n    'ID Lead': b.idLead,\n    'Estado': b.estado,\n    'Valor estimado (USD)': b.valorEstimado ?? '',\n    'Prioridad': b.prioridad ?? '',\n    'Responsable': b.responsable ?? '',\n    'Fecha ultimo contacto': now,\n    'Notas': b.nota ?? ''\n  }}];\n}\n\nif (action === 'lead-create') {\n  const id = b.id || ('L-' + Date.now());\n  return [{ json: {\n    __action: action,\n    'ID Lead': id,\n    'Fecha captura': now,\n    'Nombre empresa': b.empresa,\n    'Categoria / nicho': b.nicho ?? '',\n    'Ciudad': b.ciudad ?? '',\n    'Email Contacto': b.email ?? '',\n    'Telefono': b.telefono ?? '',\n    'Sitio web': b.web ?? '',\n    'Score Final Combinado': b.score ?? '',\n    'Estado': b.estado ?? 'nuevo',\n    'Valor estimado (USD)': b.valorEstimado ?? '',\n    'Prioridad': b.prioridad ?? 'media'\n  }}];\n}\n\nif (action === 'lead-update') {\n  return [{ json: {\n    __action: action,\n    'ID Lead': b.id,\n    'Nombre empresa': b.empresa,\n    'Categoria / nicho': b.nicho ?? '',\n    'Ciudad': b.ciudad ?? '',\n    'Email Contacto': b.email ?? '',\n    'Telefono': b.telefono ?? '',\n    'Sitio web': b.web ?? '',\n    'Score Final Combinado': b.score ?? ''\n  }}];\n}\n\nthrow new Error('Acción no soportada: ' + action);"
+      },
+      "id": "shape",
+      "name": "Dar forma",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-100, 0]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            { "conditions": { "options": { "caseSensitive": true }, "conditions": [{ "leftValue": "={{ $json.__action }}", "rightValue": "pipeline-update", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": false },
+            { "conditions": { "options": { "caseSensitive": true }, "conditions": [{ "leftValue": "={{ $json.__action }}", "rightValue": "lead-create", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": false },
+            { "conditions": { "options": { "caseSensitive": true }, "conditions": [{ "leftValue": "={{ $json.__action }}", "rightValue": "lead-update", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": false }
+          ]
+        },
+        "options": {}
+      },
+      "id": "switch",
+      "name": "Switch acción",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [140, 0]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "pipeline", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": ["ID Lead"], "value": {} },
+        "options": {}
+      },
+      "id": "sheet-pipeline",
+      "name": "Pipeline upsert",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [400, -180],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "86m52fKwvUB07q9D", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "prospects", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "value": {} },
+        "options": {}
+      },
+      "id": "sheet-create",
+      "name": "Prospects append",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [400, 0],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "86m52fKwvUB07q9D", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": { "__rl": true, "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "prospects", "mode": "name" },
+        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": ["ID Lead"], "value": {} },
+        "options": {}
+      },
+      "id": "sheet-update",
+      "name": "Prospects upsert",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [400, 180],
+      "credentials": { "googleSheetsOAuth2Api": { "id": "86m52fKwvUB07q9D", "name": "Google Sheets account" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, action: $json.__action || 'done' }) }}",
+        "options": {
+          "responseHeaders": { "entries": [{ "name": "Access-Control-Allow-Origin", "value": "*" }] }
+        }
+      },
+      "id": "respond",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [680, 0]
+    }
+  ],
+  "connections": {
+    "Webhook POST": { "main": [[{ "node": "Dar forma", "type": "main", "index": 0 }]] },
+    "Dar forma": { "main": [[{ "node": "Switch acción", "type": "main", "index": 0 }]] },
+    "Switch acción": {
+      "main": [
+        [{ "node": "Pipeline upsert", "type": "main", "index": 0 }],
+        [{ "node": "Prospects append", "type": "main", "index": 0 }],
+        [{ "node": "Prospects upsert", "type": "main", "index": 0 }]
+      ]
+    },
+    "Pipeline upsert": { "main": [[{ "node": "Responder", "type": "main", "index": 0 }]] },
+    "Prospects append": { "main": [[{ "node": "Responder", "type": "main", "index": 0 }]] },
+    "Prospects upsert": { "main": [[{ "node": "Responder", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" }
+}

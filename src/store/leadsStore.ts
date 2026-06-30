@@ -1,5 +1,29 @@
 import { create } from 'zustand'
 import type { Lead } from '@/types'
+import { crmApi } from '@/services/crmApi'
+
+/** Persistencia best-effort a Sheets vía n8n; nunca bloquea la UI optimista. */
+const persist = {
+  move(lead: Lead) {
+    crmApi.updatePipeline({
+      idLead: lead.id, estado: lead.estado, valorEstimado: lead.valorEstimado,
+      prioridad: lead.prioridad, responsable: lead.responsable,
+    }).catch(() => {})
+  },
+  create(lead: Lead) {
+    crmApi.createLead({
+      id: lead.id, empresa: lead.empresa, email: lead.email, telefono: lead.telefono,
+      ciudad: lead.ciudad, nicho: lead.nicho, web: lead.web, score: lead.score,
+      estado: lead.estado, valorEstimado: lead.valorEstimado, prioridad: lead.prioridad,
+    }).catch(() => {})
+  },
+  update(lead: Lead) {
+    crmApi.updateLead({
+      id: lead.id, empresa: lead.empresa, email: lead.email, telefono: lead.telefono,
+      ciudad: lead.ciudad, nicho: lead.nicho, web: lead.web, score: lead.score,
+    }).catch(() => {})
+  },
+}
 
 /**
  * Store local de leads. Se hidrata desde React Query (sheetsService) y mantiene
@@ -29,15 +53,26 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (!get().hydrated) set({ leads, hydrated: true })
     else set({ leads: mergeKeepLocal(get().leads, leads) })
   },
-  addLead: (lead) => set({ leads: [lead, ...get().leads] }),
-  updateLead: (id, patch) =>
-    set({ leads: get().leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) }),
+  addLead: (lead) => {
+    set({ leads: [lead, ...get().leads] })
+    persist.create(lead)
+  },
+  updateLead: (id, patch) => {
+    const leads = get().leads.map((l) => (l.id === id ? { ...l, ...patch } : l))
+    set({ leads })
+    const updated = leads.find((l) => l.id === id)
+    if (updated) persist.update(updated)
+  },
   removeLeads: (ids) => {
     const set2 = new Set(ids)
     set({ leads: get().leads.filter((l) => !set2.has(l.id)), selectedIds: new Set() })
   },
-  moveStage: (id, estado) =>
-    set({ leads: get().leads.map((l) => (l.id === id ? { ...l, estado } : l)) }),
+  moveStage: (id, estado) => {
+    const leads = get().leads.map((l) => (l.id === id ? { ...l, estado } : l))
+    set({ leads })
+    const moved = leads.find((l) => l.id === id)
+    if (moved) persist.move(moved)
+  },
   toggleSelect: (id) => {
     const s = new Set(get().selectedIds)
     s.has(id) ? s.delete(id) : s.add(id)
