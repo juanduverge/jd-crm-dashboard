@@ -1,0 +1,75 @@
+/* Fuente: fallback Inter para igualar el peso visual de "Relative" (la web de JDDeveloper). */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   TOKENS DE TEMA — derivados de la marca JDDeveloper
+   Light = paleta crema de la web. Dark = oscuro coherente.
+   ============================================================ */
+@layer base {
+  :root {
+    /* Light (default, igual a jddeveloper.com) */
+    --bg: 253 245 239;        /* #fdf5ef crema */
+    --surface: 255 255 255;   /* tarjetas */
+    --surface-2: 254 246 240; /* #fef6f0 */
+    --border: 232 224 218;
+    --fg: 22 22 22;           /* #161616 */
+    --muted: 113 113 122;
+  }
+
+  .dark {
+    --bg: 14 14 16;
+    --surface: 24 24 27;
+    --surface-2: 32 32 36;
+    --border: 45 45 50;
+    --fg: 245 243 240;
+    --muted: 156 156 166;
+  }
+
+  * {
+    border-color: rgb(var(--border));
+  }
+
+  body {
+    @apply bg-bg text-fg font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--border));
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--muted)); }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-border rounded-2xl shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium
+           transition-colors focus-visible:outline-none focus-visible:ring-2
+           focus-visible:ring-primary/40 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-primary-400 text-white hover:bg-primary-600 px-4 py-2;
+  }
+  .btn-ghost {
+    @apply btn hover:bg-surface-2 px-3 py-2;
+  }
+  .btn-outline {
+    @apply btn border border-border hover:bg-surface-2 px-4 py-2;
+  }
+  .input {
+    @apply w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm
+           placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/30;
+  }
+  .skeleton {
+    @apply animate-pulse rounded-md bg-surface-2;
+  }
+}

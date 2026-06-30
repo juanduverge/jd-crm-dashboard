@@ -1,0 +1,17 @@
+{
+  "name": "JDDeveloper CRM",
+  "short_name": "JD CRM",
+  "description": "Centro de control de leads, campañas y automatización de JDDeveloper",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fdf5ef",
+  "theme_color": "#ff7448",
+  "icons": [
+    {
+      "src": "https://cdn.prod.website-files.com/680a3c1f38949058853afc9c/6824de62e60758ee1d3acd4f_Logo%20JD%20Developer%20(256%20x%20256%20px).jpg",
+      "sizes": "256x256",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
