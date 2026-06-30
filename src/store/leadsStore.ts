@@ -68,7 +68,10 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     set({ leads: get().leads.filter((l) => !set2.has(l.id)), selectedIds: new Set() })
   },
   moveStage: (id, estado) => {
-    const leads = get().leads.map((l) => (l.id === id ? { ...l, estado } : l))
+    const now = new Date().toISOString()
+    const leads = get().leads.map((l) =>
+      l.id === id ? { ...l, estado, fechaUltimoMovimiento: now } : l,
+    )
     set({ leads })
     const moved = leads.find((l) => l.id === id)
     if (moved) persist.move(moved)

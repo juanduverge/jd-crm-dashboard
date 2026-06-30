@@ -54,6 +54,7 @@ export interface Lead {
   responsable?: string
   ultimaAccion?: string
   proximoSeguimiento?: string
+  fechaUltimoMovimiento?: string   // ISO; cuándo entró a la etapa actual (para "días en columna")
 }
 
 /** Mensaje = fila de la hoja "messages" */
