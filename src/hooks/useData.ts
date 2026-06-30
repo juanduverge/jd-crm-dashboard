@@ -3,7 +3,8 @@ import { useEffect } from 'react'
 import { sheetsService } from '@/services/sheetsService'
 import { n8nService } from '@/services/n8nService'
 import { useLeadsStore } from '@/store/leadsStore'
-import { mockCampaigns, mockActivity } from '@/services/mockData'
+import { useCampaignsStore } from '@/store/campaignsStore'
+import { mockCampaigns, mockActivity, mockTemplates } from '@/services/mockData'
 
 /** Carga leads (Sheets o mock) e hidrata el store local. */
 export function useLeads() {
@@ -50,9 +51,25 @@ export function useExecutions(workflowId?: string) {
   })
 }
 
-/** Campañas (mock en v1; en Fase 2 se persisten). */
+/** Campañas: se hidratan una vez desde datos de ejemplo y luego viven en el store local. */
 export function useCampaigns() {
-  return useQuery({ queryKey: ['campaigns'], queryFn: async () => mockCampaigns })
+  const setCampaigns = useCampaignsStore((s) => s.setCampaigns)
+  const setTemplates = useCampaignsStore((s) => s.setTemplates)
+  const campaigns = useCampaignsStore((s) => s.campaigns)
+  const templates = useCampaignsStore((s) => s.templates)
+  const hydrated = useCampaignsStore((s) => s.hydrated)
+
+  const query = useQuery({ queryKey: ['campaigns'], queryFn: async () => mockCampaigns })
+
+  useEffect(() => {
+    if (query.data && !hydrated) setCampaigns(query.data)
+  }, [query.data, hydrated, setCampaigns])
+
+  useEffect(() => {
+    if (!templates.length) setTemplates(mockTemplates)
+  }, [templates.length, setTemplates])
+
+  return { ...query, campaigns, templates }
 }
 
 export function useActivity() {

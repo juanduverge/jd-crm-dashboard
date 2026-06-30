@@ -71,6 +71,11 @@ export interface Message {
 
 export type CampaignStatus = 'borrador' | 'activa' | 'pausada' | 'completada'
 
+export interface CampaignEvent {
+  label: string
+  timestamp: string
+}
+
 export interface Campaign {
   id: string
   nombre: string
@@ -85,6 +90,9 @@ export interface Campaign {
   valorGenerado: number       // USD
   templateId?: string
   createdAt?: string
+  leadIds?: string[]
+  scheduledAt?: string        // ISO; vacío = enviar ahora
+  events?: CampaignEvent[]
 }
 
 export interface EmailTemplate {
