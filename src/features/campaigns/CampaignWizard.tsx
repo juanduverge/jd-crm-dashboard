@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
-import { Sparkles, Check, ChevronLeft, ChevronRight, Rocket } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { Sparkles, Loader2, Check, ChevronLeft, ChevronRight, Rocket } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button, Input, Select, Textarea, Badge } from '@/components/ui'
 import { DEFAULT_NICHES } from '@/lib/config'
 import { fuzzyMatch, formatCurrency, scoreColor, cn } from '@/lib/utils'
-import { generateTemplate, applyTemplate } from '@/lib/campaigns'
+import { applyTemplate } from '@/lib/campaigns'
+import { crmApi } from '@/services/crmApi'
 import type { Lead, EmailTemplate } from '@/types'
 
 const STEPS = ['Info básica', 'Leads', 'Template y envío'] as const
@@ -41,6 +43,7 @@ export function CampaignWizard({
   const [selected, setSelected] = useState<Set<string>>(new Set())
 
   const [templateId, setTemplateId] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
   const [asunto, setAsunto] = useState('')
   const [cuerpo, setCuerpo] = useState('')
   const [scheduleNow, setScheduleNow] = useState(true)
@@ -81,9 +84,25 @@ export function CampaignWizard({
     if (t) { setAsunto(t.asunto); setCuerpo(t.cuerpo) }
   }
 
-  const generateWithAI = () => {
-    const { asunto: a, cuerpo: c } = generateTemplate({ nicho, ciudad: ciudad || 'tu ciudad', idioma })
-    setAsunto(a); setCuerpo(c); setTemplateId('')
+  const generateWithAI = async () => {
+    setAiLoading(true)
+    try {
+      const result = await crmApi.generateWithAI({
+        nicho,
+        idioma,
+        tipoMensaje: 'email',
+        contextoLead: ciudad || undefined,
+        nombreEmpresa: previewLead?.empresa,
+      })
+      if (!result.ok || !result.asunto || !result.cuerpo) {
+        throw new Error(result.error || 'Respuesta vacía')
+      }
+      setAsunto(result.asunto); setCuerpo(result.cuerpo); setTemplateId('')
+    } catch {
+      toast.error('No se pudo generar el mensaje con IA. Intenta de nuevo.')
+    } finally {
+      setAiLoading(false)
+    }
   }
 
   const canNext =
@@ -207,7 +226,10 @@ export function CampaignWizard({
                 {templates.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}
               </Select>
             </label>
-            <Button size="sm" variant="outline" onClick={generateWithAI}><Sparkles className="h-3.5 w-3.5" /> Generar con IA</Button>
+            <Button size="sm" variant="outline" onClick={generateWithAI} disabled={aiLoading}>
+              {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {aiLoading ? 'Generando…' : 'Generar con IA'}
+            </Button>
           </div>
 
           <label className="block">

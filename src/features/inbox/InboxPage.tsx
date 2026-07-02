@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Search, Mail, MailOpen, RefreshCw, User, Send } from 'lucide-react'
+import { Search, Mail, MailOpen, RefreshCw, User, Send, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Textarea, Skeleton, EmptyState, Badge } from '@/components/ui'
 import { useInbox, useLeads } from '@/hooks/useData'
+import { crmApi } from '@/services/crmApi'
 import { cn, fuzzyMatch, initials, stringToColor } from '@/lib/utils'
 import type { InboxMessage } from '@/types'
 
@@ -33,6 +34,7 @@ export function InboxPage() {
   const [readIds, setReadIds] = useState<Set<string>>(() => loadReadIds())
   const [replyOpen, setReplyOpen] = useState(false)
   const [replyText, setReplyText] = useState('')
+  const [sending, setSending] = useState(false)
 
   const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads])
 
@@ -65,6 +67,27 @@ export function InboxPage() {
 
   const isRead = (e: InboxMessage) => e.leido || readIds.has(e.id)
   const unreadCount = (emails ?? []).filter((e) => !isRead(e)).length
+
+  const sendReply = async () => {
+    if (!selected || !replyText.trim()) return
+    setSending(true)
+    try {
+      await crmApi.sendReply({
+        to: selected.deEmail,
+        subject: selected.asunto || '(sin asunto)',
+        body: replyText.trim(),
+        leadId: selected.idLead,
+      })
+      toast.success('Respuesta enviada')
+      setReplyOpen(false)
+      setReplyText('')
+      refetch()
+    } catch {
+      toast.error('No se pudo enviar la respuesta. Intenta de nuevo.')
+    } finally {
+      setSending(false)
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -201,19 +224,14 @@ export function InboxPage() {
                         onChange={(e) => setReplyText(e.target.value)}
                         placeholder={`Responder a ${selected.deNombre || selected.deEmail}...`}
                         autoFocus
+                        disabled={sending}
                       />
                       <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            toast('El envío de respuestas todavía no está conectado — próximamente.')
-                            setReplyOpen(false)
-                            setReplyText('')
-                          }}
-                        >
-                          <Send className="h-4 w-4" /> Enviar
+                        <Button size="sm" onClick={sendReply} disabled={sending || !replyText.trim()}>
+                          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          {sending ? 'Enviando…' : 'Enviar'}
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => setReplyOpen(false)}>
+                        <Button variant="ghost" size="sm" onClick={() => setReplyOpen(false)} disabled={sending}>
                           Cancelar
                         </Button>
                       </div>

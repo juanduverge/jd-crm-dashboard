@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { sheetsService } from '@/services/sheetsService'
 import { n8nService } from '@/services/n8nService'
+import { crmApi, type CampaignCreatePayload, type CampaignUpdatePayload } from '@/services/crmApi'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useCampaignsStore } from '@/store/campaignsStore'
 import { STARTER_TEMPLATES } from '@/lib/campaigns'
@@ -61,20 +62,67 @@ export function useExecutions(workflowId?: string) {
 }
 
 /**
- * Campañas: no hay hoja de Sheets para campañas (es una feature local de este
- * dashboard). Arranca vacío (0 campañas reales enviadas) y vive en el store;
- * los templates se siembran una vez con una librería base editable.
+ * Campañas: persistidas en la hoja "campaigns" de Google Sheets vía n8n.
+ * Los templates son contenido editable de arranque (no datos de negocio) y
+ * viven solo en el store local.
  */
 export function useCampaigns() {
   const setTemplates = useCampaignsStore((s) => s.setTemplates)
-  const campaigns = useCampaignsStore((s) => s.campaigns)
   const templates = useCampaignsStore((s) => s.templates)
 
   useEffect(() => {
     if (!templates.length) setTemplates(STARTER_TEMPLATES)
   }, [templates.length, setTemplates])
 
-  return { campaigns, templates, isLoading: false }
+  const query = useQuery({
+    queryKey: ['campaigns'],
+    queryFn: () => sheetsService.getCampaigns(),
+    refetchInterval: 30_000,
+    staleTime: 20_000,
+  })
+
+  return { ...query, campaigns: query.data ?? [], templates }
+}
+
+export function useCreateCampaign() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: CampaignCreatePayload) => crmApi.createCampaign(payload),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }),
+  })
+}
+
+export function useUpdateCampaign() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: CampaignUpdatePayload) => crmApi.updateCampaign(payload),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }),
+  })
+}
+
+export function useDeleteCampaign() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => crmApi.deleteCampaign(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }),
+  })
+}
+
+/** Configuración clave/valor (hoja "config") vía el CRM API. */
+export function useConfig() {
+  return useQuery({
+    queryKey: ['config'],
+    queryFn: () => sheetsService.getConfig(),
+    staleTime: 20_000,
+  })
+}
+
+export function useUpdateConfig() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ clave, valor }: { clave: string; valor: string }) => crmApi.updateConfig(clave, valor),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['config'] }),
+  })
 }
 
 /** Actividad reciente derivada de mensajes reales (sheet "messages"). */

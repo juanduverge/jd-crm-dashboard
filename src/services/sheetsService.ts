@@ -1,4 +1,4 @@
-import type { Lead, Message, ActivityEvent, InboxMessage } from '@/types'
+import type { Lead, Message, ActivityEvent, InboxMessage, Campaign } from '@/types'
 import { crmApi, type SheetTab } from './crmApi'
 
 /**
@@ -107,6 +107,30 @@ export const sheetsService = {
         leido: /^(true|si|sí|1)$/i.test(r['Leido'] || ''),
       }))
       .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+  },
+
+  /** Lee la hoja campaigns (feature con persistencia real en Sheets). */
+  async getCampaigns(): Promise<Campaign[]> {
+    const rows = await getRows('campaigns')
+    return rows
+      .filter((r) => r['id'] && r['estado'] !== 'eliminada')
+      .map((r): Campaign => ({
+        id: r['id'],
+        nombre: r['nombre'] || '(sin nombre)',
+        nicho: r['nicho'] || 'otros',
+        idioma: (r['idioma'] as Campaign['idioma']) || 'es',
+        estado: (r['estado'] as Campaign['estado']) || 'borrador',
+        totalLeads: num(r['total_leads']),
+        enviados: num(r['enviados']),
+        respondieron: num(r['respondidos']),
+        conversion: num(r['enviados']) ? Math.round((num(r['respondidos']) / num(r['enviados'])) * 1000) / 10 : 0,
+        valorGenerado: 0,
+        templateId: r['template'] || undefined,
+        createdAt: r['fecha_creacion'],
+        leadIds: r['leads_ids'] ? r['leads_ids'].split(',').filter(Boolean) : [],
+        events: [],
+      }))
+      .sort((a, b) => (a.createdAt && b.createdAt ? (a.createdAt < b.createdAt ? 1 : -1) : 0))
   },
 
   /** Lee la hoja config (clave/valor) vía el CRM API. */

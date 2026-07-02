@@ -24,7 +24,7 @@ const http = axios.create({
   },
 })
 
-export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox'
+export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox' | 'campaigns'
 
 export interface PipelineUpdatePayload {
   leadId: string
@@ -103,6 +103,58 @@ export interface OutreachUpdatePayload {
   fechaEnvio?: string
 }
 
+export interface CampaignCreatePayload {
+  id?: string
+  nombre: string
+  nicho?: string
+  idioma?: 'es' | 'en'
+  estado?: string
+  tipoMensaje?: string
+  template?: string
+  leadIds?: string[]
+  totalLeads?: number
+  notas?: string
+}
+
+export interface CampaignUpdatePayload {
+  id: string
+  nombre?: string
+  nicho?: string
+  idioma?: 'es' | 'en'
+  estado?: string
+  tipoMensaje?: string
+  template?: string
+  leadIds?: string[]
+  fechaInicio?: string
+  fechaFin?: string
+  totalLeads?: number
+  enviados?: number
+  respondidos?: number
+  notas?: string
+}
+
+export interface GenerateAIPayload {
+  nicho: string
+  idioma: 'es' | 'en'
+  tipoMensaje?: string
+  contextoLead?: string
+  nombreEmpresa?: string
+}
+
+export interface GenerateAIResult {
+  ok: boolean
+  asunto?: string
+  cuerpo?: string
+  error?: string
+}
+
+export interface SendReplyPayload {
+  to: string
+  subject: string
+  body: string
+  leadId?: string
+}
+
 /** Normaliza la respuesta del webhook de lectura ({rows: [...]}). */
 function rowsFromResponse(data: any): Record<string, string>[] {
   if (!data) return []
@@ -143,6 +195,42 @@ export const crmApi = {
   /** Edita campos de un lead existente en outreach. */
   async updateOutreach(payload: OutreachUpdatePayload) {
     const { data } = await http.post('/crm-sheets-write', { action: 'outreach_update', ...payload })
+    return data
+  },
+
+  /** Crea una campaña nueva (append en campaigns). */
+  async createCampaign(payload: CampaignCreatePayload) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'campaign_create', ...payload })
+    return data
+  },
+
+  /** Edita campos de una campaña existente. */
+  async updateCampaign(payload: CampaignUpdatePayload) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'campaign_update', leadId: payload.id, ...payload })
+    return data
+  },
+
+  /** Elimina (soft-delete, estado=eliminada) una campaña. */
+  async deleteCampaign(id: string) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'campaign_delete', id, leadId: id })
+    return data
+  },
+
+  /** Actualiza (o crea) un par clave/valor en la hoja config. */
+  async updateConfig(clave: string, valor: string) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'config_update', leadId: clave, clave, valor })
+    return data
+  },
+
+  /** Genera asunto+cuerpo de outreach vía Claude (workflow n8n). */
+  async generateWithAI(payload: GenerateAIPayload): Promise<GenerateAIResult> {
+    const { data } = await http.post('/crm-generate-ai', payload, { timeout: 60000 })
+    return data
+  },
+
+  /** Envía una respuesta de email (SMTP) desde la Bandeja. */
+  async sendReply(payload: SendReplyPayload) {
+    const { data } = await http.post('/crm-send-reply', payload, { timeout: 30000 })
     return data
   },
 

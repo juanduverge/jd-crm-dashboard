@@ -6,7 +6,7 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, Button, Badge, EmptyState, Skeleton, Input, Textarea } from '@/components/ui'
 import { Drawer } from '@/components/ui/Modal'
-import { useLeads, useCampaigns } from '@/hooks/useData'
+import { useLeads, useCampaigns, useCreateCampaign, useUpdateCampaign } from '@/hooks/useData'
 import { useCampaignsStore } from '@/store/campaignsStore'
 import { n8nService } from '@/services/n8nService'
 import { config } from '@/lib/config'
@@ -18,7 +18,9 @@ import type { Campaign, EmailTemplate } from '@/types'
 export function CampaignsPage() {
   const { leads, isLoading: leadsLoading } = useLeads()
   const { campaigns, templates, isLoading } = useCampaigns()
-  const { addCampaign, updateCampaign, addEvent, duplicateCampaign, addTemplate } = useCampaignsStore()
+  const { addTemplate } = useCampaignsStore()
+  const createCampaign = useCreateCampaign()
+  const updateCampaignMutation = useUpdateCampaign()
 
   const [wizardOpen, setWizardOpen] = useState(false)
   const [detail, setDetail] = useState<Campaign | null>(null)
@@ -32,43 +34,56 @@ export function CampaignsPage() {
   }, [campaigns])
 
   const launchCampaign = async (result: WizardResult) => {
-    const id = `C-${Date.now()}`
-    const campaign: Campaign = {
-      id,
-      nombre: result.nombre,
-      nicho: result.nicho,
-      ciudad: result.ciudad,
-      idioma: result.idioma,
-      estado: result.scheduledAt ? 'borrador' : 'activa',
-      totalLeads: result.leadIds.length,
-      enviados: 0,
-      respondieron: 0,
-      conversion: 0,
-      valorGenerado: 0,
-      createdAt: new Date().toISOString(),
-      leadIds: result.leadIds,
-      scheduledAt: result.scheduledAt,
-      events: [{ label: 'Campaña creada', timestamp: new Date().toISOString() }],
-    }
-    addCampaign(campaign)
+    const estado = result.scheduledAt ? 'borrador' : 'activa'
+    try {
+      await createCampaign.mutateAsync({
+        nombre: result.nombre,
+        nicho: result.nicho,
+        idioma: result.idioma,
+        estado,
+        template: result.cuerpo,
+        leadIds: result.leadIds,
+        totalLeads: result.leadIds.length,
+      })
 
-    if (!result.scheduledAt && config.workflows.envioEmails) {
-      n8nService.run(config.workflows.envioEmails).catch(() => {})
-      addEvent(id, 'Workflow de envío disparado en n8n')
+      if (!result.scheduledAt && config.workflows.envioEmails) {
+        n8nService.run(config.workflows.envioEmails).catch(() => {})
+      }
+      toast.success(result.scheduledAt ? 'Campaña programada' : 'Campaña lanzada — workflow de envío disparado')
+    } catch {
+      toast.error('No se pudo guardar la campaña')
     }
-    toast.success(result.scheduledAt ? 'Campaña programada' : 'Campaña lanzada — workflow de envío disparado')
   }
 
-  const togglePause = (c: Campaign) => {
+  const togglePause = async (c: Campaign) => {
     const next = c.estado === 'activa' ? 'pausada' : 'activa'
-    updateCampaign(c.id, { estado: next })
-    addEvent(c.id, next === 'pausada' ? 'Campaña pausada' : 'Campaña reanudada')
-    toast.success(next === 'pausada' ? 'Campaña pausada' : 'Campaña reanudada')
+    try {
+      await updateCampaignMutation.mutateAsync({ id: c.id, estado: next })
+      toast.success(next === 'pausada' ? 'Campaña pausada' : 'Campaña reanudada')
+    } catch {
+      toast.error('No se pudo actualizar la campaña')
+    }
+  }
+
+  const duplicate = async (c: Campaign) => {
+    try {
+      await createCampaign.mutateAsync({
+        nombre: `${c.nombre} (copia)`,
+        nicho: c.nicho,
+        idioma: c.idioma,
+        estado: 'borrador',
+        template: c.templateId,
+        leadIds: c.leadIds,
+        totalLeads: c.totalLeads,
+      })
+      toast.success('Campaña duplicada')
+    } catch {
+      toast.error('No se pudo duplicar la campaña')
+    }
   }
 
   const sendFollowUp = (c: Campaign) => {
     if (config.workflows.seguimientoEmail) n8nService.run(config.workflows.seguimientoEmail).catch(() => {})
-    addEvent(c.id, 'Seguimiento disparado en n8n')
     toast.success('Seguimiento enviado')
   }
 
@@ -117,7 +132,7 @@ export function CampaignsPage() {
                 campaign={c}
                 onOpen={() => setDetail(c)}
                 onTogglePause={() => togglePause(c)}
-                onDuplicate={() => { duplicateCampaign(c.id); toast.success('Campaña duplicada') }}
+                onDuplicate={() => duplicate(c)}
               />
             ))}
           </div>
@@ -139,7 +154,7 @@ export function CampaignsPage() {
         leads={leads}
         onClose={() => setDetail(null)}
         onTogglePause={() => detail && togglePause(detail)}
-        onDuplicate={() => { if (detail) { duplicateCampaign(detail.id); toast.success('Campaña duplicada') } }}
+        onDuplicate={() => detail && duplicate(detail)}
         onFollowUp={() => detail && sendFollowUp(detail)}
       />
     </div>
@@ -243,19 +258,9 @@ function CampaignDetail({
               <Button size="sm" variant="outline" onClick={onFollowUp}><Send className="h-3.5 w-3.5" /> Enviar seguimiento</Button>
             </div>
 
-            <div>
-              <p className="mb-2 text-xs font-medium text-muted">Timeline</p>
-              <div className="space-y-2 border-l border-border pl-4">
-                {(campaign.events ?? []).slice().reverse().map((e, i) => (
-                  <div key={i} className="relative">
-                    <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-primary-400" />
-                    <p className="text-xs font-medium text-fg">{e.label}</p>
-                    <p className="text-[11px] text-muted">{new Date(e.timestamp).toLocaleString('es')}</p>
-                  </div>
-                ))}
-                {!campaign.events?.length && <p className="text-xs text-muted">Sin eventos todavía.</p>}
-              </div>
-            </div>
+            {campaign.createdAt && (
+              <p className="text-xs text-muted">Creada el {new Date(campaign.createdAt).toLocaleString('es')}</p>
+            )}
 
             <div>
               <p className="mb-2 text-xs font-medium text-muted">Leads en la campaña ({campaignLeads.length})</p>
