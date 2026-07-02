@@ -186,11 +186,11 @@ function CampaignCard({
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
-        <button onClick={onOpen} className="text-left">
-          <p className="text-sm font-semibold text-fg hover:text-primary-600">{campaign.nombre}</p>
-          <p className="mt-0.5 text-xs text-muted">{campaign.nicho} {campaign.ciudad ? `· ${campaign.ciudad}` : ''}</p>
+        <button onClick={onOpen} className="min-w-0 flex-1 text-left">
+          <p className="truncate text-sm font-semibold text-fg hover:text-primary-600">{campaign.nombre}</p>
+          <p className="mt-0.5 truncate text-xs text-muted">{campaign.nicho} {campaign.ciudad ? `· ${campaign.ciudad}` : ''}</p>
         </button>
-        <Badge className={meta.cls}>{meta.label}</Badge>
+        <Badge className={cn('shrink-0', meta.cls)}>{meta.label}</Badge>
       </div>
 
       <div className="grid grid-cols-3 gap-2 text-center text-xs">
@@ -232,12 +232,12 @@ function CampaignDetail({
     <Drawer open={!!campaign} onClose={onClose} width="max-w-xl">
       {campaign && (
         <>
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface p-5">
-            <div>
-              <h3 className="font-semibold text-fg">{campaign.nombre}</h3>
-              <p className="text-xs text-muted">{campaign.nicho} {campaign.ciudad ? `· ${campaign.ciudad}` : ''}</p>
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-surface p-5">
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate font-semibold text-fg">{campaign.nombre}</h3>
+              <p className="truncate text-xs text-muted">{campaign.nicho} {campaign.ciudad ? `· ${campaign.ciudad}` : ''}</p>
             </div>
-            <button onClick={onClose} className="btn-ghost"><X className="h-4 w-4" /></button>
+            <button onClick={onClose} className="btn-ghost shrink-0"><X className="h-4 w-4" /></button>
           </div>
 
           <div className="space-y-5 p-5">
@@ -266,9 +266,9 @@ function CampaignDetail({
               <p className="mb-2 text-xs font-medium text-muted">Leads en la campaña ({campaignLeads.length})</p>
               <div className="max-h-56 space-y-1.5 overflow-y-auto">
                 {campaignLeads.map((l) => (
-                  <div key={l.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-1.5 text-xs">
-                    <span className="text-fg">{l.empresa}</span>
-                    <span className="text-muted">{l.estado}</span>
+                  <div key={l.id} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-1.5 text-xs">
+                    <span className="min-w-0 flex-1 truncate text-fg">{l.empresa}</span>
+                    <span className="shrink-0 text-muted">{l.estado}</span>
                   </div>
                 ))}
                 {!campaignLeads.length && <p className="text-xs text-muted">No hay leads asociados.</p>}
@@ -314,8 +314,8 @@ function TemplatesLibrary({ templates, onAdd }: { templates: EmailTemplate[]; on
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {templates.map((t) => (
           <Card key={t.id} className="space-y-2">
-            <p className="text-sm font-semibold text-fg">{t.nombre}</p>
-            <p className="text-xs font-medium text-muted">{applyTemplate(t.asunto, {})}</p>
+            <p className="truncate text-sm font-semibold text-fg">{t.nombre}</p>
+            <p className="truncate text-xs font-medium text-muted">{applyTemplate(t.asunto, {})}</p>
             <p className="line-clamp-4 text-xs text-muted">{applyTemplate(t.cuerpo, {})}</p>
           </Card>
         ))}

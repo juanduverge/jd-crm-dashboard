@@ -190,12 +190,12 @@ export function CampaignWizard({
               <input type="range" min={0} max={100} value={fScoreMin} onChange={(e) => setFScoreMin(+e.target.value)} className="mt-2 block w-36 accent-primary-400" />
             </label>
             <Button size="sm" variant="outline" onClick={selectAllFiltered}>Seleccionar todos los filtrados</Button>
-            <Badge className="bg-primary-50 text-primary-600">{selected.size} leads seleccionados</Badge>
+            <Badge className="bg-primary-50 text-primary-600 dark:bg-primary-400/15 dark:text-primary-300">{selected.size} leads seleccionados</Badge>
           </div>
           <div className="max-h-72 overflow-y-auto rounded-xl border border-border">
             <table className="w-full text-sm">
               <thead className="sticky top-0 border-b border-border bg-surface-2 text-xs text-muted">
-                <tr><th className="w-8 px-3 py-2"></th><th className="px-3 py-2 text-left">Empresa</th><th className="px-3 py-2 text-left">Ciudad</th><th className="px-3 py-2 text-left">Score</th></tr>
+                <tr><th className="w-8 px-3 py-2"></th><th className="max-w-[220px] px-3 py-2 text-left">Empresa</th><th className="px-3 py-2 text-left">Ciudad</th><th className="px-3 py-2 text-left">Score</th></tr>
               </thead>
               <tbody>
                 {filteredLeads.map((l) => {
@@ -203,8 +203,8 @@ export function CampaignWizard({
                   return (
                     <tr key={l.id} className="border-b border-border last:border-0 hover:bg-surface-2/60">
                       <td className="px-3 py-2"><input type="checkbox" checked={selected.has(l.id)} onChange={() => toggle(l.id)} className="accent-primary-400" /></td>
-                      <td className="px-3 py-2 text-fg">{l.empresa}</td>
-                      <td className="px-3 py-2 text-muted">{l.ciudad || '—'}</td>
+                      <td className="max-w-[220px] truncate px-3 py-2 text-fg">{l.empresa}</td>
+                      <td className="max-w-[140px] truncate px-3 py-2 text-muted">{l.ciudad || '—'}</td>
                       <td className="px-3 py-2"><span className={cn('rounded-md px-1.5 py-0.5 text-xs font-bold', sc.bg, sc.text)}>{l.score}</span></td>
                     </tr>
                   )

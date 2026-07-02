@@ -224,7 +224,7 @@ export function AnalyticsPage() {
                     const niche = DEFAULT_NICHES.find((n) => n.id === l.nicho)
                     return (
                       <tr key={l.id} className="border-b border-border last:border-0">
-                        <td className="px-2 py-2 font-medium text-fg">{l.empresa}</td>
+                        <td className="max-w-[180px] truncate px-2 py-2 font-medium text-fg">{l.empresa}</td>
                         <td className="px-2 py-2 text-muted">{niche ? `${niche.emoji} ${niche.nombre}` : l.nicho || '—'}</td>
                         <td className="px-2 py-2 text-muted">
                           {Icon ? <Icon className="h-3.5 w-3.5" /> : '—'}

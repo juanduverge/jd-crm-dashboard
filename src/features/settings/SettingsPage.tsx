@@ -156,9 +156,9 @@ export function SettingsPage() {
                   rel="noreferrer"
                   className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 hover:bg-surface-2"
                 >
-                  <span className="truncate text-sm text-fg">{w.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-fg">{w.name}</span>
                   <div className="flex shrink-0 items-center gap-2">
-                    <Badge className={cn(w.active ? 'bg-green-100 text-green-600' : 'bg-surface-2 text-muted')}>
+                    <Badge className={cn(w.active ? 'bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400' : 'bg-surface-2 text-muted')}>
                       {w.active ? 'Activo' : 'Inactivo'}
                     </Badge>
                     <ExternalLink className="h-3.5 w-3.5 text-muted" />
@@ -180,9 +180,9 @@ function StatusRow({ label, ok, loading }: { label: string; ok?: boolean; loadin
       {loading ? (
         <Loader2 className="h-4 w-4 animate-spin text-muted" />
       ) : ok ? (
-        <Badge className="gap-1 bg-green-100 text-green-600"><CheckCircle2 className="h-3 w-3" /> OK</Badge>
+        <Badge className="gap-1 bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400"><CheckCircle2 className="h-3 w-3" /> OK</Badge>
       ) : (
-        <Badge className="gap-1 bg-red-100 text-red-600"><XCircle className="h-3 w-3" /> Sin conexión</Badge>
+        <Badge className="gap-1 bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400"><XCircle className="h-3 w-3" /> Sin conexión</Badge>
       )}
     </div>
   )

@@ -34,9 +34,9 @@ export function Modal({
             className={cn('card relative z-10 w-full overflow-hidden p-0', size === 'lg' ? 'max-w-2xl' : 'max-w-lg')}
           >
             {title && (
-              <div className="flex items-center justify-between border-b border-border px-5 py-3">
-                <h3 className="text-base font-semibold text-fg">{title}</h3>
-                <button onClick={onClose} className="btn-ghost"><X className="h-4 w-4" /></button>
+              <div className="flex items-center justify-between gap-2 border-b border-border px-5 py-3">
+                <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-fg">{title}</h3>
+                <button onClick={onClose} className="btn-ghost shrink-0"><X className="h-4 w-4" /></button>
               </div>
             )}
             <div className="max-h-[70vh] overflow-y-auto px-5 py-4">{children}</div>

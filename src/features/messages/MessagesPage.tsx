@@ -126,12 +126,12 @@ export function MessagesPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="truncate text-sm font-medium text-fg">{nombre}</span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">{nombre}</span>
                           <span className="shrink-0 text-[10px] text-muted">{formatFecha(t.last.fecha)}</span>
                         </div>
                         <div className="flex items-center gap-1 text-xs text-muted">
                           <Icon className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{t.last.contenido}</span>
+                          <span className="min-w-0 flex-1 truncate">{t.last.contenido}</span>
                         </div>
                       </div>
                     </button>

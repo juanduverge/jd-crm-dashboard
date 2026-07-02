@@ -38,7 +38,7 @@ export function LeadDrawer({
         <div className="mt-3 flex items-center gap-2">
           <Badge className={cn(sc.bg, sc.text)}>Score {lead.score}</Badge>
           <Badge>{PIPELINE_STAGES.find((s) => s.id === lead.estado)?.label}</Badge>
-          {lead.valorEstimado ? <Badge className="bg-primary-50 text-primary-600">{formatCurrency(lead.valorEstimado)}</Badge> : null}
+          {lead.valorEstimado ? <Badge className="bg-primary-50 text-primary-600 dark:bg-primary-400/15 dark:text-primary-300">{formatCurrency(lead.valorEstimado)}</Badge> : null}
         </div>
         <div className="mt-3 flex gap-2">
           <Button size="sm" onClick={() => onEdit(lead)}><Edit3 className="h-3.5 w-3.5" /> Editar</Button>
@@ -101,8 +101,8 @@ function Row({ icon: Icon, label, value, link }: { icon: any; label: string; val
     <div className="flex items-center gap-2">
       <Icon className="h-4 w-4 text-muted" />
       <span className="w-20 text-xs text-muted">{label}</span>
-      {link ? <a href={link} target="_blank" className="truncate text-primary-600 hover:underline">{value}</a>
-            : <span className="truncate text-fg">{value}</span>}
+      {link ? <a href={link} target="_blank" className="min-w-0 flex-1 truncate text-primary-600 hover:underline">{value}</a>
+            : <span className="min-w-0 flex-1 truncate text-fg">{value}</span>}
     </div>
   )
 }

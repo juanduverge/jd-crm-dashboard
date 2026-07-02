@@ -85,9 +85,9 @@ export function CommandPalette() {
               <span className="rounded-md bg-surface-2 px-1.5 py-0.5 text-[10px] uppercase text-muted">
                 {r.type}
               </span>
-              <span className="flex-1 truncate text-fg">{r.label}</span>
-              {'sub' in r && r.sub && <span className="text-xs text-muted">{r.sub}</span>}
-              <CornerDownLeft className="h-3.5 w-3.5 text-muted" />
+              <span className="min-w-0 flex-1 truncate text-fg">{r.label}</span>
+              {'sub' in r && r.sub && <span className="shrink-0 truncate text-xs text-muted">{r.sub}</span>}
+              <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-muted" />
             </button>
           ))}
         </div>

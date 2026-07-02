@@ -160,7 +160,7 @@ export function InboxPage() {
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className={cn('truncate text-sm', !read ? 'font-semibold text-fg' : 'text-muted')}>
+                        <span className={cn('min-w-0 flex-1 truncate text-sm', !read ? 'font-semibold text-fg' : 'text-muted')}>
                           {e.deNombre || e.deEmail}
                         </span>
                         <span className="shrink-0 text-[10px] text-muted">{formatFecha(e.fecha)}</span>
@@ -186,7 +186,7 @@ export function InboxPage() {
               <div className="flex h-full flex-col">
                 <div className="border-b border-border pb-3">
                   <div className="flex items-start justify-between gap-3">
-                    <h2 className="text-base font-semibold text-fg">{selected.asunto || '(sin asunto)'}</h2>
+                    <h2 className="min-w-0 flex-1 line-clamp-2 text-base font-semibold text-fg">{selected.asunto || '(sin asunto)'}</h2>
                     <span className="shrink-0 text-xs text-muted">{formatFecha(selected.fecha)}</span>
                   </div>
                   <div className="mt-2 flex items-center gap-2">

@@ -20,7 +20,7 @@ export function Placeholder({
       <PageHeader
         title={title}
         subtitle={subtitle}
-        actions={phase && <Badge className="bg-primary-50 text-primary-600"><Sparkles className="h-3 w-3" /> {phase}</Badge>}
+        actions={phase && <Badge className="bg-primary-50 text-primary-600 dark:bg-primary-400/15 dark:text-primary-300"><Sparkles className="h-3 w-3" /> {phase}</Badge>}
       />
       {children ?? (
         <div className="card flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">

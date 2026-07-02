@@ -56,13 +56,13 @@ export function Topbar() {
         </button>
         {menuOpen && (
           <div
-            className="card absolute right-0 mt-2 w-48 p-2"
+            className="card absolute right-0 z-40 mt-2 w-48 p-2"
             onMouseLeave={() => setMenuOpen(false)}
           >
-            <div className="px-2 py-1.5">
-              <p className="text-sm font-semibold text-fg">{user?.name}</p>
-              <p className="text-xs text-muted">{user?.email}</p>
-              <p className="mt-1 text-[10px] uppercase text-primary-500">{user?.role}</p>
+            <div className="min-w-0 px-2 py-1.5">
+              <p className="truncate text-sm font-semibold text-fg">{user?.name}</p>
+              <p className="truncate text-xs text-muted">{user?.email}</p>
+              <p className="mt-1 truncate text-[10px] uppercase text-primary-500">{user?.role}</p>
             </div>
             <hr className="my-1 border-border" />
             <button

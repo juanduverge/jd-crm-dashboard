@@ -209,8 +209,8 @@ export function DashboardPage() {
             <div className="space-y-2">
               {(workflows ?? []).slice(0, 6).map((w) => (
                 <div key={w.id} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
-                  <span className="truncate text-sm text-fg">{w.name}</span>
-                  <Badge className={cn(w.active ? 'bg-green-100 text-green-600' : 'bg-surface-2 text-muted')}>
+                  <span className="min-w-0 flex-1 truncate text-sm text-fg">{w.name}</span>
+                  <Badge className={cn('shrink-0', w.active ? 'bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400' : 'bg-surface-2 text-muted')}>
                     {w.active ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                     {w.active ? 'Activo' : 'Inactivo'}
                   </Badge>
