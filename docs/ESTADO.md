@@ -134,6 +134,30 @@
 - El push de esta ronda se hizo pasando el token de forma transitoria (no persistida en el
   remoto), para no reintroducir el problema de seguridad corregido en esta misma fase.
 
+## ✅ Fase 7 — Blindaje (Legal + Deliverability) — COMPLETADA
+
+| Pieza | Estado |
+|-------|--------|
+| **Hoja "optout"** en Google Sheets (columnas: email, fecha, motivo) | ✅ Creada |
+| **Workflow n8n "CRM API - Optout"** (webhook GET público `crm-optout`, sin autenticación, valida email, lo agrega a la hoja `optout`, devuelve página de confirmación HTML bilingüe ES/EN) | ✅ Activo, probado end-to-end (email válido → 200 + confirmación; email inválido → 400) |
+| `optout` agregado al whitelist del workflow **"CRM API - Leer Sheets"** | ✅ Verificado leyendo la hoja vía el webhook |
+| **Fase 3 - Envío de Emails**: antes de enviar, ahora lee `optout` y `messages` (nodos "Leer optout" / "Leer messages hoy"); el código "Filtrar Aprobados Envio" excluye emails dados de baja, limita la tanda al cupo diario restante (`limite_diario_emails` config − enviados hoy) y arma un footer bilingüe (dirección física + link de baja) por cada lead; "Enviar Email" ahora concatena cuerpo + firma + footer | ✅ Activo |
+| **Fase 4 - Seguimiento Email**: se agregó nodo "Leer config" (no existía) + "Leer optout" + "Leer messages hoy"; "Filtrar Seguimiento" aplica la misma lógica de exclusión por opt-out, cupo diario compartido con Fase 3, y footer por lead; "Procesar Respuesta Claude" ahora anexa el footer al cuerpo generado por IA | ✅ Activo |
+| **Límite diario de envíos** (domain warm-up) | ✅ Config `limite_diario_emails=25` en la hoja `config` (ajustable por Juan sin tocar código). Rampa recomendada (no forzada en código): semana 1 → 20/día, semana 2 → 30/día, semana 3+ → 40-50/día, ajustar según tasa de rebote/spam |
+| **Dirección física en footer** | ⚠️ Config `direccion_fisica` creada con placeholder `[Direccion fisica de JDDeveloper]` — **Juan debe reemplazarlo** con la dirección real vía el tab Configuración del dashboard (action `config_update`) o directamente en la hoja `config` |
+| **URL pública de n8n** (necesaria para que el link de "dar de baja" en los emails sea clickeable por destinatarios reales, ya que n8n corre solo en `localhost:5678`) | ⚠️ Config `n8n_public_url` creada vacía (confirmado con Juan). Mientras esté vacía, el link de baja en los emails cae a un `mailto:info@jddeveloper.com` como fallback funcional. **Pendiente**: cuando Juan tenga un túnel/subdominio público para n8n, actualizar `n8n_public_url` en la hoja `config` para que el link apunte al webhook real |
+| **Email de prueba real** | ✅ Enviado a `juanmanuelduverge@gmail.com` vía un workflow temporal desechable (creado, disparado una vez, eliminado) que replica el footer exacto (dirección + link de baja) que usarán Fase 3 y Fase 4. Juan debe confirmar que lo recibió correctamente antes de dar por completada la Tarea 1 al 100% |
+| **SPF** (`jddeveloper.com`) | ✅ Ya estaba correctamente configurado (`v=spf1 include:_spf.mail.hostinger.com include:_spf.reach.hostinger.com ~all`) — verificado por DNS, sin acción requerida |
+| **DKIM** (`jddeveloper.com`) | ✅ Ya estaba activo (selector `hostingermail1._domainkey`) — verificado por DNS, sin acción requerida |
+| **DMARC** (`jddeveloper.com`) | ⚠️ Existe pero incompleto (`v=DMARC1; p=none`, sin `rua`). Guía exacta de qué cambiar en `docs/DNS_EMAIL_SETUP.md` — **Juan debe editarlo manualmente en el panel de Hostinger** (~2 min), Claude no tiene credenciales de Hostinger |
+| `docs/DNS_EMAIL_SETUP.md` | ✅ Creado con guía copiar-pegar para Juan |
+
+### Notas Fase 7
+- Todo el texto de opt-out (página de confirmación, footer de emails) está en español e inglés.
+- El límite diario se cuenta de forma combinada entre Fase 3 y Fase 4 (ambas leen `messages` con `Canal=Email` del día actual antes de decidir cuántos enviar).
+- No se tocó código del dashboard (`src/`) — todo el trabajo de esta fase fue directamente contra la API REST de n8n y Google Sheets. Los archivos `n8n/*.json` en el repo ya estaban desincronizados con los workflows reales desde antes de esta fase (nota heredada de fases previas) — no se corrigió ese desfase por no ser parte de este brief.
+- **Acciones pendientes de Juan** (resumen): completar `direccion_fisica` real en la hoja `config`, configurar `n8n_public_url` cuando tenga un endpoint público para n8n, editar el registro DMARC en Hostinger según `docs/DNS_EMAIL_SETUP.md`, y confirmar que el email de prueba llegó correctamente.
+
 ## Arquitectura lista para el roadmap
 - Roles en `authStore` (admin/vendedor/viewer) listos para multi-usuario.
 - `services/` aislado para sumar IMAP, Claude, Stripe, etc. sin refactor.
