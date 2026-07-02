@@ -4,9 +4,9 @@ import { sheetsService } from '@/services/sheetsService'
 import { n8nService } from '@/services/n8nService'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useCampaignsStore } from '@/store/campaignsStore'
-import { mockCampaigns, mockActivity, mockTemplates } from '@/services/mockData'
+import { STARTER_TEMPLATES } from '@/lib/campaigns'
 
-/** Carga leads (Sheets o mock) e hidrata el store local. */
+/** Carga leads reales (Sheets vía n8n) e hidrata el store local. */
 export function useLeads() {
   const setLeads = useLeadsStore((s) => s.setLeads)
   const leads = useLeadsStore((s) => s.leads)
@@ -51,27 +51,28 @@ export function useExecutions(workflowId?: string) {
   })
 }
 
-/** Campañas: se hidratan una vez desde datos de ejemplo y luego viven en el store local. */
+/**
+ * Campañas: no hay hoja de Sheets para campañas (es una feature local de este
+ * dashboard). Arranca vacío (0 campañas reales enviadas) y vive en el store;
+ * los templates se siembran una vez con una librería base editable.
+ */
 export function useCampaigns() {
-  const setCampaigns = useCampaignsStore((s) => s.setCampaigns)
   const setTemplates = useCampaignsStore((s) => s.setTemplates)
   const campaigns = useCampaignsStore((s) => s.campaigns)
   const templates = useCampaignsStore((s) => s.templates)
-  const hydrated = useCampaignsStore((s) => s.hydrated)
-
-  const query = useQuery({ queryKey: ['campaigns'], queryFn: async () => mockCampaigns })
 
   useEffect(() => {
-    if (query.data && !hydrated) setCampaigns(query.data)
-  }, [query.data, hydrated, setCampaigns])
-
-  useEffect(() => {
-    if (!templates.length) setTemplates(mockTemplates)
+    if (!templates.length) setTemplates(STARTER_TEMPLATES)
   }, [templates.length, setTemplates])
 
-  return { ...query, campaigns, templates }
+  return { campaigns, templates, isLoading: false }
 }
 
+/** Actividad reciente derivada de mensajes reales (sheet "messages"). */
 export function useActivity() {
-  return useQuery({ queryKey: ['activity'], queryFn: async () => mockActivity })
+  return useQuery({
+    queryKey: ['activity'],
+    queryFn: () => sheetsService.getActivity(),
+    refetchInterval: 30_000,
+  })
 }

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { Campaign, EmailTemplate } from '@/types'
 
-/** Store local de campañas y templates. Se hidrata con mock/Sheets y persiste mutaciones en memoria. */
+/** Store local de campañas y templates (feature sin hoja de Sheets propia). */
 interface CampaignsState {
   campaigns: Campaign[]
   templates: EmailTemplate[]

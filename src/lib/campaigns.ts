@@ -67,3 +67,21 @@ export const DEFAULT_TEMPLATE: EmailTemplate = {
   asunto: '',
   cuerpo: '',
 }
+
+/** Plantillas base de arranque (editables/duplicables por el usuario). */
+export const STARTER_TEMPLATES: EmailTemplate[] = [
+  {
+    id: 'T-real-estate',
+    nombre: 'Real Estate — Web lenta',
+    nicho: 'real-estate',
+    asunto: 'Su web de {{empresa}} pierde clientes en móvil',
+    cuerpo: 'Hola {{nombre}},\n\nRevisé {{web}} y detecté {{problema_detectado}}. En JDDeveloper ayudamos a inmobiliarias de {{ciudad}} a captar más leads...\n\n— JDDeveloper',
+  },
+  {
+    id: 'T-restaurantes',
+    nombre: 'Restaurantes — Reservas online',
+    nicho: 'restaurantes',
+    asunto: '{{empresa}}: más reservas con una web rápida',
+    cuerpo: 'Hola {{nombre}},\n\nNoté que {{web}} {{problema_detectado}}. Podemos modernizarla y agregar reservas online...\n\n— JDDeveloper',
+  },
+]

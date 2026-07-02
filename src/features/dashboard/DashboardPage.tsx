@@ -7,7 +7,7 @@ import { Activity, Workflow, AlertTriangle, CheckCircle2, XCircle, Mail, Message
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardHeader, CardTitle, Skeleton, Badge } from '@/components/ui'
 import { KpiCard } from './KpiCard'
-import { useLeads, useActivity, useWorkflows } from '@/hooks/useData'
+import { useLeads, useActivity, useWorkflows, useMessages } from '@/hooks/useData'
 import { DEFAULT_NICHES } from '@/lib/config'
 import { formatCurrency, cn } from '@/lib/utils'
 import type { Kpi, Lead } from '@/types'
@@ -26,15 +26,14 @@ function buildKpis(leads: Lead[]): Kpi[] {
   ).length
   const contactados = leads.filter((l) => l.estado !== 'nuevo').length
   const tasaResp = contactados ? (respondieron / contactados) * 100 : 0
-  const spark = (base: number) => Array.from({ length: 8 }, (_, i) => base * (0.6 + Math.sin(i) * 0.2 + i * 0.05))
 
   return [
-    { key: 'total', label: 'Total leads', value: leads.length, change: 12, spark: spark(leads.length), format: 'number' },
-    { key: 'activos', label: 'Leads activos', value: activos, change: 8, spark: spark(activos), format: 'number' },
-    { key: 'emails', label: 'Emails enviados (mes)', value: contactados * 2, change: 23, spark: spark(contactados), format: 'number' },
-    { key: 'resp', label: 'Tasa de respuesta', value: tasaResp, change: 4, spark: spark(tasaResp), format: 'percent' },
-    { key: 'pipeline', label: 'Pipeline activo', value: pipelineUsd, change: 15, spark: spark(pipelineUsd / 1000), format: 'currency' },
-    { key: 'cerrados', label: 'Clientes cerrados (mes)', value: ganados, change: ganados ? 50 : 0, spark: spark(ganados || 1), format: 'number' },
+    { key: 'total', label: 'Total leads', value: leads.length, format: 'number' },
+    { key: 'activos', label: 'Leads activos', value: activos, format: 'number' },
+    { key: 'contactados', label: 'Contactados', value: contactados, format: 'number' },
+    { key: 'resp', label: 'Tasa de respuesta', value: tasaResp, format: 'percent' },
+    { key: 'pipeline', label: 'Pipeline activo', value: pipelineUsd, format: 'currency' },
+    { key: 'cerrados', label: 'Clientes cerrados', value: ganados, format: 'number' },
   ]
 }
 
@@ -53,8 +52,9 @@ const activityIcon = {
 }
 
 export function DashboardPage() {
-  const { leads, isLoading } = useLeads()
-  const { data: activity } = useActivity()
+  const { leads, isLoading, isError: leadsError } = useLeads()
+  const { data: activity, isError: activityError } = useActivity()
+  const { data: messages } = useMessages()
   const { data: workflows, isError: wfError } = useWorkflows()
 
   const kpis = useMemo(() => buildKpis(leads), [leads])
@@ -74,13 +74,22 @@ export function DashboardPage() {
   }, [leads])
 
   const activityTrend = useMemo(() => {
-    return Array.from({ length: 30 }, (_, i) => ({
-      dia: `${i + 1}`,
-      enviados: Math.round(8 + Math.sin(i / 3) * 5 + Math.random() * 4),
-      respuestas: Math.round(2 + Math.sin(i / 4) * 2 + Math.random() * 2),
-      cierres: Math.round(Math.random() * 1.5),
-    }))
-  }, [])
+    const days = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date()
+      d.setDate(d.getDate() - (29 - i))
+      return d.toISOString().slice(0, 10)
+    })
+    const byDay = new Map(days.map((d) => [d, { dia: d.slice(5), enviados: 0, respuestas: 0 }]))
+    for (const m of messages ?? []) {
+      const key = (m.fecha || '').slice(0, 10)
+      const bucket = byDay.get(key)
+      if (!bucket) continue
+      if (m.respuestaRecibida) bucket.respuestas += 1
+      else bucket.enviados += 1
+    }
+    return [...byDay.values()]
+  }, [messages])
+  const hasTrendData = activityTrend.some((d) => d.enviados > 0 || d.respuestas > 0)
 
   const needAttention = useMemo(
     () => leads.filter((l) => !['ganado', 'perdido', 'nuevo'].includes(l.estado)).slice(0, 6),
@@ -91,8 +100,14 @@ export function DashboardPage() {
     <div>
       <PageHeader
         title="🏠 Resumen"
-        subtitle={`JDDeveloper · ${sheetsService.isLive() ? 'datos en vivo' : 'datos de ejemplo'}`}
+        subtitle={`JDDeveloper · ${sheetsService.isLive() ? 'datos en vivo' : 'sin conexión a n8n'}`}
       />
+
+      {leadsError && (
+        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
+          No se pudo conectar con n8n para leer los leads. Verifica que el workflow "CRM API - Leer Sheets" esté activo.
+        </p>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
@@ -137,20 +152,23 @@ export function DashboardPage() {
       {/* Actividad 30 días */}
       <Card className="mt-4">
         <CardHeader><CardTitle>Actividad — últimos 30 días</CardTitle></CardHeader>
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={activityTrend}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--border))" />
-              <XAxis dataKey="dia" tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" />
-              <YAxis tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" />
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Line type="monotone" dataKey="enviados" stroke="#ff7448" strokeWidth={2} dot={false} name="Emails enviados" />
-              <Line type="monotone" dataKey="respuestas" stroke="#6248ff" strokeWidth={2} dot={false} name="Respuestas" />
-              <Line type="monotone" dataKey="cierres" stroke="#16a34a" strokeWidth={2} dot={false} name="Cierres" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {!hasTrendData ? (
+          <p className="py-10 text-center text-xs text-muted">Sin mensajes registrados en los últimos 30 días.</p>
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={activityTrend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--border))" />
+                <XAxis dataKey="dia" tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" />
+                <YAxis tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" />
+                <Tooltip />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Line type="monotone" dataKey="enviados" stroke="#ff7448" strokeWidth={2} dot={false} name="Enviados" />
+                <Line type="monotone" dataKey="respuestas" stroke="#6248ff" strokeWidth={2} dot={false} name="Respuestas" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </Card>
 
       {/* Sección inferior */}
@@ -158,20 +176,26 @@ export function DashboardPage() {
         {/* Feed actividad */}
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><Activity className="h-4 w-4" /> Actividad reciente</CardTitle></CardHeader>
-          <div className="space-y-3">
-            {(activity ?? []).map((e) => {
-              const Icon = activityIcon[e.type] ?? Activity
-              return (
-                <div key={e.id} className="flex gap-3">
-                  <div className="mt-0.5 rounded-lg bg-surface-2 p-1.5 text-primary-500"><Icon className="h-3.5 w-3.5" /></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm text-fg">{e.title}</p>
-                    {e.detail && <p className="text-xs text-muted">{e.detail}</p>}
+          {activityError ? (
+            <p className="py-6 text-center text-xs text-muted">No se pudo cargar la actividad reciente.</p>
+          ) : !activity?.length ? (
+            <p className="py-6 text-center text-xs text-muted">Sin actividad reciente.</p>
+          ) : (
+            <div className="space-y-3">
+              {activity.map((e) => {
+                const Icon = activityIcon[e.type] ?? Activity
+                return (
+                  <div key={e.id} className="flex gap-3">
+                    <div className="mt-0.5 rounded-lg bg-surface-2 p-1.5 text-primary-500"><Icon className="h-3.5 w-3.5" /></div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-fg">{e.title}</p>
+                      {e.detail && <p className="text-xs text-muted">{e.detail}</p>}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </Card>
 
         {/* Workflows n8n */}

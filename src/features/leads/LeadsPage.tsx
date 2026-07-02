@@ -18,7 +18,7 @@ import type { LeadFormValues } from './leadSchema'
 type SortKey = 'empresa' | 'score' | 'ciudad' | 'valorEstimado' | 'estado'
 
 export function LeadsPage() {
-  const { isLoading, refetch, isFetching } = useLeads()
+  const { isLoading, isError, refetch, isFetching } = useLeads()
   const leads = useLeadsStore((s) => s.leads)
   const { addLead, updateLead, removeLeads, moveStage, selectedIds, toggleSelect, selectAll, clearSelection } = useLeadsStore()
 
@@ -138,7 +138,14 @@ export function LeadsPage() {
       )}
 
       {/* Tabla */}
-      {isLoading ? (
+      {isError ? (
+        <EmptyState
+          icon={<Search className="h-8 w-8" />}
+          title="No se pudo conectar con n8n"
+          description="Verifica que el workflow &quot;CRM API - Leer Sheets&quot; esté activo y vuelve a intentar."
+          action={<Button onClick={() => refetch()}>Reintentar</Button>}
+        />
+      ) : isLoading ? (
         <div className="space-y-2">{Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div>
       ) : filtered.length === 0 ? (
         <EmptyState icon={<Search className="h-8 w-8" />} title="Sin leads" description="Ajusta los filtros o agrega tu primer lead." action={<Button onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" /> Agregar lead</Button>} />

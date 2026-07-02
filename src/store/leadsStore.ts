@@ -6,20 +6,24 @@ import { crmApi } from '@/services/crmApi'
 const persist = {
   move(lead: Lead) {
     crmApi.updatePipeline({
-      idLead: lead.id, estado: lead.estado, valorEstimado: lead.valorEstimado,
-      prioridad: lead.prioridad, responsable: lead.responsable,
+      leadId: lead.id, empresa: lead.empresa, estado: lead.estado, valorEstimado: lead.valorEstimado,
+      prioridad: lead.prioridad, canalPrincipal: lead.canalPrincipal, responsable: lead.responsable,
+      proximoSeguimiento: lead.proximoSeguimiento,
     }).catch(() => {})
   },
   create(lead: Lead) {
     crmApi.createLead({
-      id: lead.id, empresa: lead.empresa, email: lead.email, telefono: lead.telefono,
+      leadId: lead.id, empresa: lead.empresa, email: lead.email, telefono: lead.telefono,
       ciudad: lead.ciudad, nicho: lead.nicho, web: lead.web, score: lead.score,
-      estado: lead.estado, valorEstimado: lead.valorEstimado, prioridad: lead.prioridad,
+    }).catch(() => {})
+    crmApi.updatePipeline({
+      leadId: lead.id, empresa: lead.empresa, estado: lead.estado, valorEstimado: lead.valorEstimado,
+      prioridad: lead.prioridad, canalPrincipal: lead.canalPrincipal, responsable: lead.responsable,
     }).catch(() => {})
   },
   update(lead: Lead) {
     crmApi.updateLead({
-      id: lead.id, empresa: lead.empresa, email: lead.email, telefono: lead.telefono,
+      leadId: lead.id, empresa: lead.empresa, email: lead.email, telefono: lead.telefono,
       ciudad: lead.ciudad, nicho: lead.nicho, web: lead.web, score: lead.score,
     }).catch(() => {})
   },

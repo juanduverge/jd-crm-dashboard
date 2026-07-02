@@ -23,7 +23,7 @@ import type { LeadFormValues } from '../leads/leadSchema'
 const CLOSED = PIPELINE_STAGES.filter((s) => s.id === 'ganado' || s.id === 'perdido')
 
 export function PipelinePage() {
-  const { isLoading, refetch, isFetching } = useLeads()
+  const { isLoading, isError, refetch, isFetching } = useLeads()
   const leads = useLeadsStore((s) => s.leads)
   const { addLead, updateLead, moveStage } = useLeadsStore()
 
@@ -158,7 +158,12 @@ export function PipelinePage() {
         </div>
       )}
 
-      {isLoading ? (
+      {isError ? (
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-10 text-center">
+          <p className="text-sm text-muted">No se pudo conectar con n8n para leer el pipeline.</p>
+          <Button size="sm" onClick={() => refetch()}><RefreshCw className="h-4 w-4" /> Reintentar</Button>
+        </div>
+      ) : isLoading ? (
         <div className="flex gap-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-96 w-72" />)}</div>
       ) : view === 'kanban' ? (
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>

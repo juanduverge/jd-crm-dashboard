@@ -1,5 +1,19 @@
 # Estado del proyecto — JDDeveloper CRM
 
+## ✅ Datos reales — COMPLETADO (sin mock, sin fallback)
+
+| Pieza | Estado |
+|-------|--------|
+| Workflow n8n **"CRM API - Leer Sheets"** (webhook GET, routea por `sheet`: prospects/outreach/pipeline/messages/config) | ✅ Activo, verificado con datos reales |
+| Workflow n8n **"CRM API - Escribir Sheets"** (webhook POST, routea por `action`: pipeline_update/lead_create/lead_update/outreach_update) | ✅ Activo, verificado con datos reales |
+| `src/services/crmApi.ts` / `src/services/sheetsService.ts` reescritos para hablar solo con los webhooks reales | ✅ Sin try/catch que oculte errores (excepto `movePipeline`/`ping`, best-effort por diseño) |
+| `src/services/mockData.ts` y todo dato de ejemplo/inventado (KPIs con `change`/sparkline falsos, gráfico de actividad con `Math.random()`, mensaje "datos de ejemplo") | ✅ Eliminado por completo |
+| Tabs Resumen/Leads/Pipeline muestran estado de error explícito (banner + botón reintentar) si el webhook no responde, en vez de datos inventados | ✅ |
+
+### Notas
+- Si n8n no está corriendo o el webhook falla, la UI muestra un estado de error/vacío — nunca datos falsos.
+- Los templates de campañas (`STARTER_TEMPLATES` en `src/lib/campaigns.ts`) son contenido editable de arranque, no datos de negocio inventados.
+
 ## ✅ Fase 1 — COMPLETADA (funcional)
 
 | Pieza | Estado |
