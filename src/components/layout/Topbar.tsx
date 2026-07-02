@@ -60,8 +60,8 @@ export function Topbar() {
             onMouseLeave={() => setMenuOpen(false)}
           >
             <div className="min-w-0 px-2 py-1.5">
-              <p className="truncate text-sm font-semibold text-fg">{user?.name}</p>
-              <p className="truncate text-xs text-muted">{user?.email}</p>
+              <p className="truncate text-sm font-semibold text-fg" title={user?.name}>{user?.name}</p>
+              <p className="truncate text-xs text-muted" title={user?.email}>{user?.email}</p>
               <p className="mt-1 truncate text-[10px] uppercase text-primary-500">{user?.role}</p>
             </div>
             <hr className="my-1 border-border" />

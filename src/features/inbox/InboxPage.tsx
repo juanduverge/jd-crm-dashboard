@@ -160,12 +160,12 @@ export function InboxPage() {
                       )}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className={cn('min-w-0 flex-1 truncate text-sm', !read ? 'font-semibold text-fg' : 'text-muted')}>
+                        <span className={cn('min-w-0 flex-1 truncate text-sm', !read ? 'font-semibold text-fg' : 'text-muted')} title={e.deNombre || e.deEmail}>
                           {e.deNombre || e.deEmail}
                         </span>
                         <span className="shrink-0 text-[10px] text-muted">{formatFecha(e.fecha)}</span>
                       </div>
-                      <span className={cn('truncate text-xs', !read ? 'font-medium text-fg' : 'text-muted')}>
+                      <span className={cn('truncate text-xs', !read ? 'font-medium text-fg' : 'text-muted')} title={e.asunto || '(sin asunto)'}>
                         {e.asunto || '(sin asunto)'}
                       </span>
                       {lead && (
@@ -186,7 +186,7 @@ export function InboxPage() {
               <div className="flex h-full flex-col">
                 <div className="border-b border-border pb-3">
                   <div className="flex items-start justify-between gap-3">
-                    <h2 className="min-w-0 flex-1 line-clamp-2 text-base font-semibold text-fg">{selected.asunto || '(sin asunto)'}</h2>
+                    <h2 className="min-w-0 flex-1 line-clamp-2 text-base font-semibold text-fg" title={selected.asunto || '(sin asunto)'}>{selected.asunto || '(sin asunto)'}</h2>
                     <span className="shrink-0 text-xs text-muted">{formatFecha(selected.fecha)}</span>
                   </div>
                   <div className="mt-2 flex items-center gap-2">
@@ -196,9 +196,9 @@ export function InboxPage() {
                     >
                       {initials(selected.deNombre || selected.deEmail)}
                     </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-fg">{selected.deNombre || selected.deEmail}</p>
-                      <p className="truncate text-xs text-muted">{selected.deEmail}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-fg" title={selected.deNombre || selected.deEmail}>{selected.deNombre || selected.deEmail}</p>
+                      <p className="truncate text-xs text-muted" title={selected.deEmail}>{selected.deEmail}</p>
                     </div>
                     {selected.idLead && leadById.get(selected.idLead) && (
                       <Badge className="ml-auto shrink-0 gap-1 bg-primary-400/10 text-primary-500">

@@ -101,8 +101,8 @@ function Row({ icon: Icon, label, value, link }: { icon: any; label: string; val
     <div className="flex items-center gap-2">
       <Icon className="h-4 w-4 text-muted" />
       <span className="w-20 text-xs text-muted">{label}</span>
-      {link ? <a href={link} target="_blank" className="min-w-0 flex-1 truncate text-primary-600 hover:underline">{value}</a>
-            : <span className="min-w-0 flex-1 truncate text-fg">{value}</span>}
+      {link ? <a href={link} target="_blank" className="min-w-0 flex-1 truncate text-primary-600 hover:underline" title={value}>{value}</a>
+            : <span className="min-w-0 flex-1 truncate text-fg" title={value}>{value}</span>}
     </div>
   )
 }

@@ -20,7 +20,7 @@ export function KanbanCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => 
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
       className={cn(
-        'group card cursor-grab touch-none p-3 active:cursor-grabbing',
+        'group card w-full cursor-grab touch-none overflow-hidden p-3 active:cursor-grabbing',
         isDragging && 'opacity-50',
         stale && 'animate-pulse ring-2 ring-red-400/70',
       )}
@@ -38,32 +38,33 @@ export function KanbanCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => 
           <button
             onClick={(e) => { e.stopPropagation(); onOpen(lead) }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="block truncate text-left text-sm font-semibold text-fg hover:text-primary-600"
+            className="block w-full max-w-full truncate text-left text-sm font-semibold text-fg hover:text-primary-600"
+            title={lead.empresa}
           >
             {lead.empresa}
           </button>
-          <p className="truncate text-xs text-muted">{lead.ciudad || '—'}</p>
+          <p className="truncate text-xs text-muted" title={lead.ciudad || undefined}>{lead.ciudad || '—'}</p>
         </div>
         <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold', sc.bg, sc.text)}>
           {lead.score}
         </span>
       </div>
 
-      <div className="mt-2.5 flex items-center justify-between">
-        <span className="text-sm font-bold text-fg">
+      <div className="mt-2.5 flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-sm font-bold text-fg">
           {lead.valorEstimado ? formatCurrency(lead.valorEstimado) : '—'}
         </span>
         {prio && (
-          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', prio.cls)}>
+          <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium', prio.cls)}>
             {prio.label}
           </span>
         )}
       </div>
 
       {lead.proximoSeguimiento && (
-        <div className="mt-2 flex items-center gap-1 truncate text-[11px] text-muted">
+        <div className="mt-2 flex items-center gap-1 text-[11px] text-muted">
           <ArrowRight className="h-3 w-3 shrink-0" />
-          <span className="truncate">{lead.proximoSeguimiento}</span>
+          <span className="min-w-0 flex-1 truncate" title={lead.proximoSeguimiento}>{lead.proximoSeguimiento}</span>
         </div>
       )}
 

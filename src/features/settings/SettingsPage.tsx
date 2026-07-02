@@ -156,7 +156,7 @@ export function SettingsPage() {
                   rel="noreferrer"
                   className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 hover:bg-surface-2"
                 >
-                  <span className="min-w-0 flex-1 truncate text-sm text-fg">{w.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-fg" title={w.name}>{w.name}</span>
                   <div className="flex shrink-0 items-center gap-2">
                     <Badge className={cn(w.active ? 'bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400' : 'bg-surface-2 text-muted')}>
                       {w.active ? 'Activo' : 'Inactivo'}
@@ -175,8 +175,8 @@ export function SettingsPage() {
 
 function StatusRow({ label, ok, loading }: { label: string; ok?: boolean; loading?: boolean }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-      <span className="text-sm text-fg">{label}</span>
+    <div className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
+      <span className="min-w-0 flex-1 truncate text-sm text-fg">{label}</span>
       {loading ? (
         <Loader2 className="h-4 w-4 animate-spin text-muted" />
       ) : ok ? (

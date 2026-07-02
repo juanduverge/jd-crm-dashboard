@@ -99,8 +99,8 @@ function WorkflowCard({
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <button onClick={onOpenPanel} className="min-w-0 flex-1 text-left">
-          <p className="truncate text-sm font-semibold text-fg hover:text-primary-600">{workflow.name}</p>
-          <p className="mt-0.5 truncate text-xs text-muted">ID {workflow.id}</p>
+          <p className="truncate text-sm font-semibold text-fg hover:text-primary-600" title={workflow.name}>{workflow.name}</p>
+          <p className="mt-0.5 truncate text-xs text-muted" title={workflow.id}>ID {workflow.id}</p>
         </button>
         <button
           onClick={onToggle}
@@ -201,7 +201,7 @@ function ExecutionsPanel({ workflow, onClose }: { workflow: WorkflowInfo | null;
         <>
           <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-border bg-surface p-5">
             <div className="min-w-0 flex-1">
-              <h3 className="truncate font-semibold text-fg">{workflow.name}</h3>
+              <h3 className="truncate font-semibold text-fg" title={workflow.name}>{workflow.name}</h3>
               <p className="text-xs text-muted">Últimas ejecuciones</p>
             </div>
             <button onClick={onClose} className="btn-ghost shrink-0"><X className="h-4 w-4" /></button>

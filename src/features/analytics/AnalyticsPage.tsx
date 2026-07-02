@@ -187,7 +187,7 @@ export function AnalyticsPage() {
                 <BarChart data={nicheData} layout="vertical" margin={{ left: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--border))" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" width={90} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" width={90} tickFormatter={(v: string) => (v.length > 14 ? `${v.slice(0, 13)}…` : v)} />
                   <Tooltip />
                   <Bar dataKey="value" radius={[0, 6, 6, 0]}>
                     {nicheData.map((_, i) => <Cell key={i} fill={NICHE_COLORS[i % NICHE_COLORS.length]} />)}
@@ -224,7 +224,7 @@ export function AnalyticsPage() {
                     const niche = DEFAULT_NICHES.find((n) => n.id === l.nicho)
                     return (
                       <tr key={l.id} className="border-b border-border last:border-0">
-                        <td className="max-w-[180px] truncate px-2 py-2 font-medium text-fg">{l.empresa}</td>
+                        <td className="max-w-[180px] truncate px-2 py-2 font-medium text-fg" title={l.empresa}>{l.empresa}</td>
                         <td className="px-2 py-2 text-muted">{niche ? `${niche.emoji} ${niche.nombre}` : l.nicho || '—'}</td>
                         <td className="px-2 py-2 text-muted">
                           {Icon ? <Icon className="h-3.5 w-3.5" /> : '—'}

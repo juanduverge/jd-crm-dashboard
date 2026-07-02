@@ -203,8 +203,8 @@ export function CampaignWizard({
                   return (
                     <tr key={l.id} className="border-b border-border last:border-0 hover:bg-surface-2/60">
                       <td className="px-3 py-2"><input type="checkbox" checked={selected.has(l.id)} onChange={() => toggle(l.id)} className="accent-primary-400" /></td>
-                      <td className="max-w-[220px] truncate px-3 py-2 text-fg">{l.empresa}</td>
-                      <td className="max-w-[140px] truncate px-3 py-2 text-muted">{l.ciudad || '—'}</td>
+                      <td className="max-w-[220px] truncate px-3 py-2 text-fg" title={l.empresa}>{l.empresa}</td>
+                      <td className="max-w-[140px] truncate px-3 py-2 text-muted" title={l.ciudad || undefined}>{l.ciudad || '—'}</td>
                       <td className="px-3 py-2"><span className={cn('rounded-md px-1.5 py-0.5 text-xs font-bold', sc.bg, sc.text)}>{l.score}</span></td>
                     </tr>
                   )
@@ -255,8 +255,8 @@ export function CampaignWizard({
 
           {previewLead && (asunto || cuerpo) && (
             <div className="rounded-xl border border-border bg-surface-2 p-3">
-              <p className="mb-1 text-xs font-medium text-muted">Preview · {previewLead.empresa}</p>
-              <p className="text-sm font-semibold text-fg">{applyTemplate(asunto, previewLead)}</p>
+              <p className="mb-1 truncate text-xs font-medium text-muted" title={previewLead.empresa}>Preview · {previewLead.empresa}</p>
+              <p className="truncate text-sm font-semibold text-fg" title={applyTemplate(asunto, previewLead)}>{applyTemplate(asunto, previewLead)}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{applyTemplate(cuerpo, previewLead)}</p>
             </div>
           )}

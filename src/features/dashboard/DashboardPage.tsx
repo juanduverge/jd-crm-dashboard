@@ -188,8 +188,8 @@ export function DashboardPage() {
                   <div key={e.id} className="flex gap-3">
                     <div className="mt-0.5 rounded-lg bg-surface-2 p-1.5 text-primary-500"><Icon className="h-3.5 w-3.5" /></div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-fg">{e.title}</p>
-                      {e.detail && <p className="text-xs text-muted">{e.detail}</p>}
+                      <p className="truncate text-sm text-fg" title={e.title}>{e.title}</p>
+                      {e.detail && <p className="truncate text-xs text-muted" title={e.detail}>{e.detail}</p>}
                     </div>
                   </div>
                 )
@@ -209,7 +209,7 @@ export function DashboardPage() {
             <div className="space-y-2">
               {(workflows ?? []).slice(0, 6).map((w) => (
                 <div key={w.id} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
-                  <span className="min-w-0 flex-1 truncate text-sm text-fg">{w.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-fg" title={w.name}>{w.name}</span>
                   <Badge className={cn('shrink-0', w.active ? 'bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400' : 'bg-surface-2 text-muted')}>
                     {w.active ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                     {w.active ? 'Activo' : 'Inactivo'}
@@ -227,9 +227,9 @@ export function DashboardPage() {
           <div className="space-y-2">
             {needAttention.map((l) => (
               <div key={l.id} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm text-fg">{l.empresa}</p>
-                  <p className="text-xs text-muted">{l.estado} · {formatCurrency(l.valorEstimado || 0)}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-fg" title={l.empresa}>{l.empresa}</p>
+                  <p className="truncate text-xs text-muted">{l.estado} · {formatCurrency(l.valorEstimado || 0)}</p>
                 </div>
               </div>
             ))}

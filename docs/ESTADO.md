@@ -115,6 +115,25 @@
   clientes, especialmente en el rango ~1024–1280px y en modo oscuro.
 - No se agregaron features nuevas ni se tocó lógica de negocio — solo clases de Tailwind/CSS.
 
+## ✅ Fase 6 — Fix bugs visuales Pipeline + code splitting + seguridad git — COMPLETADA
+
+| Pieza | Estado |
+|-------|--------|
+| **Bug Kanban Pipeline (prioritario)**: las cards de `KanbanCard.tsx` desbordaban texto (nombre de empresa, ciudad, próximo seguimiento) fuera de la card. Corregido con `w-full overflow-hidden` en la card, `min-w-0 truncate` + `title` en cada texto dinámico, y `shrink-0` en badges de prioridad/valor | ✅ |
+| `KanbanColumn.tsx`: header de columna reestructurado (`min-w-0 flex-1` en el label + `shrink-0` en punto de color/badge de conteo/botón "+"), zona de drop con `overflow-hidden` añadido | ✅ |
+| **Segunda pasada global** ("regla de oro": todo texto dinámico en contenedor flex necesita `min-w-0`/`truncate`/`shrink-0` en vecinos + `title` como tooltip nativo) aplicada en las 9 páginas (Resumen, Leads, Pipeline, Campañas, Automatizaciones, Bandeja, Mensajes, Analíticas, Configuración) y componentes compartidos (Topbar, Modal, LeadDrawer) | ✅ |
+| **Bug real corregido de paso**: `StatusRow` en `SettingsPage.tsx` no tenía ninguna protección de truncado en su label (`text-sm text-fg` a secas); ahora es `min-w-0 flex-1 truncate` | ✅ |
+| **Code splitting**: las 9 páginas de rutas pasaron a `lazy()` + `<Suspense fallback={<RouteFallback />}>` por ruta en `App.tsx` (antes iban todas en el bundle principal) | ✅ Verificado en `npm run build`: cada página ahora es su propio chunk (5–57 kB) en vez de ir en el bundle de 1.1 MB |
+| **Seguridad de token git**: se detectó que el token PAT estaba embebido directamente en la URL del remoto (`https://TOKEN@github.com/...`), lo que evita por completo `credential.helper`. Se limpió la URL del remoto (`git remote set-url origin https://github.com/...`, sin token) y se configuró `credential.helper manager` (Windows Credential Manager) a nivel global, eliminando además un override local (`store --file=...`) que lo tapaba | ✅ |
+| **UX (auditoría, sin cambios de código)**: favicon/título de pestaña, skeletons por página, empty states con CTA y transiciones de página con `framer-motion` ya estaban implementados desde la Fase 5 — confirmado, no se requirió trabajo adicional | ✅ Ya cumplido |
+| `tsc -b --noEmit` y `npm run build` | ✅ Limpios |
+
+### Notas Fase 6
+- Igual que en Fase 5, no hubo verificación visual en navegador real dentro de este entorno;
+  los cambios se verificaron por revisión de código y build/tipado limpios.
+- El push de esta ronda se hizo pasando el token de forma transitoria (no persistida en el
+  remoto), para no reintroducir el problema de seguridad corregido en esta misma fase.
+
 ## Arquitectura lista para el roadmap
 - Roles en `authStore` (admin/vendedor/viewer) listos para multi-usuario.
 - `services/` aislado para sumar IMAP, Claude, Stripe, etc. sin refactor.

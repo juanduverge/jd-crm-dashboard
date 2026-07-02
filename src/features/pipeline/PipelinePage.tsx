@@ -232,8 +232,8 @@ function ListView({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => void 
               return (
                 <tr key={l.id} className="border-b border-border last:border-0 hover:bg-surface-2/60">
                   <td className="max-w-[220px] px-3 py-2.5">
-                    <button onClick={() => onOpen(l)} className="block max-w-full truncate font-medium text-fg hover:text-primary-600">{l.empresa}</button>
-                    <p className="truncate text-xs text-muted">{l.ciudad}</p>
+                    <button onClick={() => onOpen(l)} className="block max-w-full truncate font-medium text-fg hover:text-primary-600" title={l.empresa}>{l.empresa}</button>
+                    <p className="truncate text-xs text-muted" title={l.ciudad || undefined}>{l.ciudad}</p>
                   </td>
                   <td className="px-3 py-2.5">
                     <Badge><span className="h-2 w-2 rounded-full" style={{ background: STAGE_BY_ID[l.estado]?.color }} /> {STAGE_BY_ID[l.estado]?.label}</Badge>

@@ -178,11 +178,11 @@ export function LeadsPage() {
                         <input type="checkbox" checked={selectedIds.has(l.id)} onChange={() => toggleSelect(l.id)} className="accent-primary-400" />
                       </td>
                       <td className="max-w-[200px] px-3 py-2.5">
-                        <button onClick={() => setDrawerLead(l)} className="block max-w-full truncate font-medium text-fg hover:text-primary-600">{l.empresa}</button>
-                        {l.web && <p className="truncate text-xs text-muted">{l.web.replace(/^https?:\/\//, '')}</p>}
+                        <button onClick={() => setDrawerLead(l)} className="block max-w-full truncate font-medium text-fg hover:text-primary-600" title={l.empresa}>{l.empresa}</button>
+                        {l.web && <p className="truncate text-xs text-muted" title={l.web}>{l.web.replace(/^https?:\/\//, '')}</p>}
                       </td>
-                      <td className="max-w-[180px] truncate px-3 py-2.5 text-muted">{l.email || l.telefono || '—'}</td>
-                      <td className="max-w-[140px] truncate px-3 py-2.5 text-muted">{l.ciudad || '—'}</td>
+                      <td className="max-w-[180px] truncate px-3 py-2.5 text-muted" title={l.email || l.telefono || undefined}>{l.email || l.telefono || '—'}</td>
+                      <td className="max-w-[140px] truncate px-3 py-2.5 text-muted" title={l.ciudad || undefined}>{l.ciudad || '—'}</td>
                       <td className="px-3 py-2.5">{niche ? <Badge>{niche.emoji} {niche.nombre}</Badge> : '—'}</td>
                       <td className="px-3 py-2.5">
                         <span className={cn('inline-flex h-7 w-9 items-center justify-center rounded-md text-xs font-bold', sc.bg, sc.text)}>{l.score}</span>

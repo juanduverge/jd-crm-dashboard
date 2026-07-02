@@ -126,12 +126,12 @@ export function MessagesPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">{nombre}</span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg" title={nombre}>{nombre}</span>
                           <span className="shrink-0 text-[10px] text-muted">{formatFecha(t.last.fecha)}</span>
                         </div>
                         <div className="flex items-center gap-1 text-xs text-muted">
                           <Icon className="h-3 w-3 shrink-0" />
-                          <span className="min-w-0 flex-1 truncate">{t.last.contenido}</span>
+                          <span className="min-w-0 flex-1 truncate" title={t.last.contenido}>{t.last.contenido}</span>
                         </div>
                       </div>
                     </button>
@@ -148,13 +148,13 @@ export function MessagesPage() {
             ) : (
               <div className="flex h-full flex-col">
                 <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
-                  <div>
-                    <h2 className="text-base font-semibold text-fg">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-base font-semibold text-fg" title={selected.lead?.empresa ?? selected.idLead}>
                       {selected.lead?.empresa ?? selected.idLead}
                     </h2>
-                    {selected.lead && <p className="text-xs text-muted">{selected.lead.email}</p>}
+                    {selected.lead && <p className="truncate text-xs text-muted">{selected.lead.email}</p>}
                   </div>
-                  {selected.lead && <Badge>{selected.lead.estado}</Badge>}
+                  {selected.lead && <Badge className="shrink-0">{selected.lead.estado}</Badge>}
                 </div>
 
                 <div className="min-h-0 flex-1 space-y-3 overflow-y-auto py-4">
