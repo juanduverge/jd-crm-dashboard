@@ -1,4 +1,4 @@
-import type { Lead, Message, ActivityEvent } from '@/types'
+import type { Lead, Message, ActivityEvent, InboxMessage } from '@/types'
 import { crmApi, type SheetTab } from './crmApi'
 
 /**
@@ -89,6 +89,24 @@ export const sheetsService = {
       respuestaRecibida: m['Respuesta recibida'],
       direccion: m['Respuesta recibida'] ? 'recibido' : 'enviado',
     }))
+  },
+
+  /** Emails recibidos vía IMAP (hoja "inbox"), sin marcar como leídos en el servidor. */
+  async getInbox(): Promise<InboxMessage[]> {
+    const rows = await getRows('inbox')
+    return rows
+      .filter((r) => r['Fecha'])
+      .map((r): InboxMessage => ({
+        id: r['ID Msg'] || `${r['Fecha']}-${r['De Email']}`,
+        fecha: r['Fecha'],
+        deEmail: r['De Email'],
+        deNombre: r['De Nombre'],
+        asunto: r['Asunto'],
+        cuerpo: r['Cuerpo'],
+        idLead: r['ID Lead'] || undefined,
+        leido: /^(true|si|sí|1)$/i.test(r['Leido'] || ''),
+      }))
+      .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
   },
 
   /** Lee la hoja config (clave/valor) vía el CRM API. */

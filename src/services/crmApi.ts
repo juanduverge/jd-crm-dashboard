@@ -24,7 +24,7 @@ const http = axios.create({
   },
 })
 
-export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config'
+export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox'
 
 export interface PipelineUpdatePayload {
   leadId: string

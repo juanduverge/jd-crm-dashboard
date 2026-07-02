@@ -56,8 +56,21 @@
 - El botón "Generar con IA" de campañas usa un generador local basado en nicho/ciudad/idioma
   (sin llamada de red); conectar a la API de Claude vía n8n es el siguiente paso natural.
 
-## 🟡 Fase 3 — Pendiente (estructura placeholder)
-- Tab Bandeja (IMAP), Tab Mensajes (multicanal).
+## ✅ Fase 3 — COMPLETADA (funcional)
+
+| Pieza | Estado |
+|-------|--------|
+| Workflow n8n **"CRM API - Leer Inbox"** (`Email Trigger (IMAP)` en modo `postProcessAction: nothing` → cruza contra `prospects` → hace append a la hoja `inbox`) | ✅ Activo, no marca los correos como leídos en el servidor, sin duplicados (dedup vía `staticData.lastMessageUid` de n8n) |
+| Nueva hoja **`inbox`** en el spreadsheet (`ID Msg, Fecha, De Email, De Nombre, Asunto, Cuerpo, ID Lead, Leido`) | ✅ Creada con autorización explícita del usuario |
+| `sheetsService.getInbox()` + `useInbox()` + tipo `InboxMessage` | ✅ Sin fallback, mismo patrón que el resto de tabs |
+| **Tab Bandeja**: vista split-pane (lista + detalle) de la bandeja IMAP en vivo, búsqueda, filtro "solo no leídos" (estado leído es local vía `localStorage`, la hoja `Leido` no se escribe todavía), cruce automático con leads conocidos por email, botón "Responder" placeholder (toast, sin envío real aún) | ✅ Funcional |
+| **Tab Mensajes**: vista unificada de conversaciones agrupadas por lead a partir de la hoja `messages` (envíos + respuestas), lista ordenada por actividad reciente + hilo cronológico por canal | ✅ Funcional |
+
+### Notas Fase 3
+- Bandeja (correos IMAP crudos) y Mensajes (log de outreach/respuestas por lead) se mantienen
+  como fuentes separadas a propósito para esta iteración, evitando duplicar la misma respuesta
+  recibida en dos vistas distintas.
+- El envío real de respuestas desde Bandeja queda pendiente de conectar a un workflow de n8n.
 
 ## 🟡 Fase 4 — Pendiente (estructura placeholder)
 - Tab Analíticas (reportes, heatmaps, sankey), Tab Configuración completa, notificaciones.

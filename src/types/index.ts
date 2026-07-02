@@ -69,6 +69,18 @@ export interface Message {
   direccion?: 'enviado' | 'recibido'
 }
 
+/** Email = fila de la hoja "inbox" (leída vía IMAP, sin marcar como leído en el servidor) */
+export interface InboxMessage {
+  id: string           // ID Msg
+  fecha: string
+  deEmail: string      // De Email
+  deNombre?: string     // De Nombre
+  asunto: string
+  cuerpo: string
+  idLead?: string       // ID Lead (vacío si no coincide con ningún lead conocido)
+  leido: boolean        // Leido (estado local de la app, no del servidor IMAP)
+}
+
 export type CampaignStatus = 'borrador' | 'activa' | 'pausada' | 'completada'
 
 export interface CampaignEvent {

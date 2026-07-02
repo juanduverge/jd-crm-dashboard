@@ -33,6 +33,15 @@ export function useMessages() {
   })
 }
 
+/** Emails recibidos vía IMAP (hoja "inbox"), leídos sin marcar en el servidor. */
+export function useInbox() {
+  return useQuery({
+    queryKey: ['inbox'],
+    queryFn: () => sheetsService.getInbox(),
+    refetchInterval: 30_000,
+  })
+}
+
 export function useWorkflows() {
   return useQuery({
     queryKey: ['workflows'],
