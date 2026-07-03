@@ -102,7 +102,7 @@ export function DashboardPage() {
     <div>
       <PageHeader
         title="🏠 Resumen"
-        subtitle={`JDDeveloper · ${sheetsService.isLive() ? 'datos en vivo' : 'sin conexión a n8n'}`}
+        subtitle={`JD Developer · ${sheetsService.isLive() ? 'datos en vivo' : 'sin conexión a n8n'}`}
       />
 
       {leadsError && (
@@ -122,7 +122,7 @@ export function DashboardPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle>Embudo de conversión</CardTitle></CardHeader>
-          <div className="h-72"><ConversionFunnel data={funnelData} /></div>
+          <div className="min-h-[18rem]"><ConversionFunnel data={funnelData} /></div>
         </Card>
 
         <Card>

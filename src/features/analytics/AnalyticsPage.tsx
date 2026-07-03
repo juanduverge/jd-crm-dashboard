@@ -120,7 +120,7 @@ export function AnalyticsPage() {
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle>Embudo de conversión</CardTitle></CardHeader>
           {isLoading ? <Skeleton className="h-72" /> : (
-            <div className="h-72"><ConversionFunnel data={funnelData} /></div>
+            <div className="min-h-[18rem]"><ConversionFunnel data={funnelData} /></div>
           )}
         </Card>
 

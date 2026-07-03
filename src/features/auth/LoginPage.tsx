@@ -44,10 +44,10 @@ export function LoginPage() {
         <div className="mb-6 flex flex-col items-center text-center">
           <img
             src={config.business.logo}
-            alt="JDDeveloper"
+            alt="JD Developer"
             className="mb-3 h-16 w-16 rounded-2xl shadow-card"
           />
-          <h1 className="text-xl font-bold text-fg">JDDeveloper CRM</h1>
+          <h1 className="text-xl font-bold text-fg">JD Developer CRM</h1>
           <p className="mt-1 text-sm text-muted">Centro de control de tu agencia</p>
         </div>
 
@@ -70,7 +70,7 @@ export function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-xs text-muted">
-          Preparado para multi-usuario y 2FA · {new Date().getFullYear()} JDDeveloper
+          Preparado para multi-usuario y 2FA · {new Date().getFullYear()} JD Developer
         </p>
       </motion.div>
     </div>

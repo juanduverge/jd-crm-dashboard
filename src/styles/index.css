@@ -1,4 +1,4 @@
-/* Fuente: fallback Inter para igualar el peso visual de "Relative" (la web de JDDeveloper). */
+/* Fuente: fallback Inter para igualar el peso visual de "Relative" (la web de JD Developer). */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
@@ -6,7 +6,7 @@
 @tailwind utilities;
 
 /* ============================================================
-   TOKENS DE TEMA — derivados de la marca JDDeveloper
+   TOKENS DE TEMA — derivados de la marca JD Developer
    Light = paleta crema de la web. Dark = oscuro coherente.
    ============================================================ */
 @layer base {

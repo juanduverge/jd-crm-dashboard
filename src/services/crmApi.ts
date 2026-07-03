@@ -155,6 +155,12 @@ export interface SendReplyPayload {
   leadId?: string
 }
 
+export interface BuscarLeadsPayload {
+  tipo_negocio: string
+  ciudad: string
+  max?: number
+}
+
 /** Normaliza la respuesta del webhook de lectura ({rows: [...]}). */
 function rowsFromResponse(data: any): Record<string, string>[] {
   if (!data) return []
@@ -231,6 +237,12 @@ export const crmApi = {
   /** Envía una respuesta de email (SMTP) desde la Bandeja. */
   async sendReply(payload: SendReplyPayload) {
     const { data } = await http.post('/crm-send-reply', payload, { timeout: 30000 })
+    return data
+  },
+
+  /** Dispara la búsqueda de prospectos en Apify (workflow "Fase 1 - Captación"). */
+  async buscarLeads(payload: BuscarLeadsPayload) {
+    const { data } = await http.post('/crm-buscar-leads', payload, { timeout: 30000 })
     return data
   },
 

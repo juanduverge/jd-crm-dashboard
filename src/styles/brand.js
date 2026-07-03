@@ -1,5 +1,5 @@
 /**
- * BRAND JDDeveloper
+ * BRAND JD Developer
  * Paleta y tipografía extraídas directamente del CSS de https://juanduverge.webflow.io/
  * (cdn.prod.website-files.com/680a3c1f38949058853afc9c/css/juanduverge.webflow.shared.css)
  *
@@ -60,9 +60,9 @@ export const brand = {
     mono: 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
   },
 
-  // Identidad de negocio JDDeveloper
+  // Identidad de negocio JD Developer
   business: {
-    name: 'JDDeveloper',
+    name: 'JD Developer',
     logo: 'https://cdn.prod.website-files.com/680a3c1f38949058853afc9c/6824de62e60758ee1d3acd4f_Logo%20JD%20Developer%20(256%20x%20256%20px).jpg',
     web: 'https://jddeveloper.com',
     emailMain: 'info@jddeveloper.com',

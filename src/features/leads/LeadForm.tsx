@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { leadSchema, type LeadFormValues } from './leadSchema'
@@ -5,6 +6,24 @@ import { Modal } from '@/components/ui/Modal'
 import { Button, Input, Select, Textarea } from '@/components/ui'
 import { DEFAULT_NICHES, PIPELINE_STAGES } from '@/lib/config'
 import type { Lead } from '@/types'
+
+/** Valores del form a partir del lead (o vacíos en modo crear). */
+function buildDefaults(initial?: Lead | null): LeadFormValues {
+  return {
+    empresa: initial?.empresa ?? '',
+    nicho: initial?.nicho ?? 'real-estate',
+    ciudad: initial?.ciudad ?? '',
+    email: initial?.email ?? '',
+    telefono: initial?.telefono ?? '',
+    web: initial?.web ?? '',
+    whatsapp: initial?.whatsapp ?? '',
+    score: initial?.score ?? 50,
+    valorEstimado: initial?.valorEstimado ?? 0,
+    estado: initial?.estado ?? 'nuevo',
+    prioridad: initial?.prioridad ?? 'media',
+    notas: initial?.notas ?? '',
+  }
+}
 
 function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
   return (
@@ -28,25 +47,19 @@ export function LeadForm({
     register, handleSubmit, reset, formState: { errors },
   } = useForm<LeadFormValues>({
     resolver: zodResolver(leadSchema),
-    defaultValues: {
-      empresa: initial?.empresa ?? '',
-      nicho: initial?.nicho ?? 'real-estate',
-      ciudad: initial?.ciudad ?? '',
-      email: initial?.email ?? '',
-      telefono: initial?.telefono ?? '',
-      web: initial?.web ?? '',
-      whatsapp: initial?.whatsapp ?? '',
-      score: initial?.score ?? 50,
-      valorEstimado: initial?.valorEstimado ?? 0,
-      estado: initial?.estado ?? 'nuevo',
-      prioridad: initial?.prioridad ?? 'media',
-      notas: initial?.notas ?? '',
-    },
+    defaultValues: buildDefaults(initial),
   })
+
+  // Re-poblar el form cada vez que se abre o cambia el lead seleccionado.
+  // (react-hook-form solo aplica defaultValues al montar; sin esto, "Editar"
+  // muestra el lead anterior o campos vacíos.)
+  useEffect(() => {
+    if (open) reset(buildDefaults(initial))
+  }, [open, initial, reset])
 
   const submit = handleSubmit((values) => {
     onSubmit(values)
-    reset()
+    reset(buildDefaults(null))
   })
 
   return (

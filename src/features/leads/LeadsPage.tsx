@@ -2,12 +2,13 @@ import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   Plus, Download, RefreshCw, Trash2, Search, ArrowUpDown, Mail, MessageCircle,
-  Eye, Filter, X,
+  Eye, Filter, X, Sparkles,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Select, Badge, Skeleton, EmptyState } from '@/components/ui'
 import { LeadForm } from './LeadForm'
 import { LeadDrawer } from './LeadDrawer'
+import { LeadSearchModal } from './LeadSearchModal'
 import { useLeads } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
 import { DEFAULT_NICHES, PIPELINE_STAGES } from '@/lib/config'
@@ -31,6 +32,7 @@ export function LeadsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Lead | null>(null)
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const filtered = useMemo(() => {
     let res = leads.filter((l) =>
@@ -89,6 +91,9 @@ export function LeadsPage() {
             </Button>
             <Button variant="outline" size="sm" onClick={() => downloadCSV('leads-jddeveloper.csv', filtered as any)}>
               <Download className="h-4 w-4" /> Exportar
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setSearchOpen(true)}>
+              <Sparkles className="h-4 w-4" /> Buscar nuevos leads
             </Button>
             <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }}>
               <Plus className="h-4 w-4" /> Agregar lead
@@ -208,6 +213,7 @@ export function LeadsPage() {
       )}
 
       <LeadForm open={formOpen} onClose={() => { setFormOpen(false); setEditing(null) }} onSubmit={handleSubmit} initial={editing} />
+      <LeadSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
       <LeadDrawer
         lead={drawerLead}
         onClose={() => setDrawerLead(null)}

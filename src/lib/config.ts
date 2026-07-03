@@ -24,7 +24,7 @@ export const config = {
     whatsappSeguimiento: import.meta.env.VITE_WF_WHATSAPP_SEGUIMIENTO || 'JM3bEVBWajjmcCvV',
   },
   business: {
-    name: 'JDDeveloper',
+    name: 'JD Developer',
     emailMain: import.meta.env.VITE_BUSINESS_EMAIL_MAIN || 'info@jddeveloper.com',
     emailOutreach: import.meta.env.VITE_BUSINESS_EMAIL_OUTREACH || 'sales@jddeveloper.com',
     whatsapp: import.meta.env.VITE_BUSINESS_WHATSAPP || '+1 849 576 4367',

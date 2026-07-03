@@ -40,8 +40,8 @@ export function generateTemplate(opts: { nicho: string; ciudad: string; idioma: 
       asunto: `{{empresa}} is losing customers in {{ciudad}} — quick fix`,
       cuerpo:
         `Hi {{nombre}},\n\nI checked {{web}} and noticed it ${hook.replace('su web', 'the site')}. ` +
-        `At JDDeveloper we help businesses in {{ciudad}} fix exactly this and turn more visits into clients.\n\n` +
-        `Worth a quick 15-min call this week?\n\n— JDDeveloper`,
+        `At JD Developer we help businesses in {{ciudad}} fix exactly this and turn more visits into clients.\n\n` +
+        `Worth a quick 15-min call this week?\n\n— JD Developer`,
     }
   }
 
@@ -49,8 +49,8 @@ export function generateTemplate(opts: { nicho: string; ciudad: string; idioma: 
     asunto: `{{empresa}}: detecté algo que le está costando clientes en {{ciudad}}`,
     cuerpo:
       `Hola {{nombre}},\n\nRevisé {{web}} y noté que ${hook}. ` +
-      `En JDDeveloper ayudamos a negocios de {{ciudad}} a resolver justo esto y convertir más visitas en clientes reales.\n\n` +
-      `¿Tienes 15 min esta semana para mostrarte cómo?\n\n— JDDeveloper`,
+      `En JD Developer ayudamos a negocios de {{ciudad}} a resolver justo esto y convertir más visitas en clientes reales.\n\n` +
+      `¿Tienes 15 min esta semana para mostrarte cómo?\n\n— JD Developer`,
   }
 }
 
@@ -75,13 +75,13 @@ export const STARTER_TEMPLATES: EmailTemplate[] = [
     nombre: 'Real Estate — Web lenta',
     nicho: 'real-estate',
     asunto: 'Su web de {{empresa}} pierde clientes en móvil',
-    cuerpo: 'Hola {{nombre}},\n\nRevisé {{web}} y detecté {{problema_detectado}}. En JDDeveloper ayudamos a inmobiliarias de {{ciudad}} a captar más leads...\n\n— JDDeveloper',
+    cuerpo: 'Hola {{nombre}},\n\nRevisé {{web}} y detecté {{problema_detectado}}. En JD Developer ayudamos a inmobiliarias de {{ciudad}} a captar más leads...\n\n— JD Developer',
   },
   {
     id: 'T-restaurantes',
     nombre: 'Restaurantes — Reservas online',
     nicho: 'restaurantes',
     asunto: '{{empresa}}: más reservas con una web rápida',
-    cuerpo: 'Hola {{nombre}},\n\nNoté que {{web}} {{problema_detectado}}. Podemos modernizarla y agregar reservas online...\n\n— JDDeveloper',
+    cuerpo: 'Hola {{nombre}},\n\nNoté que {{web}} {{problema_detectado}}. Podemos modernizarla y agregar reservas online...\n\n— JD Developer',
   },
 ]

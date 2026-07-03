@@ -21,7 +21,7 @@ export function Sidebar() {
         <img src={config.business.logo} alt="JD" className="h-9 w-9 shrink-0 rounded-xl" />
         {!collapsed && (
           <div className="leading-tight">
-            <p className="text-sm font-bold text-fg">JDDeveloper</p>
+            <p className="text-sm font-bold text-fg">JD Developer</p>
             <p className="text-[11px] text-muted">CRM</p>
           </div>
         )}

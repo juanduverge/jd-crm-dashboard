@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
-  closestCorners, type DragStartEvent, type DragEndEvent,
+  pointerWithin, rectIntersection, type CollisionDetection,
+  type DragStartEvent, type DragEndEvent,
 } from '@dnd-kit/core'
 import { LayoutGrid, List, Filter, RefreshCw, X, TrendingUp, AlertTriangle } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
@@ -16,6 +17,7 @@ import { LeadForm } from '../leads/LeadForm'
 import { LeadDrawer } from '../leads/LeadDrawer'
 import { KanbanCard } from './KanbanCard'
 import { KanbanColumn } from './KanbanColumn'
+import { HScrollBoard } from './HScrollBoard'
 import type { Lead, LeadStatus } from '@/types'
 import type { LeadFormValues } from '../leads/leadSchema'
 
@@ -38,6 +40,14 @@ export function PipelinePage() {
   const [formStage, setFormStage] = useState<LeadStatus | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+
+  // Colisión: prioriza el puntero dentro de una columna (funciona en cualquier
+  // dirección, incluso hacia columnas vacías/cortas); si el puntero cae en un
+  // hueco, usa intersección de rectángulos como respaldo.
+  const collisionDetection: CollisionDetection = (args) => {
+    const pointer = pointerWithin(args)
+    return pointer.length > 0 ? pointer : rectIntersection(args)
+  }
 
   const responsables = useMemo(
     () => [...new Set(leads.map((l) => l.responsable).filter(Boolean))] as string[],
@@ -166,18 +176,20 @@ export function PipelinePage() {
       ) : isLoading ? (
         <div className="flex gap-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-96 w-72" />)}</div>
       ) : view === 'kanban' ? (
-        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <div className="flex gap-3 overflow-x-auto pb-4">
-            {OPEN_STAGES.map((stage) => (
-              <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={setDrawerLead} onAdd={setFormStage} />
-            ))}
-            {/* Columna combinada de cierre */}
-            <div className="flex w-72 shrink-0 flex-col gap-3">
-              {CLOSED.map((stage) => (
+        <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+          <HScrollBoard>
+            <div className="flex gap-3 pb-4">
+              {OPEN_STAGES.map((stage) => (
                 <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={setDrawerLead} onAdd={setFormStage} />
               ))}
+              {/* Columna combinada de cierre */}
+              <div className="flex w-72 shrink-0 flex-col gap-3">
+                {CLOSED.map((stage) => (
+                  <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={setDrawerLead} onAdd={setFormStage} />
+                ))}
+              </div>
             </div>
-          </div>
+          </HScrollBoard>
           <DragOverlay>{activeLead ? <div className="w-64"><KanbanCard lead={activeLead} onOpen={() => {}} /></div> : null}</DragOverlay>
         </DndContext>
       ) : (

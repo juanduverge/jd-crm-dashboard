@@ -1,5 +1,5 @@
 /**
- * Tipos del dominio CRM JDDeveloper.
+ * Tipos del dominio CRM JD Developer.
  * Mapeados a las hojas reales del Google Sheet:
  *   prospects, outreach, pipeline, messages, config
  */

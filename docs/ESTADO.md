@@ -177,6 +177,26 @@
 - **Jerarquía**: `PageHeader` con acento coral vertical consistente en las 9 pestañas.
 - Verificado: `tsc -b --noEmit` limpio, `npm run build` limpio, dev server sirve sin errores.
 
+## ✅ Fase 9 — Correcciones post-rediseño + marca + 2 features — COMPLETADA
+
+### Parte 0 — Nombre de marca
+- Se unificó el nombre visible a **"JD Developer"** (con espacio) en todo `src/`, `index.html`, manifest, login, sidebar, dashboard, config y textos de la UI.
+- Excepción intencional: el dominio `jddeveloper.com` y los correos `@jddeveloper.com` se dejaron igual (son técnicos, no el nombre de marca).
+
+### Parte 1 — 6 correcciones de UI
+- **1.1** Más aire entre el título de cada card y su gráfico (`CardHeader` `mb-3` → `mb-5`).
+- **1.2** Embudo de conversión **simplificado** a barras horizontales decrecientes claras (nombre a la izquierda, valor + % a la derecha), priorizando claridad sobre efecto visual.
+- **1.3** El botón **Editar lead** ahora **pre-carga los datos** del lead (react-hook-form `reset()` en `useEffect` al abrir).
+- **1.4** El **Kanban permite mover tarjetas en cualquier dirección** (detección de colisión `pointerWithin` + fallback `rectIntersection`, ya no solo hacia adelante).
+- **1.5** El **Kanban tiene scroll horizontal** con flechas ‹ › y degradados en los bordes cuando hay columnas ocultas (`HScrollBoard`).
+- **1.6** **Padding** añadido en Bandeja y Mensajes para que el texto no toque el borde del contenedor.
+
+### Parte 2 — 2 features nuevas
+- **2.1 Composer en Mensajes**: se puede escribir y enviar un mensaje nuevo dentro de cada hilo, reutilizando el workflow **"CRM API - Enviar Respuesta"** (mismo patrón que el reply de Bandeja, sin duplicar lógica). Respeta el **footer legal de Fase 7** (dirección + link de baja) porque ese workflow fue actualizado para incluirlo. Atajo a **WhatsApp** (`wa.me`) cuando el lead no tiene email.
+- **2.2 Búsqueda de leads nuevos (Apify)**: nueva pestaña/botón **"Buscar nuevos leads"** en Leads con un formulario (tipo de negocio + ciudad + cantidad). El workflow **`Fase 1 - Captación (Apify)`** tenía el nicho y la ciudad **hardcodeados**; se modificó para aceptar esos valores como **parámetros dinámicos** vía un webhook nuevo (`crm-buscar-leads`): Webhook → Respuesta Iniciada → Preparar Búsqueda → Log Búsqueda → Apify. Los resultados se agregan solos a la hoja `prospects`. Cada búsqueda queda registrada en la hoja **`search_log`**. El form avisa que cada búsqueda **consume créditos de Apify**.
+- Probado con un caso real chico (`coffee shop` en Boca Raton, max 2) → webhook respondió `{ok:true}` HTTP 200.
+- Verificado: `tsc -b --noEmit` limpio, `npm run build` limpio.
+
 ## Arquitectura lista para el roadmap
 - Roles en `authStore` (admin/vendedor/viewer) listos para multi-usuario.
 - `services/` aislado para sumar IMAP, Claude, Stripe, etc. sin refactor.

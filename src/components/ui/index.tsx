@@ -6,7 +6,7 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   return <div className={cn('card p-4', className)} {...props} />
 }
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('mb-3 flex items-center justify-between', className)} {...props} />
+  return <div className={cn('mb-5 flex items-center justify-between', className)} {...props} />
 }
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return <h3 className={cn('text-sm font-semibold text-fg', className)} {...props} />

@@ -1,7 +1,7 @@
 {
-  "name": "JDDeveloper CRM",
+  "name": "JD Developer CRM",
   "short_name": "JD CRM",
-  "description": "Centro de control de leads, campañas y automatización de JDDeveloper",
+  "description": "Centro de control de leads, campañas y automatización de JD Developer",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#fdf5ef",

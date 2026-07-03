@@ -179,7 +179,7 @@ export function InboxPage() {
           </div>
 
           {/* Detalle */}
-          <div className="card flex flex-col lg:h-[calc(100vh-13rem)]">
+          <div className="card flex flex-col p-4 lg:h-[calc(100vh-13rem)]">
             {!selected ? (
               <EmptyState icon={<MailOpen className="h-8 w-8" />} title="Selecciona un correo" />
             ) : (

@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Search, MessageSquare, Mail, MessageCircle, Instagram, Linkedin, RefreshCw } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { Search, MessageSquare, Mail, MessageCircle, Instagram, Linkedin, RefreshCw, Send } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Button, Input, Skeleton, EmptyState, Badge } from '@/components/ui'
+import { Button, Input, Skeleton, EmptyState, Badge, Textarea } from '@/components/ui'
 import { useMessages, useLeads } from '@/hooks/useData'
+import { crmApi } from '@/services/crmApi'
 import { cn, fuzzyMatch, initials, stringToColor } from '@/lib/utils'
 import type { Channel, Message } from '@/types'
 
@@ -56,6 +58,32 @@ export function MessagesPage() {
   )
 
   const selected = filteredThreads.find((t) => t.idLead === selectedLeadId) ?? filteredThreads[0] ?? null
+
+  // Composer
+  const [compose, setCompose] = useState('')
+  const [sending, setSending] = useState(false)
+  const leadEmail = selected?.lead?.email?.trim() || ''
+  const leadWhatsapp = (selected?.lead?.whatsapp || '').replace(/[^\d]/g, '')
+
+  const sendMessage = async () => {
+    if (!selected || !compose.trim() || !leadEmail) return
+    setSending(true)
+    try {
+      await crmApi.sendReply({
+        to: leadEmail,
+        subject: `Mensaje de JD Developer${selected.lead?.empresa ? ` · ${selected.lead.empresa}` : ''}`,
+        body: compose.trim(),
+        leadId: selected.idLead,
+      })
+      toast.success('Mensaje enviado')
+      setCompose('')
+      refetch()
+    } catch {
+      toast.error('No se pudo enviar el mensaje. Intenta de nuevo.')
+    } finally {
+      setSending(false)
+    }
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -142,7 +170,7 @@ export function MessagesPage() {
           </div>
 
           {/* Hilo de conversación */}
-          <div className="card flex flex-col lg:h-[calc(100vh-13rem)]">
+          <div className="card flex flex-col p-4 lg:h-[calc(100vh-13rem)]">
             {!selected ? (
               <EmptyState icon={<MessageSquare className="h-8 w-8" />} title="Selecciona una conversación" />
             ) : (
@@ -176,6 +204,55 @@ export function MessagesPage() {
                       </div>
                     )
                   })}
+                </div>
+
+                {/* Composer — enviar un mensaje nuevo en el hilo */}
+                <div className="mt-3 border-t border-border pt-3">
+                  {leadEmail ? (
+                    <div className="flex flex-col gap-2">
+                      <Textarea
+                        value={compose}
+                        onChange={(e) => setCompose(e.target.value)}
+                        placeholder={`Escribe un mensaje para ${selected.lead?.empresa ?? 'este lead'}…`}
+                        rows={3}
+                        onKeyDown={(e) => {
+                          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') sendMessage()
+                        }}
+                      />
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate text-[11px] text-muted">Para: {leadEmail} · ⌘/Ctrl+Enter para enviar</span>
+                        <div className="flex items-center gap-2">
+                          {leadWhatsapp && (
+                            <a
+                              href={`https://wa.me/${leadWhatsapp}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn-outline h-9 px-3 text-xs"
+                            >
+                              <MessageCircle className="h-4 w-4 text-green-500" /> WhatsApp
+                            </a>
+                          )}
+                          <Button size="sm" onClick={sendMessage} disabled={sending || !compose.trim()}>
+                            <Send className={cn('h-4 w-4', sending && 'animate-pulse')} /> {sending ? 'Enviando…' : 'Enviar'}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-start gap-2 text-xs text-muted">
+                      <span>Este lead no tiene email registrado.</span>
+                      {leadWhatsapp && (
+                        <a
+                          href={`https://wa.me/${leadWhatsapp}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-outline h-9 px-3 text-xs"
+                        >
+                          <MessageCircle className="h-4 w-4 text-green-500" /> Abrir WhatsApp
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

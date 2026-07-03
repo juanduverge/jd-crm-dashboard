@@ -1,5 +1,5 @@
 /* ============================================================
-   Tema compartido de gráficos — marca JDDeveloper
+   Tema compartido de gráficos — marca JD Developer
    Paleta categórica en orden fijo (validada colorblind-safe),
    tooltip de marca, defs de gradientes y props de ejes/grid.
    ============================================================ */
