@@ -158,6 +158,25 @@
 - No se tocó código del dashboard (`src/`) — todo el trabajo de esta fase fue directamente contra la API REST de n8n y Google Sheets. Los archivos `n8n/*.json` en el repo ya estaban desincronizados con los workflows reales desde antes de esta fase (nota heredada de fases previas) — no se corrigió ese desfase por no ser parte de este brief.
 - **Acciones pendientes de Juan** (resumen): completar `direccion_fisica` real en la hoja `config`, configurar `n8n_public_url` cuando tenga un endpoint público para n8n, editar el registro DMARC en Hostinger según `docs/DNS_EMAIL_SETUP.md`, y confirmar que el email de prueba llegó correctamente.
 
+## ✅ Fase 8 — Rescate de captación Apify + Rediseño visual — COMPLETADA
+
+### Parte 1 — "My workflow" rescatado
+- Se confirmó que el workflow n8n llamado **"My workflow"** era la pieza de captación que faltaba documentar: corre el actor Apify `compass~crawler-google-places` (Google Maps Scraper, busca `"real estate agency"` en Miami), mide PageSpeed/SSL, genera diagnóstico IA + score y escribe en la hoja **`prospects`**.
+- Renombrado a **`Fase 1 - Captación de Prospectos (Apify)`** (id `VL8oMOZoFcPofYjV`). Está activo pero con **trigger manual**, así que no consume créditos de Apify por sí solo — solo corre cuando Juan lo dispara.
+- No tenía ejecuciones en el historial de n8n (purgadas o pocas corridas manuales).
+- Los 15 workflows quedaron con nombres consistentes (`Fase N - …`, `CRM API - …`, `Seguimiento - …`).
+- Nuevo doc **`docs/MAPA_WORKFLOWS.md`**: mapa completo del pipeline de punta a punta (Apify → prospects → enriquecimiento → scoring → outreach → envío → seguimiento).
+
+### Parte 2 — Rediseño visual e interactividad
+- **Módulo de gráficos de marca** (`src/components/charts/chartTheme.tsx`): paleta categórica fija validada colorblind-safe, tooltip de marca (superficie oscura, punto de color por serie), defs de gradientes coral/violeta, props de ejes/grid coherentes.
+- **Embudo de conversión propio** (`ConversionFunnel.tsx`): barras decrecientes con % de conversión entre etapas y animación de entrada — reemplaza el `FunnelChart` genérico de Recharts (mucho más intuitivo para ventas).
+- **Gráficos rediseñados** en Resumen y Analíticas: línea → **área con gradiente**, dona con **total al centro**, barras con gradiente coral, todos con tooltip de marca, ejes con fuente Relative, y animaciones de entrada.
+- **KPI cards con más carácter**: ícono en chip coral, indicador de tendencia (flecha ↑/↓ con color), jerarquía número/label más clara, sparkline con gradiente, elevación en hover con acento coral lateral.
+- **Interactividad**: hover con elevación en cards/KPIs/Kanban, botones con `active:scale` + glow coral, inputs con foco coral, skeletons con shimmer, filas de listas con hover, transición **suave entre tema claro/oscuro**.
+- **Kanban**: tarjeta arrastrada con rotación + sombra pronunciada + ring coral; columna destino resaltada con glow al soltar.
+- **Jerarquía**: `PageHeader` con acento coral vertical consistente en las 9 pestañas.
+- Verificado: `tsc -b --noEmit` limpio, `npm run build` limpio, dev server sirve sin errores.
+
 ## Arquitectura lista para el roadmap
 - Roles en `authStore` (admin/vendedor/viewer) listos para multi-usuario.
 - `services/` aislado para sumar IMAP, Claude, Stripe, etc. sin refactor.

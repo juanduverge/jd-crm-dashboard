@@ -1,19 +1,21 @@
 import { useMemo } from 'react'
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-  LineChart, Line, Legend, PieChart, Pie, Cell, FunnelChart, Funnel, LabelList,
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
+  Legend, PieChart, Pie, Cell,
 } from 'recharts'
 import { Activity, Workflow, AlertTriangle, CheckCircle2, XCircle, Mail, MessageCircle, UserPlus, CalendarCheck, GitBranch } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardHeader, CardTitle, Skeleton, Badge } from '@/components/ui'
 import { KpiCard } from './KpiCard'
+import { ConversionFunnel } from '@/components/charts/ConversionFunnel'
+import { CHART_SERIES, BrandTooltip, ChartGradients, axisTick, gridProps } from '@/components/charts/chartTheme'
 import { useLeads, useActivity, useWorkflows, useMessages } from '@/hooks/useData'
 import { DEFAULT_NICHES } from '@/lib/config'
 import { formatCurrency, cn } from '@/lib/utils'
 import type { Kpi, Lead } from '@/types'
 import { sheetsService } from '@/services/sheetsService'
 
-const NICHE_COLORS = ['#ff7448', '#6248ff', '#0082f3', '#16a34a', '#f59e0b', '#94a3b8']
+const NICHE_COLORS = CHART_SERIES
 
 function buildKpis(leads: Lead[]): Kpi[] {
   const activos = leads.filter((l) => !['ganado', 'perdido'].includes(l.estado)).length
@@ -120,29 +122,23 @@ export function DashboardPage() {
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle>Embudo de conversión</CardTitle></CardHeader>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <FunnelChart>
-                <Tooltip />
-                <Funnel dataKey="value" data={funnelData} isAnimationActive>
-                  <LabelList position="right" fill="currentColor" stroke="none" dataKey="name" className="text-xs" />
-                  <LabelList position="left" fill="#fff" stroke="none" dataKey="value" />
-                </Funnel>
-              </FunnelChart>
-            </ResponsiveContainer>
-          </div>
+          <div className="h-72"><ConversionFunnel data={funnelData} /></div>
         </Card>
 
         <Card>
           <CardHeader><CardTitle>Leads por nicho</CardTitle></CardHeader>
-          <div className="h-72">
+          <div className="relative h-72">
+            <div className="pointer-events-none absolute inset-x-0 top-[38%] z-10 -translate-y-1/2 text-center">
+              <p className="text-2xl font-bold tabular-nums text-fg">{nicheData.reduce((s, d) => s + d.value, 0)}</p>
+              <p className="text-[11px] text-muted">leads</p>
+            </div>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={nicheData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85} paddingAngle={3}>
+                <Pie data={nicheData} dataKey="value" nameKey="name" innerRadius={54} outerRadius={86} paddingAngle={3} cornerRadius={6} stroke="rgb(var(--surface))" strokeWidth={2} animationDuration={700} animationBegin={100}>
                   {nicheData.map((_, i) => <Cell key={i} fill={NICHE_COLORS[i % NICHE_COLORS.length]} />)}
                 </Pie>
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Tooltip content={<BrandTooltip />} cursor={false} />
+                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -157,15 +153,16 @@ export function DashboardPage() {
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={activityTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--border))" />
-                <XAxis dataKey="dia" tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" />
-                <YAxis tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Line type="monotone" dataKey="enviados" stroke="#ff7448" strokeWidth={2} dot={false} name="Enviados" />
-                <Line type="monotone" dataKey="respuestas" stroke="#6248ff" strokeWidth={2} dot={false} name="Respuestas" />
-              </LineChart>
+              <AreaChart data={activityTrend} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                <ChartGradients />
+                <CartesianGrid {...gridProps} vertical={false} />
+                <XAxis dataKey="dia" tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} minTickGap={24} />
+                <YAxis tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} allowDecimals={false} width={40} />
+                <Tooltip content={<BrandTooltip />} cursor={{ stroke: 'rgb(var(--muted))', strokeDasharray: '3 3' }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                <Area type="monotone" dataKey="enviados" stroke="#ff7448" strokeWidth={2.5} fill="url(#gradCoralArea)" name="Enviados" animationDuration={800} activeDot={{ r: 4, strokeWidth: 2, stroke: 'rgb(var(--surface))' }} />
+                <Area type="monotone" dataKey="respuestas" stroke="#6248ff" strokeWidth={2.5} fill="url(#gradVioletArea)" name="Respuestas" animationDuration={800} activeDot={{ r: 4, strokeWidth: 2, stroke: 'rgb(var(--surface))' }} />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         )}
@@ -185,8 +182,8 @@ export function DashboardPage() {
               {activity.map((e) => {
                 const Icon = activityIcon[e.type] ?? Activity
                 return (
-                  <div key={e.id} className="flex gap-3">
-                    <div className="mt-0.5 rounded-lg bg-surface-2 p-1.5 text-primary-500"><Icon className="h-3.5 w-3.5" /></div>
+                  <div key={e.id} className="group flex gap-3 rounded-lg px-1.5 py-1 row-hover">
+                    <div className="mt-0.5 rounded-lg bg-surface-2 p-1.5 text-primary-500 transition-colors group-hover:bg-primary-400 group-hover:text-white"><Icon className="h-3.5 w-3.5" /></div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm text-fg" title={e.title}>{e.title}</p>
                       {e.detail && <p className="truncate text-xs text-muted" title={e.detail}>{e.detail}</p>}

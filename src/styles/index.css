@@ -38,6 +38,14 @@
     font-feature-settings: 'cv11', 'ss01';
   }
 
+  /* Transición suave al cambiar de tema (se activa con .theme-transition en <html>) */
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition: background-color 0.35s ease, border-color 0.35s ease, color 0.2s ease, fill 0.35s ease !important;
+  }
+
   ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
@@ -49,27 +57,43 @@
 
 @layer components {
   .card {
-    @apply bg-surface border border-border rounded-2xl shadow-card;
+    @apply bg-surface border border-border rounded-2xl shadow-card
+           transition-shadow duration-200;
+  }
+  /* Card interactiva: elevación sutil al pasar el mouse */
+  .card-hover {
+    @apply hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200;
   }
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm font-medium
-           transition-colors focus-visible:outline-none focus-visible:ring-2
-           focus-visible:ring-primary/40 disabled:opacity-50 disabled:pointer-events-none;
+           transition-all duration-150 focus-visible:outline-none focus-visible:ring-2
+           focus-visible:ring-primary/40 disabled:opacity-50 disabled:pointer-events-none
+           active:scale-[0.97];
   }
   .btn-primary {
-    @apply btn bg-primary-400 text-white hover:bg-primary-600 px-4 py-2;
+    @apply btn bg-primary-400 text-white hover:bg-primary-600 hover:shadow-glow px-4 py-2;
   }
   .btn-ghost {
     @apply btn hover:bg-surface-2 px-3 py-2;
   }
   .btn-outline {
-    @apply btn border border-border hover:bg-surface-2 px-4 py-2;
+    @apply btn border border-border hover:bg-surface-2 hover:border-primary-300 px-4 py-2;
   }
   .input {
     @apply w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm
-           placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/30;
+           placeholder:text-muted transition-shadow duration-150
+           focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary-300;
   }
   .skeleton {
-    @apply animate-pulse rounded-md bg-surface-2;
+    @apply relative overflow-hidden rounded-md bg-surface-2;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-[shimmer_1.6s_infinite];
+    background: linear-gradient(90deg, transparent, rgb(var(--fg) / 0.05), transparent);
+  }
+  /* Fila de tabla interactiva */
+  .row-hover {
+    @apply transition-colors duration-100 hover:bg-surface-2;
   }
 }

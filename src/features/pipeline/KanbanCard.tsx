@@ -20,9 +20,10 @@ export function KanbanCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => 
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
       className={cn(
-        'group card w-full cursor-grab touch-none overflow-hidden p-3 active:cursor-grabbing',
-        isDragging && 'opacity-50',
-        stale && 'animate-pulse ring-2 ring-red-400/70',
+        'group card w-full cursor-grab touch-none overflow-hidden p-3 transition-all duration-150 active:cursor-grabbing',
+        'hover:-translate-y-0.5 hover:border-primary-300/60 hover:shadow-card-hover',
+        isDragging && 'z-50 rotate-[1.5deg] scale-[1.03] opacity-90 shadow-[0_16px_40px_rgba(16,16,16,0.25)] ring-2 ring-primary-400',
+        stale && !isDragging && 'animate-pulse ring-2 ring-red-400/70',
       )}
       {...listeners}
       {...attributes}

@@ -1,19 +1,20 @@
 import { useMemo } from 'react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
-  LineChart, Line, Legend, PieChart, Pie, Cell, FunnelChart, Funnel, LabelList,
+  AreaChart, Area, Legend, PieChart, Pie, Cell,
 } from 'recharts'
 import { BarChart3, Mail, MessageCircle, Instagram, Linkedin } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardHeader, CardTitle, Skeleton, Badge, EmptyState } from '@/components/ui'
 import { KpiCard } from '@/features/dashboard/KpiCard'
+import { ConversionFunnel } from '@/components/charts/ConversionFunnel'
+import { CHART_SERIES, CHANNEL_COLORS, BrandTooltip, ChartGradients, axisTick, gridProps } from '@/components/charts/chartTheme'
 import { useLeads, useMessages, useCampaigns } from '@/hooks/useData'
 import { DEFAULT_NICHES } from '@/lib/config'
 import { formatCurrency, scoreColor, cn } from '@/lib/utils'
 import type { Kpi, Lead, Message } from '@/types'
 
-const NICHE_COLORS = ['#ff7448', '#6248ff', '#0082f3', '#16a34a', '#f59e0b', '#94a3b8']
-const CHANNEL_COLORS: Record<string, string> = { email: '#0082f3', whatsapp: '#16a34a', instagram: '#e1306c', linkedin: '#0a66c2' }
+const NICHE_COLORS = CHART_SERIES
 const CHANNEL_ICON: Record<string, typeof Mail> = { email: Mail, whatsapp: MessageCircle, instagram: Instagram, linkedin: Linkedin }
 
 const FUNNEL_STAGES: { key: string; label: string; match: (l: Lead) => boolean; color: string }[] = [
@@ -119,17 +120,7 @@ export function AnalyticsPage() {
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle>Embudo de conversión</CardTitle></CardHeader>
           {isLoading ? <Skeleton className="h-72" /> : (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <FunnelChart>
-                  <Tooltip />
-                  <Funnel dataKey="value" data={funnelData} isAnimationActive>
-                    <LabelList position="right" fill="currentColor" stroke="none" dataKey="name" className="text-xs" />
-                    <LabelList position="left" fill="#fff" stroke="none" dataKey="value" />
-                  </Funnel>
-                </FunnelChart>
-              </ResponsiveContainer>
-            </div>
+            <div className="h-72"><ConversionFunnel data={funnelData} /></div>
           )}
         </Card>
 
@@ -138,14 +129,18 @@ export function AnalyticsPage() {
           {isLoading ? <Skeleton className="h-72" /> : !channelData.length ? (
             <p className="py-20 text-center text-xs text-muted">Sin mensajes registrados.</p>
           ) : (
-            <div className="h-72">
+            <div className="relative h-72">
+              <div className="pointer-events-none absolute inset-x-0 top-[38%] z-10 -translate-y-1/2 text-center">
+                <p className="text-2xl font-bold tabular-nums text-fg">{channelData.reduce((s, d) => s + d.value, 0)}</p>
+                <p className="text-[11px] text-muted">mensajes</p>
+              </div>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={channelData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={85} paddingAngle={3}>
+                  <Pie data={channelData} dataKey="value" nameKey="name" innerRadius={54} outerRadius={86} paddingAngle={3} cornerRadius={6} stroke="rgb(var(--surface))" strokeWidth={2} animationDuration={700} animationBegin={100}>
                     {channelData.map((d, i) => <Cell key={i} fill={d.fill} />)}
                   </Pie>
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Tooltip content={<BrandTooltip />} cursor={false} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -161,15 +156,16 @@ export function AnalyticsPage() {
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={activityTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--border))" />
-                <XAxis dataKey="dia" tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" />
-                <YAxis tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" />
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Line type="monotone" dataKey="enviados" stroke="#ff7448" strokeWidth={2} dot={false} name="Enviados" />
-                <Line type="monotone" dataKey="respuestas" stroke="#6248ff" strokeWidth={2} dot={false} name="Respuestas" />
-              </LineChart>
+              <AreaChart data={activityTrend} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                <ChartGradients />
+                <CartesianGrid {...gridProps} vertical={false} />
+                <XAxis dataKey="dia" tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} minTickGap={24} />
+                <YAxis tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} allowDecimals={false} width={40} />
+                <Tooltip content={<BrandTooltip />} cursor={{ stroke: 'rgb(var(--muted))', strokeDasharray: '3 3' }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                <Area type="monotone" dataKey="enviados" stroke="#ff7448" strokeWidth={2.5} fill="url(#gradCoralArea)" name="Enviados" animationDuration={800} activeDot={{ r: 4, strokeWidth: 2, stroke: 'rgb(var(--surface))' }} />
+                <Area type="monotone" dataKey="respuestas" stroke="#6248ff" strokeWidth={2.5} fill="url(#gradVioletArea)" name="Respuestas" animationDuration={800} activeDot={{ r: 4, strokeWidth: 2, stroke: 'rgb(var(--surface))' }} />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         )}
@@ -184,12 +180,12 @@ export function AnalyticsPage() {
           ) : (
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={nicheData} layout="vertical" margin={{ left: 8 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--border))" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" allowDecimals={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="rgb(var(--muted))" width={90} tickFormatter={(v: string) => (v.length > 14 ? `${v.slice(0, 13)}…` : v)} />
-                  <Tooltip />
-                  <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                <BarChart data={nicheData} layout="vertical" margin={{ left: 8, right: 8 }} barCategoryGap={6}>
+                  <CartesianGrid {...gridProps} horizontal={false} />
+                  <XAxis type="number" tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} allowDecimals={false} />
+                  <YAxis type="category" dataKey="name" tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} width={90} tickFormatter={(v: string) => (v.length > 14 ? `${v.slice(0, 13)}…` : v)} />
+                  <Tooltip content={<BrandTooltip />} cursor={{ fill: 'rgb(var(--muted))', fillOpacity: 0.06 }} />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} animationDuration={700}>
                     {nicheData.map((_, i) => <Cell key={i} fill={NICHE_COLORS[i % NICHE_COLORS.length]} />)}
                   </Bar>
                 </BarChart>

@@ -38,8 +38,10 @@ export function KanbanColumn({ stage, leads, onOpen, onAdd }: Props) {
       <div
         ref={setNodeRef}
         className={cn(
-          'flex min-h-[120px] flex-1 flex-col gap-2 overflow-hidden rounded-xl border border-dashed p-2 transition-colors',
-          isOver ? 'border-primary-400 bg-primary-50/50 dark:bg-primary-400/10' : 'border-transparent',
+          'flex min-h-[120px] flex-1 flex-col gap-2 overflow-hidden rounded-xl border-2 border-dashed p-2 transition-all duration-150',
+          isOver
+            ? 'scale-[1.01] border-primary-400 bg-primary-50/60 shadow-glow dark:bg-primary-400/10'
+            : 'border-transparent',
         )}
       >
         {cards.map((l) => (
