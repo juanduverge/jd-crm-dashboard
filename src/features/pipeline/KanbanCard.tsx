@@ -25,6 +25,7 @@ export function KanbanCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => 
         isDragging && 'z-50 rotate-[1.5deg] scale-[1.03] opacity-90 shadow-[0_16px_40px_rgba(16,16,16,0.25)] ring-2 ring-primary-400',
         stale && !isDragging && 'animate-pulse ring-2 ring-red-400/70',
       )}
+      onClick={() => onOpen(lead)}
       {...listeners}
       {...attributes}
     >

@@ -59,6 +59,21 @@ export function stringToColor(str: string) {
   return palette[Math.abs(hash) % palette.length]
 }
 
+export const MAX_ATTACHMENT_MB = 12
+
+/** Convierte un File a base64 (sin el prefijo data:...;base64,) para adjuntarlo por SMTP vía n8n. */
+export function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      resolve(result.split(',')[1] || '')
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
 export function downloadCSV(filename: string, rows: Record<string, unknown>[]) {
   if (!rows.length) return
   const headers = Object.keys(rows[0])

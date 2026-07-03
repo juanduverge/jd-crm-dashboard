@@ -24,7 +24,7 @@ const http = axios.create({
   },
 })
 
-export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox' | 'campaigns'
+export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox' | 'campaigns' | 'search_log'
 
 export interface PipelineUpdatePayload {
   leadId: string
@@ -153,12 +153,18 @@ export interface SendReplyPayload {
   subject: string
   body: string
   leadId?: string
+  attachmentName?: string
+  attachmentBase64?: string
+  attachmentMimeType?: string
 }
+
+export type LeadSourceKey = 'google_maps' | 'google_web' | 'linkedin' | 'instagram' | 'facebook'
 
 export interface BuscarLeadsPayload {
   tipo_negocio: string
   ciudad: string
   max?: number
+  fuente?: LeadSourceKey
 }
 
 /** Normaliza la respuesta del webhook de lectura ({rows: [...]}). */
@@ -234,9 +240,9 @@ export const crmApi = {
     return data
   },
 
-  /** Envía una respuesta de email (SMTP) desde la Bandeja. */
+  /** Envía una respuesta de email (SMTP), con adjunto opcional (base64). */
   async sendReply(payload: SendReplyPayload) {
-    const { data } = await http.post('/crm-send-reply', payload, { timeout: 30000 })
+    const { data } = await http.post('/crm-send-reply', payload, { timeout: 45000 })
     return data
   },
 

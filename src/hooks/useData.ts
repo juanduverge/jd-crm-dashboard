@@ -43,6 +43,16 @@ export function useInbox() {
   })
 }
 
+/** Historial de búsquedas de leads disparadas (hoja "search_log"), para notificaciones. */
+export function useSearchLog() {
+  return useQuery({
+    queryKey: ['search_log'],
+    queryFn: () => crmApi.readSheet('search_log'),
+    refetchInterval: 30_000,
+    retry: 1,
+  })
+}
+
 export function useWorkflows() {
   return useQuery({
     queryKey: ['workflows'],

@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Search, Bell, Sun, Moon, LogOut, Menu } from 'lucide-react'
+import { Search, Sun, Moon, LogOut, Menu } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useUiStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
 import { initials, stringToColor } from '@/lib/utils'
+import { NotificationBell } from './NotificationBell'
 
 export function Topbar() {
   const theme = useUiStore((s) => s.theme)
@@ -36,10 +37,7 @@ export function Topbar() {
       <div className="flex-1 md:hidden" />
 
       {/* Acciones */}
-      <button className="btn-ghost relative" title="Notificaciones">
-        <Bell className="h-5 w-5" />
-        <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary-400" />
-      </button>
+      <NotificationBell />
 
       <button onClick={toggleTheme} className="btn-ghost" title="Modo claro/oscuro">
         {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}

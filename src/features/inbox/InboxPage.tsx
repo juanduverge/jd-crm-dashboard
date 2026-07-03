@@ -3,9 +3,10 @@ import toast from 'react-hot-toast'
 import { Search, Mail, MailOpen, RefreshCw, User, Send, Loader2 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Textarea, Skeleton, EmptyState, Badge } from '@/components/ui'
+import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { useInbox, useLeads } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
-import { cn, fuzzyMatch, initials, stringToColor } from '@/lib/utils'
+import { cn, fuzzyMatch, initials, stringToColor, fileToBase64 } from '@/lib/utils'
 import type { InboxMessage } from '@/types'
 
 const READ_STORAGE_KEY = 'jd-crm-inbox-read-ids'
@@ -34,6 +35,7 @@ export function InboxPage() {
   const [readIds, setReadIds] = useState<Set<string>>(() => loadReadIds())
   const [replyOpen, setReplyOpen] = useState(false)
   const [replyText, setReplyText] = useState('')
+  const [replyAttachment, setReplyAttachment] = useState<File | null>(null)
   const [sending, setSending] = useState(false)
 
   const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads])
@@ -62,6 +64,7 @@ export function InboxPage() {
     }
     setReplyOpen(false)
     setReplyText('')
+    setReplyAttachment(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
 
@@ -72,15 +75,18 @@ export function InboxPage() {
     if (!selected || !replyText.trim()) return
     setSending(true)
     try {
+      const att = replyAttachment ? await fileToBase64(replyAttachment) : null
       await crmApi.sendReply({
         to: selected.deEmail,
         subject: selected.asunto || '(sin asunto)',
         body: replyText.trim(),
         leadId: selected.idLead,
+        ...(att ? { attachmentName: replyAttachment!.name, attachmentBase64: att, attachmentMimeType: replyAttachment!.type } : {}),
       })
       toast.success('Respuesta enviada')
       setReplyOpen(false)
       setReplyText('')
+      setReplyAttachment(null)
       refetch()
     } catch {
       toast.error('No se pudo enviar la respuesta. Intenta de nuevo.')
@@ -226,6 +232,7 @@ export function InboxPage() {
                         autoFocus
                         disabled={sending}
                       />
+                      <AttachmentPicker file={replyAttachment} onChange={setReplyAttachment} />
                       <div className="flex gap-2">
                         <Button size="sm" onClick={sendReply} disabled={sending || !replyText.trim()}>
                           {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

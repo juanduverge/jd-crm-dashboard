@@ -197,6 +197,38 @@
 - Probado con un caso real chico (`coffee shop` en Boca Raton, max 2) → webhook respondió `{ok:true}` HTTP 200.
 - Verificado: `tsc -b --noEmit` limpio, `npm run build` limpio.
 
+## ✅ Fase 10 — Multi-fuente búsqueda + composer libre + adjuntos + Kanban clickable + notificaciones — COMPLETADA
+
+### 1. Búsqueda de leads: multi-fuente
+- Selector de fuente en el modal "Buscar nuevos leads": **Google Maps** (default, ya existía) y **Google (búsqueda web)** ambos **100% funcionales**. LinkedIn, Instagram y Facebook quedan como opciones **"Experimental — próximamente"**, deshabilitadas con candado (no conectadas a Apify: scrapearlas viola ToS de esas plataformas y no había actor estable disponible en la cuenta de Apify de Juan).
+- Workflow `Fase 1 - Captación de Prospectos (Apify)`: se agregó un webhook branch que ramifica por `fuente` (`Es Google Maps?` / `Es Google Web?`) → Google Maps sigue usando el actor `compass~crawler-google-places`; Google Web usa el actor `apify~google-search-scraper` (mismo credential `Apify - JDDeveloper`, ya tenía permisos). Si la fuente no está disponible, el workflow no gasta créditos (nodo No-Op).
+- Bug encontrado y corregido durante la implementación: los nodos posteriores a "Log Búsqueda" leían `$json` del **response del log en Sheets** (sin los campos originales) en vez de los datos de "Preparar Búsqueda" — se corrigió referenciando `$('Preparar Busqueda').item.json.*` explícitamente en los 2 HTTP Request y los 2 If de ruteo.
+- `search_log` ahora registra también la columna `fuente` (columna E).
+- **Probado en real**: `google_web` con "coffee shop" en Boca Raton → el actor de Apify corrió con `statusCode 200` y la query correcta. `google_maps` se re-probó con el fix aplicado y quedó corriendo en background (normal, el scraping real tarda varios minutos).
+
+### 2. Composer libre en Mensajes
+- Botón **"Nuevo mensaje"** en la pestaña Mensajes abre un composer en blanco (Para / Asunto / Cuerpo), con autocompletado si el email coincide con un lead existente — sin crear leads fantasma.
+- Usa el mismo workflow `CRM API - Enviar Respuesta` (mismo footer legal Fase 7).
+- Los mensajes sin lead asociado se registran con el **email como identificador** en la columna `ID Lead` (en vez de dejarla vacía), así el hilo se agrupa correctamente en Mensajes si se le vuelve a escribir a esa misma dirección.
+
+### 2.1 Adjuntos en los 3 composers
+- Se agregó `AttachmentPicker` (componente reutilizable, límite 12MB) en: reply de Bandeja, reply de hilo en Mensajes, y el composer libre nuevo.
+- El workflow `CRM API - Enviar Respuesta` se extendió: nuevo nodo "Preparar Adjunto" convierte el base64 recibido a binario (`prepareBinaryData`) y el nodo `Enviar Email` (SMTP) lo adjunta condicionalmente. El nombre del adjunto queda registrado en `messages` (columna H).
+- **Probado en real**: envío de un `.txt` de prueba → SMTP devolvió `messageId` real y el binario se generó correctamente en la ejecución.
+
+### 3. Kanban: tarjetas no abrían el detalle
+- Causa: solo el nombre de la empresa (texto) tenía `onClick`; el resto de la tarjeta no hacía nada — de ahí la sensación de "a veces no pasa nada".
+- Los datos del lead ya eran completos y consistentes con Leads (mismo `useLeadsStore`), no había un bug de datos incompletos.
+- Fix: toda la tarjeta ahora es clickable (`onClick` en el contenedor), sin interferir con el drag (dnd-kit ya usaba `activationConstraint: { distance: 6 }`, así que un clic corto nunca se interpreta como arrastre).
+
+### 4. Notificaciones
+- Estado encontrado: el ícono de campana en el Topbar **existía pero no hacía nada** — sin `onClick`, con un punto rojo fijo hardcodeado.
+- Se implementó una campana funcional con dropdown: combina mensajes nuevos sin leer de la Bandeja (`useInbox`, ya pollea cada 30s) y búsquedas de leads recién iniciadas (`useSearchLog`, hoja `search_log`, nuevo hook con el mismo polling). Contador de no vistos, clic navega a Bandeja o Leads según el evento.
+- Es notificación **dentro del Dashboard únicamente** (sin push del navegador), tal como se pidió para esta sesión.
+
+### Cierre
+- `tsc -b --noEmit` limpio, `npm run build` limpio (14.25s).
+
 ## Arquitectura lista para el roadmap
 - Roles en `authStore` (admin/vendedor/viewer) listos para multi-usuario.
 - `services/` aislado para sumar IMAP, Claude, Stripe, etc. sin refactor.

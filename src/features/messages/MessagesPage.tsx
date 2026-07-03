@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Search, MessageSquare, Mail, MessageCircle, Instagram, Linkedin, RefreshCw, Send } from 'lucide-react'
+import { Search, MessageSquare, Mail, MessageCircle, Instagram, Linkedin, RefreshCw, Send, PenSquare } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Skeleton, EmptyState, Badge, Textarea } from '@/components/ui'
+import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { useMessages, useLeads } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
-import { cn, fuzzyMatch, initials, stringToColor } from '@/lib/utils'
+import { cn, fuzzyMatch, initials, stringToColor, fileToBase64 } from '@/lib/utils'
+import { NewMessageModal } from './NewMessageModal'
 import type { Channel, Message } from '@/types'
 
 const channelIcon: Record<Channel, typeof Mail> = {
@@ -61,22 +63,29 @@ export function MessagesPage() {
 
   // Composer
   const [compose, setCompose] = useState('')
+  const [attachment, setAttachment] = useState<File | null>(null)
   const [sending, setSending] = useState(false)
-  const leadEmail = selected?.lead?.email?.trim() || ''
+  const [newMessageOpen, setNewMessageOpen] = useState(false)
+  // El hilo puede no tener lead asociado (mensaje libre) — en ese caso el
+  // idLead del hilo ES el email destino (así lo registra el workflow de envío).
+  const leadEmail = selected?.lead?.email?.trim() || (selected && /\S+@\S+\.\S+/.test(selected.idLead) ? selected.idLead : '')
   const leadWhatsapp = (selected?.lead?.whatsapp || '').replace(/[^\d]/g, '')
 
   const sendMessage = async () => {
     if (!selected || !compose.trim() || !leadEmail) return
     setSending(true)
     try {
+      const att = attachment ? await fileToBase64(attachment) : null
       await crmApi.sendReply({
         to: leadEmail,
         subject: `Mensaje de JD Developer${selected.lead?.empresa ? ` · ${selected.lead.empresa}` : ''}`,
         body: compose.trim(),
         leadId: selected.idLead,
+        ...(att ? { attachmentName: attachment!.name, attachmentBase64: att, attachmentMimeType: attachment!.type } : {}),
       })
       toast.success('Mensaje enviado')
       setCompose('')
+      setAttachment(null)
       refetch()
     } catch {
       toast.error('No se pudo enviar el mensaje. Intenta de nuevo.')
@@ -91,11 +100,17 @@ export function MessagesPage() {
         title="Mensajes"
         subtitle="Historial unificado multi-canal por lead"
         actions={
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} /> Actualizar
-          </Button>
+          <>
+            <Button variant="outline" size="sm" onClick={() => setNewMessageOpen(true)}>
+              <PenSquare className="h-4 w-4" /> Nuevo mensaje
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+              <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} /> Actualizar
+            </Button>
+          </>
         }
       />
+      <NewMessageModal open={newMessageOpen} onClose={() => setNewMessageOpen(false)} onSent={() => refetch()} />
 
       {isError ? (
         <EmptyState
@@ -219,6 +234,7 @@ export function MessagesPage() {
                           if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') sendMessage()
                         }}
                       />
+                      <AttachmentPicker file={attachment} onChange={setAttachment} />
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate text-[11px] text-muted">Para: {leadEmail} · ⌘/Ctrl+Enter para enviar</span>
                         <div className="flex items-center gap-2">
