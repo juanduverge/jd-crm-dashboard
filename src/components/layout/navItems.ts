@@ -1,11 +1,12 @@
 import {
   Home, Users, Target, KanbanSquare, Inbox, MessageSquare,
-  Bot, BarChart3, Settings,
+  Bot, BarChart3, Settings, Globe,
 } from 'lucide-react'
 
 export const navItems = [
   { to: '/', label: 'Resumen', icon: Home, end: true },
   { to: '/leads', label: 'Leads', icon: Users },
+  { to: '/web-leads', label: 'Solicitudes Web', icon: Globe },
   { to: '/campaigns', label: 'Campañas', icon: Target },
   { to: '/pipeline', label: 'Pipeline', icon: KanbanSquare },
   { to: '/inbox', label: 'Bandeja', icon: Inbox },

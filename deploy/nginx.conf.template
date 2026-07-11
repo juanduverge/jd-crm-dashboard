@@ -1,0 +1,63 @@
+# ============================================================
+# JD Developer CRM — nginx de producción (dashboard SPA + proxy n8n)
+# Fuente de verdad versionada. La imagen nginx:alpine procesa este
+# archivo con envsubst (/etc/nginx/templates/*.template) y sustituye
+# ${N8N_INTERNAL_URL}, ${N8N_API_KEY} y ${CRM_HOOK_TOKEN} en arranque.
+#
+# CLAVE DE SEGURIDAD: la API key de n8n y el token del CRM se inyectan
+# AQUÍ (server-side), nunca en el bundle del cliente. El frontend llama a
+# rutas de mismo origen (/n8n-api, /n8n-hook) sin conocer ningún secreto.
+#
+# El acceso público debe pasar SIEMPRE por Cloudflare Access delante de
+# este servicio — ver docs/SEGURIDAD_FASE2.md.
+# ============================================================
+
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+    server_tokens off;
+
+    # --- Cabeceras de seguridad (OWASP Secure Headers) ---
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    # connect-src 'self' porque ahora todo va por proxy de mismo origen.
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+
+    # --- SPA ---
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # --- Proxy API REST de n8n (inyecta X-N8N-API-KEY server-side) ---
+    location /n8n-api/ {
+        proxy_pass ${N8N_INTERNAL_URL}/api/v1/;
+        proxy_set_header X-N8N-API-KEY "${N8N_API_KEY}";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # --- Proxy webhooks del CRM (inyecta X-CRM-TOKEN server-side) ---
+    location /n8n-hook/ {
+        proxy_pass ${N8N_INTERNAL_URL}/webhook/;
+        proxy_set_header X-CRM-TOKEN "${CRM_HOOK_TOKEN}";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Denegar dotfiles.
+    location ~ /\. {
+        deny all;
+    }
+}
+</content>

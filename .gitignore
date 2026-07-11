@@ -9,3 +9,14 @@ dist-ssr/
 .vscode/
 .vite
 *.local
+n8n-migracion/
+
+# Secretos e infra sensible — NUNCA subir
+n8n-oracle/
+*.key
+*.pem
+encryption-key.txt
+credentials.json
+
+# Salida de herramientas auxiliares
+graphify-out/

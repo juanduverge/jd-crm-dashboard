@@ -233,3 +233,31 @@
 - Roles en `authStore` (admin/vendedor/viewer) listos para multi-usuario.
 - `services/` aislado para sumar IMAP, Claude, Stripe, etc. sin refactor.
 - Tipos del dominio centralizados en `src/types`.
+
+## ✅ Migración a Oracle Cloud (n8n + Dashboard) — COMPLETADA (2026-07-10)
+
+### Infraestructura
+- **Servidor**: Oracle Cloud, instancia `129.159.191.41`, Ubuntu 24.04 LTS aarch64 (Ampere, 4 vCPU / 11GB RAM), cubierta por crédito de prueba gratuita de Oracle (1 mes). Acceso SSH por clave (`n8n-oracle/Private key.key`, usuario `ubuntu`).
+- **Stack**: Docker Compose con 4 servicios en `/home/ubuntu/jd-prod/`: `postgres:16` (persistencia de n8n), `n8n:latest`, `crm-dashboard` (build propio: Vite + nginx), `cloudflared` (túnel gestionado localmente).
+- **Seguridad de red**: n8n (5678) y el dashboard (8080→80) están atados solo a `127.0.0.1` — nunca expuestos a `0.0.0.0` ni abiertos en la Security List de la VCN. Todo el acceso público pasa exclusivamente por el túnel saliente de Cloudflare.
+
+### Dominios (Cloudflare)
+- `jddeveloper.com` ya estaba migrado a Cloudflare (nameservers propagados) — se usó esa zona activa.
+- **`https://backoffice.jddeveloper.com`** → n8n (editor accesible, HTTPS 200 verificado).
+- **`https://workspace.jddeveloper.com`** → CRM Dashboard (HTTPS 200 verificado, `VITE_N8N_URL` horneado correctamente en el bundle JS de producción).
+- Túnel `jd-prod` creado como **locally-managed tunnel** (no token-based) con `config.yml` de ingress dual, para poder rutear ambos hostnames desde un solo túnel.
+- **Incidente durante la config.** el primer intento de `cloudflared tunnel login` autorizó por error la zona `jddveloper.com` (dominio typo, sin la "e", en estado "Finish setup" y no activo) en vez de `jddeveloper.com`. Se detectó por el mensaje `Added CNAME backoffice.jddeveloper.com.jddveloper.com` al hacer `route dns`. Se corrigió borrando el túnel y el certificado, y repitiendo el login seleccionando explícitamente la zona correcta.
+
+### n8n: datos migrados
+- **15 workflows** y **7 credenciales** importados desde los exports de la instancia local (`n8n-migracion/workflows.json`, `credentials.json`), usando la misma `N8N_ENCRYPTION_KEY` para que las credenciales desencriptaran correctamente.
+- n8n **desactivó automáticamente los 15 workflows al importarlos** — ninguno quedó enviando en producción, cumpliendo la restricción de no activar workflows de envío durante la migración.
+- La instancia nueva requirió que Juan creara manualmente la cuenta *owner* (paso interactivo obligatorio de n8n, no automatizable) y generara una nueva API key desde Settings → API — la API key de la instancia local vieja no era válida aquí. La nueva key ya está en el `.env` del servidor y horneada en el build del dashboard.
+
+### Pendiente de validación manual (no automatizable de forma segura)
+- **Confirmar visualmente en el navegador** que las 7 credenciales (Google Sheets, WhatsApp, SMTP/IMAP Hostinger, Anthropic Claude, Apify, etc.) aparecen correctas en `https://backoffice.jddeveloper.com/home/credentials` — no se consultó la base de datos directamente por seguridad.
+- **Probar cada credencial con una ejecución de prueba** (no producción) antes de activar cualquier workflow de envío real.
+- **Activar los workflows uno por uno**, empezando por los de menor riesgo (lectura, `CRM API - Leer Sheets`, `CRM API - Leer Inbox`), verificando cada uno antes de pasar al siguiente. Dejar los de envío masivo (`Fase 3 - Envío de Emails`, `Fase 4 - WhatsApp Seguimiento`) para el final.
+- **Actualizar `n8n_public_url`** en la hoja de configuración de Google Sheets a `https://backoffice.jddeveloper.com`, para que los links de opt-out en los emails salientes apunten al dominio correcto en vez de caer al fallback `mailto:`.
+
+### Secretos
+- Ningún secreto (`.env`, `credentials.json`, `encryption-key.txt`, claves SSH) fue comiteado a git — viven únicamente en el servidor (`/home/ubuntu/jd-prod/.env`, permisos 600) y en la carpeta local `n8n-migracion/` (fuera de control de versiones).

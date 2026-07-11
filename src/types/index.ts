@@ -155,3 +155,31 @@ export interface PipelineStage {
   color: string
   probability: number         // 0-1 para forecast
 }
+
+export type WebLeadStatus = 'nuevo' | 'en_proceso' | 'respondido' | 'cerrado'
+
+/** Solicitud recibida desde el formulario de la web pública (hoja "web_leads"). */
+export interface WebLead {
+  id: string
+  fechaHora: string
+  nombre: string
+  email: string
+  empresa?: string
+  telefono?: string
+  asunto?: string
+  mensaje: string
+  pagina?: string
+  url?: string
+  referrer?: string
+  utmSource?: string
+  utmMedium?: string
+  utmCampaign?: string
+  ip?: string
+  userAgent?: string
+  fuente: string
+  formulario?: string
+  estado: WebLeadStatus
+  responsable?: string
+  notasInternas?: string
+  actualizado?: string
+}

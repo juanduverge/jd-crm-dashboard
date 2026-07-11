@@ -53,6 +53,54 @@ export function useSearchLog() {
   })
 }
 
+/** Solicitudes del formulario de la web pública (hoja "web_leads"). */
+export function useWebLeads() {
+  return useQuery({
+    queryKey: ['web_leads'],
+    queryFn: async () => {
+      const rows = await crmApi.readSheet('web_leads')
+      return rows
+        .map((r): import('@/types').WebLead => ({
+          id: r.id ?? '',
+          fechaHora: r.fecha_hora ?? '',
+          nombre: r.nombre ?? '',
+          email: r.email ?? '',
+          empresa: r.empresa,
+          telefono: r.telefono,
+          asunto: r.asunto,
+          mensaje: r.mensaje ?? '',
+          pagina: r.pagina,
+          url: r.url,
+          referrer: r.referrer,
+          utmSource: r.utm_source,
+          utmMedium: r.utm_medium,
+          utmCampaign: r.utm_campaign,
+          ip: r.ip,
+          userAgent: r.user_agent,
+          fuente: r.fuente || 'web',
+          formulario: r.formulario,
+          estado: (r.estado as import('@/types').WebLeadStatus) || 'nuevo',
+          responsable: r.responsable,
+          notasInternas: r.notas_internas,
+          actualizado: r.actualizado,
+        }))
+        .filter((l) => l.id)
+        .sort((a, b) => (b.fechaHora || '').localeCompare(a.fechaHora || ''))
+    },
+    refetchInterval: 30_000,
+    retry: 1,
+  })
+}
+
+export function useUpdateWebLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { id: string; estado?: string; responsable?: string; notas_internas?: string }) =>
+      crmApi.updateWebLead(payload),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['web_leads'] }),
+  })
+}
+
 export function useWorkflows() {
   return useQuery({
     queryKey: ['workflows'],

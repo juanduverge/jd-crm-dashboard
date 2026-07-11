@@ -24,7 +24,7 @@ const http = axios.create({
   },
 })
 
-export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox' | 'campaigns' | 'search_log'
+export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox' | 'campaigns' | 'search_log' | 'web_leads'
 
 export interface PipelineUpdatePayload {
   leadId: string
@@ -243,6 +243,12 @@ export const crmApi = {
   /** Envía una respuesta de email (SMTP), con adjunto opcional (base64). */
   async sendReply(payload: SendReplyPayload) {
     const { data } = await http.post('/crm-send-reply', payload, { timeout: 45000 })
+    return data
+  },
+
+  /** Actualiza gestión de una solicitud web (estado/responsable/notas) vía "CRM API - Web Lead". */
+  async updateWebLead(payload: { id: string; estado?: string; responsable?: string; notas_internas?: string }) {
+    const { data } = await http.post('/crm-web-lead', { action: 'update', ...payload })
     return data
   },
 

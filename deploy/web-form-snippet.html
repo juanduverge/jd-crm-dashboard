@@ -1,0 +1,80 @@
+<!--
+  JD Developer — Formulario de contacto web → CRM
+  Pega este snippet en la web pública (jddeveloper.com).
+  Postea a un webhook n8n dedicado (crm-web-lead) que hace dedup + anti-spam.
+
+  Requisitos:
+   1. Reemplaza WEBHOOK_URL por el webhook público de n8n:
+      https://backoffice.jddeveloper.com/webhook/crm-web-lead
+   2. (Recomendado) Cloudflare Turnstile: reemplaza TURNSTILE_SITE_KEY.
+      Si no usas Turnstile, borra el <div class="cf-turnstile"> y su <script>.
+   3. El campo "website" es un HONEYPOT anti-bot: debe quedar oculto y vacío.
+-->
+<form id="jd-contact-form" novalidate>
+  <input type="text" name="nombre" placeholder="Nombre" required />
+  <input type="email" name="email" placeholder="Email" required />
+  <input type="tel" name="telefono" placeholder="Teléfono (opcional)" />
+  <textarea name="mensaje" placeholder="¿En qué te ayudamos?" required></textarea>
+
+  <!-- Honeypot: oculto para humanos, tentador para bots -->
+  <input type="text" name="website" tabindex="-1" autocomplete="off"
+         style="position:absolute;left:-9999px;opacity:0;height:0;width:0" aria-hidden="true" />
+
+  <!-- Cloudflare Turnstile (gratis) -->
+  <div class="cf-turnstile" data-sitekey="TURNSTILE_SITE_KEY"></div>
+
+  <button type="submit">Enviar</button>
+  <p id="jd-form-msg" role="status" aria-live="polite"></p>
+</form>
+
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script>
+(function () {
+  var WEBHOOK_URL = "https://backoffice.jddeveloper.com/webhook/crm-web-lead";
+  var form = document.getElementById("jd-contact-form");
+  var msg = document.getElementById("jd-form-msg");
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    msg.textContent = "";
+
+    // Honeypot: si viene relleno, es un bot → aborta en silencio.
+    if (form.website.value) return;
+
+    var btn = form.querySelector("button[type=submit]");
+    btn.disabled = true;
+
+    var params = new URLSearchParams(window.location.search);
+    var payload = {
+      nombre: form.nombre.value.trim(),
+      email: form.email.value.trim().toLowerCase(),
+      telefono: form.telefono.value.trim(),
+      mensaje: form.mensaje.value.trim(),
+      // Trazabilidad
+      fuente: "web",
+      formulario: "contacto",
+      url_origen: window.location.href,
+      referrer: document.referrer || "",
+      utm_source: params.get("utm_source") || "",
+      utm_medium: params.get("utm_medium") || "",
+      utm_campaign: params.get("utm_campaign") || "",
+      // Turnstile (si está activo)
+      turnstile_token: (form.querySelector("[name='cf-turnstile-response']") || {}).value || ""
+    };
+
+    try {
+      var res = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error("bad status");
+      msg.textContent = "¡Gracias! Te contactaremos pronto.";
+      form.reset();
+    } catch (err) {
+      msg.textContent = "Hubo un problema. Escríbenos a info@jddeveloper.com.";
+      btn.disabled = false;
+    }
+  });
+})();
+</script>
