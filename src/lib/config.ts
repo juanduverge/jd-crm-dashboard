@@ -4,17 +4,13 @@ export const config = {
   appPassword: import.meta.env.VITE_APP_PASSWORD || 'JDDeveloper2026',
   n8n: {
     url: import.meta.env.VITE_N8N_URL || 'http://localhost:5678',
-    // La API key YA NO se hornea en el bundle: nginx (prod) / vite (dev) la
-    // inyectan server-side como header X-N8N-API-KEY al proxiar. Ver
-    // deploy/nginx.conf.template y docs/SEGURIDAD_FASE2.md.
     apiKey: import.meta.env.VITE_N8N_API_KEY || '',
-    // Siempre ruta relativa: en dev la proxia vite, en prod la proxia nginx
-    // (mismo origen → sin CORS y sin exponer la API key en el cliente).
-    base: '/n8n-api',
-    // Webhooks del "CRM API" (lectura/escritura de Sheets vía n8n), también
-    // por proxy de mismo origen.
-    hookBase: '/n8n-hook',
-    // Token compartido opcional que validan los webhooks (header X-CRM-TOKEN).
+    // En dev usamos el proxy de vite (/n8n-api) para evitar CORS. En prod el
+    // dashboard habla directo con VITE_N8N_URL (backoffice). Sacar la API key
+    // del bundle vía proxy nginx queda para la fase de CI/CD — ver
+    // deploy/nginx.conf.template y docs/SEGURIDAD_FASE2.md.
+    base: import.meta.env.DEV ? '/n8n-api' : `${import.meta.env.VITE_N8N_URL || 'http://localhost:5678'}/api/v1`,
+    hookBase: import.meta.env.DEV ? '/n8n-hook' : `${import.meta.env.VITE_N8N_URL || 'http://localhost:5678'}/webhook`,
     hookToken: import.meta.env.VITE_N8N_HOOK_TOKEN || '',
   },
   sheets: {
