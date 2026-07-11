@@ -143,6 +143,51 @@ export function useConvertWebLead() {
   })
 }
 
+/** Tareas / seguimientos manuales (hoja "tareas"). */
+export function useTareas() {
+  return useQuery({
+    queryKey: ['tareas'],
+    queryFn: async () => {
+      const rows = await crmApi.readSheet('tareas')
+      return rows
+        .map((r): import('@/types').Tarea => ({
+          id: r.id ?? '',
+          titulo: r.titulo ?? '',
+          tipo: (r.tipo as import('@/types').TareaTipo) || 'seguimiento',
+          leadId: r.lead_id,
+          leadNombre: r.lead_nombre,
+          fechaVencimiento: r.fecha_vencimiento,
+          estado: (r.estado as import('@/types').TareaEstado) || 'pendiente',
+          prioridad: (r.prioridad as import('@/types').WebLeadPriority) || 'media',
+          responsable: r.responsable,
+          notas: r.notas,
+          creado: r.creado,
+          actualizado: r.actualizado,
+        }))
+        .filter((t) => t.id)
+        .sort((a, b) => (a.fechaVencimiento || '9999').localeCompare(b.fechaVencimiento || '9999'))
+    },
+    refetchInterval: 30_000,
+    retry: 1,
+  })
+}
+
+export function useCreateTarea() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof crmApi.createTarea>[0]) => crmApi.createTarea(p),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tareas'] }),
+  })
+}
+
+export function useUpdateTarea() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof crmApi.updateTarea>[0]) => crmApi.updateTarea(p),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tareas'] }),
+  })
+}
+
 export function useWorkflows() {
   return useQuery({
     queryKey: ['workflows'],

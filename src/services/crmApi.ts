@@ -24,7 +24,7 @@ const http = axios.create({
   },
 })
 
-export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox' | 'campaigns' | 'search_log' | 'web_leads'
+export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox' | 'campaigns' | 'search_log' | 'web_leads' | 'tareas'
 
 export interface PipelineUpdatePayload {
   leadId: string
@@ -249,6 +249,21 @@ export const crmApi = {
   /** Actualiza gestión de una solicitud web (estado/responsable/notas) vía "CRM API - Web Lead". */
   async updateWebLead(payload: { id: string; estado?: string; responsable?: string; notas_internas?: string; prioridad?: string; etiquetas?: string }) {
     const { data } = await http.post('/crm-web-lead', { action: 'update', ...payload })
+    return data
+  },
+
+  /** Crea una tarea/seguimiento manual (workflow "CRM API - Tareas"). */
+  async createTarea(payload: { titulo: string; tipo?: string; leadId?: string; leadNombre?: string; fechaVencimiento?: string; prioridad?: string; responsable?: string; notas?: string }) {
+    const { data } = await http.post('/crm-tarea', {
+      titulo: payload.titulo, tipo: payload.tipo, lead_id: payload.leadId, lead_nombre: payload.leadNombre,
+      fecha_vencimiento: payload.fechaVencimiento, prioridad: payload.prioridad, responsable: payload.responsable, notas: payload.notas,
+    })
+    return data
+  },
+
+  /** Actualiza una tarea (estado/fecha/etc). */
+  async updateTarea(payload: { id: string; estado?: string; titulo?: string; fecha_vencimiento?: string; prioridad?: string; notas?: string; responsable?: string }) {
+    const { data } = await http.post('/crm-tarea', { action: 'update', ...payload })
     return data
   },
 

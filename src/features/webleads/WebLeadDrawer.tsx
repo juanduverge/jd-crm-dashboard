@@ -8,7 +8,7 @@ import {
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
 import { cn } from '@/lib/utils'
-import { useUpdateWebLead, useConvertWebLead } from '@/hooks/useData'
+import { useUpdateWebLead, useConvertWebLead, useCreateTarea } from '@/hooks/useData'
 import type { WebLead } from '@/types'
 import { ESTADOS, ESTADO_ORDER, PRIORIDADES, PRIORIDAD_ORDER, initials, colorFromString } from './webLeadMeta'
 
@@ -22,6 +22,7 @@ function fecha(iso?: string) {
 export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose: () => void }) {
   const update = useUpdateWebLead()
   const convert = useConvertWebLead()
+  const crearTarea = useCreateTarea()
   const [tab, setTab] = useState<(typeof TABS)[number]>('Detalles')
   const [notas, setNotas] = useState('')
   const [responsable, setResponsable] = useState('')
@@ -208,8 +209,20 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
             <div className="rounded-xl border border-dashed border-border p-4">
               <p className="mb-2 text-xs font-medium text-muted">Próximamente</p>
               <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    const fecha = new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10)
+                    crearTarea.mutate(
+                      { titulo: `Seguir a ${lead.nombre}`, tipo: 'seguimiento', leadNombre: lead.nombre, fechaVencimiento: fecha, prioridad: lead.prioridad, notas: lead.asunto || '' },
+                      { onSuccess: () => toast.success('📅 Seguimiento creado (en 2 días) — mira Tareas'), onError: () => toast.error('No se pudo crear la tarea') },
+                    )
+                  }}
+                  disabled={crearTarea.isPending}
+                  className="flex items-center gap-2 rounded-lg bg-primary-50 px-3 py-2 text-xs font-medium text-primary-600 transition hover:bg-primary-100 dark:bg-primary-400/15 dark:text-primary-300"
+                >
+                  <CalendarClock className="h-4 w-4" /> Programar seguimiento
+                </button>
                 <FutureBtn icon={UserPlus} label="Convertir en cliente" />
-                <FutureBtn icon={CalendarClock} label="Programar seguimiento" />
                 <FutureBtn icon={Sparkles} label="Respuesta con IA" />
                 <FutureBtn icon={Paperclip} label="Adjuntar archivo" />
               </div>

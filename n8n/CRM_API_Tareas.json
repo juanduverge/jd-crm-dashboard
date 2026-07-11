@@ -1,0 +1,188 @@
+{
+  "name": "CRM API - Tareas",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crm-tarea",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "tw",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "crm-tarea"
+    },
+    {
+      "parameters": {
+        "jsCode": "const b = ($input.first().json.body)||{};\nconst norm=(v)=>String(v??'').trim();\nconst esUpdate = b.action==='update' && norm(b.id);\nconst now=new Date().toISOString();\nfunction h(s){let x=5381;for(let i=0;i<s.length;i++){x=((x<<5)+x+s.charCodeAt(i))|0;}return (x>>>0).toString(36);}\nif(!esUpdate && !norm(b.titulo)) return [{json:{skip:true}}];\nconst id = norm(b.id) || 'T-'+h(norm(b.titulo)+'|'+now);\nconst row={id};\nif(esUpdate){\n  ['titulo','tipo','fecha_vencimiento','estado','prioridad','responsable','notas','lead_id','lead_nombre'].forEach(k=>{ if(b[k]!==undefined) row[k]=norm(b[k]); });\n  row.actualizado=now;\n}else{\n  Object.assign(row,{\n    titulo:norm(b.titulo), tipo:norm(b.tipo)||'seguimiento',\n    lead_id:norm(b.lead_id), lead_nombre:norm(b.lead_nombre),\n    fecha_vencimiento:norm(b.fecha_vencimiento),\n    estado:'pendiente', prioridad:norm(b.prioridad)||'media',\n    responsable:norm(b.responsable), notas:norm(b.notas),\n    creado:now, actualizado:now });\n}\nreturn [{json:row}];"
+      },
+      "id": "tc",
+      "name": "Preparar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ti",
+      "name": "Valido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "tareas"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "ts",
+      "name": "Guardar",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        660,
+        -100
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"id\": $('Preparar').item.json.id } }}",
+        "options": {}
+      },
+      "id": "tok",
+      "name": "OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true } }}",
+        "options": {}
+      },
+      "id": "tsk",
+      "name": "Skip",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Preparar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar": {
+      "main": [
+        [
+          {
+            "node": "Valido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valido?": {
+      "main": [
+        [
+          {
+            "node": "Guardar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar": {
+      "main": [
+        [
+          {
+            "node": "OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

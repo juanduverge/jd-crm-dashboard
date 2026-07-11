@@ -186,3 +186,22 @@ export interface WebLead {
   notasInternas?: string
   actualizado?: string
 }
+
+export type TareaEstado = 'pendiente' | 'en_progreso' | 'hecha'
+export type TareaTipo = 'seguimiento' | 'llamada' | 'email' | 'reunion' | 'whatsapp' | 'otro'
+
+/** Tarea / seguimiento manual (hoja "tareas"). Nunca envía nada por sí sola. */
+export interface Tarea {
+  id: string
+  titulo: string
+  tipo: TareaTipo
+  leadId?: string
+  leadNombre?: string
+  fechaVencimiento?: string
+  estado: TareaEstado
+  prioridad: WebLeadPriority
+  responsable?: string
+  notas?: string
+  creado?: string
+  actualizado?: string
+}
