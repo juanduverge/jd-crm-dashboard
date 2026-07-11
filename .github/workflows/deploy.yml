@@ -1,0 +1,69 @@
+name: Deploy a Oracle
+
+# Despliega el dashboard al servidor Oracle en cada push a main que toque el
+# frontend. Replica el proceso manual: sube src/, reconstruye SOLO el contenedor
+# del dashboard (no toca n8n ni Postgres).
+#
+# Requiere estos secretos en GitHub (Settings → Secrets and variables → Actions):
+#   SSH_HOST   -> 129.159.191.41
+#   SSH_USER   -> ubuntu
+#   SSH_KEY    -> contenido de la clave privada SSH (n8n-oracle/Private key.key)
+#
+# Hasta que existan esos secretos, este workflow no puede desplegar (fallará el
+# paso de SSH con un mensaje claro). Ver docs/CI_CD.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'index.html'
+      - 'vite.config.ts'
+      - 'tailwind.config.js'
+  workflow_dispatch: {} # permite lanzarlo a mano desde la pestaña Actions
+
+concurrency:
+  group: deploy-oracle
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # CI mínimo antes de desplegar: si no compila, no sube nada.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -b --noEmit
+
+      - name: Configurar SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Subir src y reconstruir dashboard
+        run: |
+          tar czf src.tgz src
+          scp -i ~/.ssh/id_deploy src.tgz "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/src.tgz"
+          ssh -i ~/.ssh/id_deploy "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" '
+            set -e
+            cd /home/ubuntu/jd-prod/dashboard-src
+            rm -rf src.bak && cp -r src src.bak
+            rm -rf src && tar xzf /tmp/src.tgz
+            cd /home/ubuntu/jd-prod
+            docker compose build crm-dashboard
+            docker compose up -d crm-dashboard
+          '
+
+      - name: Verificar que responde
+        run: |
+          ssh -i ~/.ssh/id_deploy "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            'docker ps --filter name=crm-dashboard --format "{{.Status}}"'

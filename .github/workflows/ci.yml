@@ -1,0 +1,25 @@
+name: CI
+
+# Verifica que el código compila y tipa en cada push/PR a main.
+# No despliega nada — es la red de seguridad antes del deploy.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc -b --noEmit
+      - name: Build
+        run: npm run build
