@@ -157,6 +157,7 @@ export interface PipelineStage {
 }
 
 export type WebLeadStatus = 'nuevo' | 'en_proceso' | 'respondido' | 'cerrado'
+export type WebLeadPriority = 'baja' | 'media' | 'alta' | 'urgente'
 
 /** Solicitud recibida desde el formulario de la web pública (hoja "web_leads"). */
 export interface WebLead {
@@ -179,6 +180,8 @@ export interface WebLead {
   fuente: string
   formulario?: string
   estado: WebLeadStatus
+  prioridad: WebLeadPriority
+  etiquetas: string[]
   responsable?: string
   notasInternas?: string
   actualizado?: string

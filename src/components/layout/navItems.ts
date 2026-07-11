@@ -6,7 +6,7 @@ import {
 export const navItems = [
   { to: '/', label: 'Resumen', icon: Home, end: true },
   { to: '/leads', label: 'Leads', icon: Users },
-  { to: '/web-leads', label: 'Solicitudes Web', icon: Globe },
+  { to: '/web-leads', label: 'Inbox de Leads', icon: Globe },
   { to: '/campaigns', label: 'Campañas', icon: Target },
   { to: '/pipeline', label: 'Pipeline', icon: KanbanSquare },
   { to: '/inbox', label: 'Bandeja', icon: Inbox },

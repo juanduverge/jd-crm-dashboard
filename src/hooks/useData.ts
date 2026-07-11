@@ -80,6 +80,8 @@ export function useWebLeads() {
           fuente: r.fuente || 'web',
           formulario: r.formulario,
           estado: (r.estado as import('@/types').WebLeadStatus) || 'nuevo',
+          prioridad: (r.prioridad as import('@/types').WebLeadPriority) || 'media',
+          etiquetas: (r.etiquetas || '').split(',').map((t) => t.trim()).filter(Boolean),
           responsable: r.responsable,
           notasInternas: r.notas_internas,
           actualizado: r.actualizado,
@@ -95,7 +97,7 @@ export function useWebLeads() {
 export function useUpdateWebLead() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (payload: { id: string; estado?: string; responsable?: string; notas_internas?: string }) =>
+    mutationFn: (payload: { id: string; estado?: string; responsable?: string; notas_internas?: string; prioridad?: string; etiquetas?: string }) =>
       crmApi.updateWebLead(payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['web_leads'] }),
   })

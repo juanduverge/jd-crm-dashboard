@@ -14,28 +14,41 @@
       "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "crm-web-lead"
     },
     {
       "parameters": {
-        "jsCode": "// Valida el payload del formulario web, filtra bots (honeypot) y arma la fila\n// para la hoja web_leads. Soporta dos acciones:\n//   create (default): solicitud nueva desde la web\n//   update: el CRM actualiza estado/responsable/notas (match por id)\nconst req = $input.first().json;\nconst b = req.body || {};\nconst headers = req.headers || {};\n\n// Honeypot: los bots rellenan el campo oculto \"website\"\nif (b.website) return [{ json: { skip: true } }];\n\nconst norm = (v) => String(v ?? '').trim();\nconst email = norm(b.email).toLowerCase();\nconst nombre = norm(b.nombre);\nconst esUpdate = b.action === 'update' && norm(b.id);\n\nif (!esUpdate && (!email || !email.includes('@') || !nombre)) {\n  return [{ json: { skip: true } }];\n}\n\n// id determinista: mismo email + mismo mensaje + mismo dia => mismo id.\n// Asi un doble-submit no crea filas duplicadas (appendOrUpdate matchea por id).\nfunction hash(s) { let x = 5381; for (let i = 0; i < s.length; i++) { x = ((x << 5) + x + s.charCodeAt(i)) | 0; } return (x >>> 0).toString(36); }\nconst now = new Date();\nconst dia = now.toISOString().slice(0, 10);\nconst id = norm(b.id) || 'WL-' + hash(email + '|' + norm(b.detalle || b.mensaje) + '|' + dia);\n\nconst row = { id };\nif (esUpdate) {\n  if (b.estado) row.estado = norm(b.estado);\n  if (b.responsable !== undefined) row.responsable = norm(b.responsable);\n  if (b.notas_internas !== undefined) row.notas_internas = norm(b.notas_internas);\n  row.actualizado = now.toISOString();\n} else {\n  Object.assign(row, {\n    fecha_hora: now.toISOString(),\n    nombre,\n    email,\n    empresa: norm(b.empresa),\n    telefono: norm(b.telefono),\n    asunto: norm(b.tema || b.asunto),\n    mensaje: norm(b.detalle || b.mensaje),\n    pagina: norm(b.pagina),\n    url: norm(b.url),\n    referrer: norm(b.referrer),\n    utm_source: norm(b.utm_source),\n    utm_medium: norm(b.utm_medium),\n    utm_campaign: norm(b.utm_campaign),\n    ip: norm(headers['cf-connecting-ip'] || headers['x-forwarded-for']),\n    user_agent: norm(headers['user-agent']).slice(0, 200),\n    fuente: 'web',\n    formulario: norm(b.formulario) || 'contacto',\n    estado: 'nuevo',\n    responsable: '',\n    notas_internas: '',\n    actualizado: now.toISOString(),\n  });\n}\nreturn [{ json: row }];"
+        "jsCode": "// Valida el payload del formulario web, filtra bots (honeypot) y arma la fila\n// para la hoja web_leads. Acciones: create (default) | update (gestion desde CRM).\nconst req = $input.first().json;\nconst b = req.body || {};\nconst headers = req.headers || {};\nif (b.website) return [{ json: { skip: true } }];\nconst norm = (v) => String(v ?? '').trim();\nconst email = norm(b.email).toLowerCase();\nconst nombre = norm(b.nombre);\nconst esUpdate = b.action === 'update' && norm(b.id);\nif (!esUpdate && (!email || !email.includes('@') || !nombre)) return [{ json: { skip: true } }];\nfunction hash(s){let x=5381;for(let i=0;i<s.length;i++){x=((x<<5)+x+s.charCodeAt(i))|0;}return (x>>>0).toString(36);}\nconst now = new Date();\nconst dia = now.toISOString().slice(0,10);\nconst id = norm(b.id) || 'WL-' + hash(email + '|' + norm(b.detalle||b.mensaje) + '|' + dia);\nconst row = { id };\nif (esUpdate) {\n  if (b.estado) row.estado = norm(b.estado);\n  if (b.responsable !== undefined) row.responsable = norm(b.responsable);\n  if (b.notas_internas !== undefined) row.notas_internas = norm(b.notas_internas);\n  if (b.prioridad !== undefined) row.prioridad = norm(b.prioridad);\n  if (b.etiquetas !== undefined) row.etiquetas = norm(b.etiquetas);\n  row.actualizado = now.toISOString();\n} else {\n  Object.assign(row, {\n    fecha_hora: now.toISOString(), nombre, email,\n    empresa: norm(b.empresa), telefono: norm(b.telefono),\n    asunto: norm(b.tema||b.asunto), mensaje: norm(b.detalle||b.mensaje),\n    pagina: norm(b.pagina), url: norm(b.url), referrer: norm(b.referrer),\n    utm_source: norm(b.utm_source), utm_medium: norm(b.utm_medium), utm_campaign: norm(b.utm_campaign),\n    ip: norm(headers['cf-connecting-ip']||headers['x-forwarded-for']),\n    user_agent: norm(headers['user-agent']).slice(0,200),\n    fuente: 'web', formulario: norm(b.formulario)||'contacto',\n    estado: 'nuevo', responsable: '', notas_internas: '',\n    prioridad: 'media', etiquetas: '',\n    actualizado: now.toISOString(),\n  });\n}\nreturn [{ json: row }];"
       },
       "id": "wl-code",
       "name": "Validar y Preparar",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [220, 0]
+      "position": [
+        220,
+        0
+      ]
     },
     {
       "parameters": {
         "conditions": {
-          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
           "conditions": [
             {
               "leftValue": "={{ $json.skip }}",
               "rightValue": true,
-              "operator": { "type": "boolean", "operation": "notEquals" }
+              "operator": {
+                "type": "boolean",
+                "operation": "notEquals"
+              }
             }
           ],
           "combinator": "and"
@@ -46,16 +59,29 @@
       "name": "Es valido?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [440, 0]
+      "position": [
+        440,
+        0
+      ]
     },
     {
       "parameters": {
         "operation": "appendOrUpdate",
-        "documentId": { "__rl": true, "mode": "id", "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE" },
-        "sheetName": { "__rl": true, "mode": "name", "value": "web_leads" },
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "web_leads"
+        },
         "columns": {
           "mappingMode": "autoMapInputData",
-          "matchingColumns": ["id"],
+          "matchingColumns": [
+            "id"
+          ],
           "schema": []
         },
         "options": {}
@@ -64,9 +90,15 @@
       "name": "Guardar Solicitud",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [660, -100],
+      "position": [
+        660,
+        -100
+      ],
       "credentials": {
-        "googleSheetsOAuth2Api": { "id": "REEMPLAZAR_AL_IMPORTAR", "name": "Google Sheets account" }
+        "googleSheetsOAuth2Api": {
+          "id": "REEMPLAZAR_AL_IMPORTAR",
+          "name": "Google Sheets account"
+        }
       }
     },
     {
@@ -79,7 +111,10 @@
       "name": "Responder OK",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [880, -100]
+      "position": [
+        880,
+        -100
+      ]
     },
     {
       "parameters": {
@@ -91,19 +126,66 @@
       "name": "Responder Skip",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [660, 140]
+      "position": [
+        660,
+        140
+      ]
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Validar y Preparar", "type": "main", "index": 0 }]] },
-    "Validar y Preparar": { "main": [[{ "node": "Es valido?", "type": "main", "index": 0 }]] },
-    "Es valido?": {
+    "Webhook": {
       "main": [
-        [{ "node": "Guardar Solicitud", "type": "main", "index": 0 }],
-        [{ "node": "Responder Skip", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Validar y Preparar",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Guardar Solicitud": { "main": [[{ "node": "Responder OK", "type": "main", "index": 0 }]] }
+    "Validar y Preparar": {
+      "main": [
+        [
+          {
+            "node": "Es valido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es valido?": {
+      "main": [
+        [
+          {
+            "node": "Guardar Solicitud",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Skip",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Solicitud": {
+      "main": [
+        [
+          {
+            "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

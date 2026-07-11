@@ -247,7 +247,7 @@ export const crmApi = {
   },
 
   /** Actualiza gestión de una solicitud web (estado/responsable/notas) vía "CRM API - Web Lead". */
-  async updateWebLead(payload: { id: string; estado?: string; responsable?: string; notas_internas?: string }) {
+  async updateWebLead(payload: { id: string; estado?: string; responsable?: string; notas_internas?: string; prioridad?: string; etiquetas?: string }) {
     const { data } = await http.post('/crm-web-lead', { action: 'update', ...payload })
     return data
   },
