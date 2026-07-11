@@ -103,6 +103,46 @@ export function useUpdateWebLead() {
   })
 }
 
+/**
+ * Convierte una solicitud del Inbox en un Lead real: crea la fila en `prospects`
+ * (módulo Leads), la mete al Pipeline en etapa "Contactado", y marca la solicitud
+ * como cerrada + etiqueta "convertido". Un solo clic desde el Inbox de Leads.
+ */
+export function useConvertWebLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (lead: import('@/types').WebLead) => {
+      const leadId = `L-${lead.id}`
+      await crmApi.createLead({
+        leadId,
+        empresa: lead.empresa || lead.nombre,
+        emailContacto: lead.email,
+        telefono: lead.telefono,
+        whatsapp: lead.telefono,
+        notas: lead.asunto ? `${lead.asunto}: ${lead.mensaje}` : lead.mensaje,
+        fuente: 'web',
+      })
+      await crmApi.updatePipeline({
+        leadId,
+        empresa: lead.empresa || lead.nombre,
+        estado: 'contactado',
+        canalPrincipal: 'email',
+        notas: lead.mensaje,
+      })
+      await crmApi.updateWebLead({
+        id: lead.id,
+        estado: 'cerrado',
+        etiquetas: [...new Set([...lead.etiquetas, 'convertido'])].join(','),
+      })
+      return leadId
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['web_leads'] })
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+    },
+  })
+}
+
 export function useWorkflows() {
   return useQuery({
     queryKey: ['workflows'],

@@ -112,7 +112,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        880,
+        1320,
         -100
       ]
     },
@@ -130,6 +130,61 @@
         660,
         140
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Validar y Preparar').item.json.fecha_hora }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wl-isnew",
+      "name": "Es nuevo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "sales@jddeveloper.com",
+        "toEmail": "info@jddeveloper.com",
+        "subject": "=🆕 Nuevo lead web: {{ $('Validar y Preparar').item.json.nombre }}{{ $('Validar y Preparar').item.json.empresa ? ' — ' + $('Validar y Preparar').item.json.empresa : '' }}",
+        "emailFormat": "html",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:560px\"><h2 style=\"color:#ff5c33\">Nuevo lead desde la web</h2><table style=\"border-collapse:collapse;font-size:14px\"><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Nombre</td><td><b>{{ $('Validar y Preparar').item.json.nombre }}</b></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Empresa</td><td>{{ $('Validar y Preparar').item.json.empresa || '—' }}</td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Email</td><td><a href=\"mailto:{{ $('Validar y Preparar').item.json.email }}\">{{ $('Validar y Preparar').item.json.email }}</a></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Teléfono</td><td>{{ $('Validar y Preparar').item.json.telefono || '—' }}</td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Asunto</td><td>{{ $('Validar y Preparar').item.json.asunto || '—' }}</td></tr></table><p style=\"margin-top:16px;padding:12px;background:#f6f6f6;border-radius:8px\">{{ $('Validar y Preparar').item.json.mensaje }}</p><p style=\"font-size:12px;color:#999\">Página: {{ $('Validar y Preparar').item.json.pagina }} · Gestiónalo en el CRM → Inbox de Leads</p></div>",
+        "options": {}
+      },
+      "id": "wl-notify",
+      "name": "Notificar Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -200
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "qxrjS1UTOOOVymj8",
+          "name": "Email SMTP - JDDeveloper"
+        }
+      }
     }
   ],
   "connections": {
@@ -174,6 +229,35 @@
       ]
     },
     "Guardar Solicitud": {
+      "main": [
+        [
+          {
+            "node": "Es nuevo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es nuevo?": {
+      "main": [
+        [
+          {
+            "node": "Notificar Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notificar Email": {
       "main": [
         [
           {

@@ -8,8 +8,8 @@ import {
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
 import { cn } from '@/lib/utils'
-import { useUpdateWebLead } from '@/hooks/useData'
-import type { WebLead, WebLeadStatus, WebLeadPriority } from '@/types'
+import { useUpdateWebLead, useConvertWebLead } from '@/hooks/useData'
+import type { WebLead } from '@/types'
 import { ESTADOS, ESTADO_ORDER, PRIORIDADES, PRIORIDAD_ORDER, initials, colorFromString } from './webLeadMeta'
 
 const TABS = ['Detalles', 'Gestión', 'Actividad'] as const
@@ -21,6 +21,7 @@ function fecha(iso?: string) {
 
 export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose: () => void }) {
   const update = useUpdateWebLead()
+  const convert = useConvertWebLead()
   const [tab, setTab] = useState<(typeof TABS)[number]>('Detalles')
   const [notas, setNotas] = useState('')
   const [responsable, setResponsable] = useState('')
@@ -44,6 +45,15 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
 
   const wa = (lead.telefono || '').replace(/\D/g, '')
   const etiquetas = lead.etiquetas
+  const yaConvertido = etiquetas.includes('convertido')
+
+  const convertir = () => {
+    if (yaConvertido) return
+    convert.mutate(lead, {
+      onSuccess: () => toast.success('✅ Convertido en Lead — ya está en Leads y Pipeline'),
+      onError: () => toast.error('No se pudo convertir. Revisa que "Escribir Sheets" esté activo.'),
+    })
+  }
 
   return (
     <Drawer open={!!lead} onClose={onClose} width="max-w-lg">
@@ -69,7 +79,14 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
         </div>
 
         <div className="mt-3 flex flex-wrap gap-2">
-          <a className="btn btn-primary h-8 px-3 text-xs" href={`mailto:${lead.email}?subject=Re: ${encodeURIComponent(lead.asunto ?? 'Tu consulta en JD Developer')}`}>
+          <button
+            onClick={convertir}
+            disabled={yaConvertido || convert.isPending}
+            className={cn('btn h-8 px-3 text-xs', yaConvertido ? 'btn-outline text-green-600' : 'btn-primary')}
+          >
+            {yaConvertido ? <><UserCheck className="h-3.5 w-3.5" /> Convertido</> : <><ArrowRightCircle className="h-3.5 w-3.5" /> {convert.isPending ? 'Convirtiendo…' : 'Convertir en Lead'}</>}
+          </button>
+          <a className="btn btn-outline h-8 px-3 text-xs" href={`mailto:${lead.email}?subject=Re: ${encodeURIComponent(lead.asunto ?? 'Tu consulta en JD Developer')}`}>
             <Mail className="h-3.5 w-3.5" /> Responder
           </a>
           {wa && <a className="btn btn-outline h-8 px-3 text-xs" target="_blank" rel="noreferrer" href={`https://wa.me/${wa}`}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</a>}
@@ -191,12 +208,10 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
             <div className="rounded-xl border border-dashed border-border p-4">
               <p className="mb-2 text-xs font-medium text-muted">Próximamente</p>
               <div className="grid grid-cols-2 gap-2">
-                <FutureBtn icon={ArrowRightCircle} label="Convertir en lead" />
                 <FutureBtn icon={UserPlus} label="Convertir en cliente" />
                 <FutureBtn icon={CalendarClock} label="Programar seguimiento" />
                 <FutureBtn icon={Sparkles} label="Respuesta con IA" />
                 <FutureBtn icon={Paperclip} label="Adjuntar archivo" />
-                <FutureBtn icon={MessageCircle} label="Enviar WhatsApp" />
               </div>
             </div>
           </div>
