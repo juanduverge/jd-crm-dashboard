@@ -1,4 +1,30 @@
-# Formulario Web → CRM — IMPLEMENTADO (2026-07-10)
+# Formulario Web → CRM — IMPLEMENTADO (2026-07-10/11)
+
+## Causa raíz del "no llegaban los formularios" (2026-07-11)
+Diagnóstico end-to-end: las ejecuciones de n8n mostraron **solo pruebas internas**, cero
+del navegador del usuario. El JS en vivo era correcto y CORS funcionaba. **Causa: caché
+del navegador.** `netlify.toml` cacheaba `/js/*` durante **7 días** (`max-age=604800`),
+así que el navegador servía el `contact-form.js` viejo (placeholder que mostraba "gracias"
+sin enviar nada). **Fix:** `/js/*` y `/css/*` ahora usan `max-age=0, must-revalidate`
+(cada deploy se ve al instante). El backend nunca estuvo roto.
+
+## Rediseño a "Inbox de Leads" (2026-07-11)
+El módulo pasó de una tabla simple a un **inbox estilo HubSpot/Pipedrive**:
+- **Stat tiles** (total, nuevas, prioritarias, cerradas).
+- **Tabs por estado** + búsqueda en vivo.
+- **Lista rica**: avatar con iniciales/color, snippet del mensaje, badges de estado y
+  prioridad, etiquetas, tiempo relativo, punto "sin abrir", responsable.
+- **Drawer de detalle** (`WebLeadDrawer.tsx`) con tabs Detalles/Gestión/Actividad:
+  cambio de estado y prioridad inline, asignar responsable, etiquetas add/remove,
+  notas internas, **timeline de actividad**, y botonera de **acciones futuras**
+  (convertir a lead/cliente, programar seguimiento, IA, adjuntar, WhatsApp) ya
+  maquetada como arquitectura preparada.
+- **Modelo ampliado**: columnas `prioridad` + `etiquetas` en la hoja `web_leads`.
+
+Archivos: `src/features/webleads/{WebLeadsPage,WebLeadDrawer,webLeadMeta}.tsx/.ts`.
+
+---
+# (Historial) Implementación original
 
 > El formulario de contacto de `jddeveloper.com` alimenta el CRM. Módulo nuevo
 > **"Solicitudes Web"** en el dashboard. Este doc reemplaza la spec anterior.
