@@ -9,7 +9,13 @@ export const config = {
     // dashboard habla directo con VITE_N8N_URL (backoffice). Sacar la API key
     // del bundle vía proxy nginx queda para la fase de CI/CD — ver
     // deploy/nginx.conf.template y docs/SEGURIDAD_FASE2.md.
-    base: import.meta.env.DEV ? '/n8n-api' : `${import.meta.env.VITE_N8N_URL || 'http://localhost:5678'}/api/v1`,
+    // La API de n8n va SIEMPRE por ruta relativa: en dev la proxia vite, en prod
+    // la proxia el nginx del dashboard (server-side, inyecta X-N8N-API-KEY y llega
+    // a n8n por red interna). Así no depende de que el navegador alcance backoffice
+    // (protegido por Access) y la API key sale del bundle.
+    base: '/n8n-api',
+    // Los webhooks (CRM API) siguen yendo a backoffice directamente (tienen su
+    // bypass de Access y funcionan). El formulario web también postea ahí.
     hookBase: import.meta.env.DEV ? '/n8n-hook' : `${import.meta.env.VITE_N8N_URL || 'http://localhost:5678'}/webhook`,
     hookToken: import.meta.env.VITE_N8N_HOOK_TOKEN || '',
   },
