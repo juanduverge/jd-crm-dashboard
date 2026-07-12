@@ -9,6 +9,7 @@ import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useUpdateWebLead, useConvertWebLead, useCreateTarea } from '@/hooks/useData'
+import { crmApi, REPLY_ALIASES } from '@/services/crmApi'
 import type { WebLead } from '@/types'
 import { ESTADOS, ESTADO_ORDER, PRIORIDADES, PRIORIDAD_ORDER, initials, colorFromString } from './webLeadMeta'
 
@@ -27,12 +28,18 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
   const [notas, setNotas] = useState('')
   const [responsable, setResponsable] = useState('')
   const [nuevaEtiqueta, setNuevaEtiqueta] = useState('')
+  const [composerOpen, setComposerOpen] = useState(false)
+  const [replyFrom, setReplyFrom] = useState<string>(REPLY_ALIASES[0].email)
+  const [replyBody, setReplyBody] = useState('')
+  const [sending, setSending] = useState(false)
 
   useEffect(() => {
     if (lead) {
       setNotas(lead.notasInternas ?? '')
       setResponsable(lead.responsable ?? '')
       setTab('Detalles')
+      setComposerOpen(false)
+      setReplyBody('')
     }
   }, [lead?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -54,6 +61,27 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
       onSuccess: () => toast.success('✅ Convertido en Lead — ya está en Leads y Pipeline'),
       onError: () => toast.error('No se pudo convertir. Revisa que "Escribir Sheets" esté activo.'),
     })
+  }
+
+  const enviarRespuesta = async () => {
+    if (!replyBody.trim()) return
+    setSending(true)
+    try {
+      await crmApi.sendReply({
+        to: lead.email,
+        subject: lead.asunto || 'Tu consulta en JD Developer',
+        body: replyBody.trim(),
+        from: replyFrom,
+        leadId: lead.id,
+      })
+      toast.success('Respuesta enviada')
+      setComposerOpen(false)
+      setReplyBody('')
+    } catch {
+      toast.error('No se pudo enviar. Revisa que "CRM API - Enviar Respuesta" esté activo.')
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -87,11 +115,45 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
           >
             {yaConvertido ? <><UserCheck className="h-3.5 w-3.5" /> Convertido</> : <><ArrowRightCircle className="h-3.5 w-3.5" /> {convert.isPending ? 'Convirtiendo…' : 'Convertir en Lead'}</>}
           </button>
-          <a className="btn btn-outline h-8 px-3 text-xs" href={`mailto:${lead.email}?subject=Re: ${encodeURIComponent(lead.asunto ?? 'Tu consulta en JD Developer')}`}>
+          <button
+            onClick={() => setComposerOpen((v) => !v)}
+            className={cn('btn h-8 px-3 text-xs', composerOpen ? 'btn-primary' : 'btn-outline')}
+          >
             <Mail className="h-3.5 w-3.5" /> Responder
-          </a>
+          </button>
           {wa && <a className="btn btn-outline h-8 px-3 text-xs" target="_blank" rel="noreferrer" href={`https://wa.me/${wa}`}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</a>}
         </div>
+
+        {composerOpen && (
+          <div className="mt-3 space-y-2 rounded-xl border border-border bg-surface p-3">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-medium text-muted">De:</span>
+              <select
+                value={replyFrom}
+                onChange={(e) => setReplyFrom(e.target.value)}
+                className="input h-7 flex-1 text-xs"
+              >
+                {REPLY_ALIASES.map((a) => (
+                  <option key={a.email} value={a.email}>{a.label} — {a.email}</option>
+                ))}
+              </select>
+            </div>
+            <p className="text-xs text-muted">Para: {lead.email} · Asunto: Re: {lead.asunto || 'Tu consulta en JD Developer'}</p>
+            <textarea
+              rows={5}
+              value={replyBody}
+              onChange={(e) => setReplyBody(e.target.value)}
+              placeholder="Escribe tu respuesta…"
+              className="input w-full text-sm"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setComposerOpen(false)}>Cancelar</Button>
+              <Button onClick={enviarRespuesta} disabled={sending || !replyBody.trim()}>
+                {sending ? 'Enviando…' : 'Enviar'}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}

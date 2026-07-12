@@ -152,11 +152,18 @@ export interface SendReplyPayload {
   to: string
   subject: string
   body: string
+  from?: string
   leadId?: string
   attachmentName?: string
   attachmentBase64?: string
   attachmentMimeType?: string
 }
+
+/** Alias de remitente disponibles para responder desde el CRM. */
+export const REPLY_ALIASES = [
+  { email: 'sales@jddeveloper.com', label: 'Ventas' },
+  { email: 'info@jddeveloper.com', label: 'Info' },
+] as const
 
 export type LeadSourceKey = 'google_maps' | 'google_web' | 'linkedin' | 'instagram' | 'facebook'
 

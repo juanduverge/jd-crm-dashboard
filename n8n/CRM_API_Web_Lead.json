@@ -7,7 +7,7 @@
         "path": "crm-web-lead",
         "responseMode": "responseNode",
         "options": {
-          "allowedOrigins": "https://jddeveloper.com,https://www.jddeveloper.com"
+          "allowedOrigins": "https://jddeveloper.com,https://www.jddeveloper.com,https://workspace.jddeveloper.com"
         }
       },
       "id": "wl-webhook",
