@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare } from 'lucide-react'
+import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn } from '@/lib/utils'
@@ -38,6 +38,7 @@ export function LeadDrawer({
   const [analizando, setAnalizando] = useState(false)
   const [composeOpen, setComposeOpen] = useState(false)
   const patchLocal = useLeadsStore((s) => s.patchLocal)
+  const toggleFavorito = useLeadsStore((s) => s.toggleFavorito)
   useEffect(() => { setSelectedEmail(undefined) }, [lead?.id])
   if (!lead) return null
   const sc = scoreColor(lead.score)
@@ -77,7 +78,16 @@ export function LeadDrawer({
               <p className="text-xs text-muted">{lead.ciudad} · {lead.nicho}</p>
             </div>
           </div>
-          <button onClick={onClose} className="btn-ghost"><X className="h-4 w-4" /></button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => toggleFavorito(lead.id)}
+              className={cn('btn-ghost', lead.favorito ? 'text-amber-400' : 'text-muted/50')}
+              title={lead.favorito ? 'Quitar de favoritos' : 'Marcar como favorito'}
+            >
+              <Star className={cn('h-4 w-4', lead.favorito && 'fill-amber-400')} />
+            </button>
+            <button onClick={onClose} className="btn-ghost"><X className="h-4 w-4" /></button>
+          </div>
         </div>
         <div className="mt-3 flex items-center gap-2">
           <Badge className={cn(sc.bg, sc.text)}>Score {lead.score}</Badge>

@@ -21,6 +21,9 @@ const persist = {
       prioridad: lead.prioridad, canalPrincipal: lead.canalPrincipal, responsable: lead.responsable,
     }).catch(() => {})
   },
+  favorito(lead: Lead) {
+    crmApi.updatePipelineExtra({ leadId: lead.id, favorito: !!lead.favorito }).catch(() => {})
+  },
   update(lead: Lead) {
     // Campos que viven en la hoja prospects.
     crmApi.updateLead({
@@ -56,6 +59,7 @@ interface LeadsState {
   addLead: (lead: Lead) => void
   updateLead: (id: string, patch: Partial<Lead>) => void
   patchLocal: (id: string, patch: Partial<Lead>) => void
+  toggleFavorito: (id: string) => void
   removeLeads: (ids: string[]) => void
   moveStage: (id: string, estado: Lead['estado']) => void
   toggleSelect: (id: string) => void
@@ -86,6 +90,12 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   /** Actualiza el estado local sin volver a persistir (usado tras acciones que ya escriben en Sheets, como el análisis IA). */
   patchLocal: (id, patch) => {
     set({ leads: get().leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) })
+  },
+  toggleFavorito: (id) => {
+    const leads = get().leads.map((l) => (l.id === id ? { ...l, favorito: !l.favorito } : l))
+    set({ leads })
+    const updated = leads.find((l) => l.id === id)
+    if (updated) persist.favorito(updated)
   },
   removeLeads: (ids) => {
     const set2 = new Set(ids)

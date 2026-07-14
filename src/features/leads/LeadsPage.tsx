@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   Plus, Download, RefreshCw, Trash2, Search, ArrowUpDown, Mail, MessageCircle,
-  Eye, Filter, X, Sparkles,
+  Eye, Filter, X, Sparkles, Star,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Select, Badge, Skeleton, EmptyState } from '@/components/ui'
@@ -18,18 +18,19 @@ import { scoreColor, fuzzyMatch, formatCurrency, downloadCSV, cn } from '@/lib/u
 import type { Lead } from '@/types'
 import { formToLeadPatch, type LeadFormValues } from './leadSchema'
 
-type SortKey = 'empresa' | 'score' | 'ciudad' | 'valorEstimado' | 'estado'
+type SortKey = 'empresa' | 'score' | 'ciudad' | 'valorEstimado' | 'estado' | 'favorito'
 
 export function LeadsPage() {
   const { isLoading, isError, refetch, isFetching } = useLeads()
   const leads = useLeadsStore((s) => s.leads)
-  const { addLead, updateLead, removeLeads, moveStage, selectedIds, toggleSelect, selectAll, clearSelection } = useLeadsStore()
+  const { addLead, updateLead, removeLeads, moveStage, selectedIds, toggleSelect, selectAll, clearSelection, toggleFavorito } = useLeadsStore()
 
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [fEstado, setFEstado] = useState('')
   const [fNicho, setFNicho] = useState('')
   const [fScoreMin, setFScoreMin] = useState(0)
+  const [fFavoritos, setFFavoritos] = useState(false)
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'score', dir: 'desc' })
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Lead | null>(null)
@@ -45,16 +46,18 @@ export function LeadsPage() {
       fuzzyMatch(`${l.empresa} ${l.email} ${l.ciudad} ${l.web}`, search) &&
       (!fEstado || l.estado === fEstado) &&
       (!fNicho || l.nicho === fNicho) &&
-      (l.score >= fScoreMin),
+      (l.score >= fScoreMin) &&
+      (!fFavoritos || l.favorito),
     )
     res = [...res].sort((a, b) => {
-      const av = a[sort.key] ?? '', bv = b[sort.key] ?? ''
+      const av = sort.key === 'favorito' ? (a.favorito ? 1 : 0) : (a[sort.key] ?? '')
+      const bv = sort.key === 'favorito' ? (b.favorito ? 1 : 0) : (b[sort.key] ?? '')
       const cmp = typeof av === 'number' && typeof bv === 'number'
         ? av - bv : String(av).localeCompare(String(bv))
       return sort.dir === 'asc' ? cmp : -cmp
     })
     return res
-  }, [leads, search, fEstado, fNicho, fScoreMin, sort])
+  }, [leads, search, fEstado, fNicho, fScoreMin, fFavoritos, sort])
 
   const allSelected = filtered.length > 0 && filtered.every((l) => selectedIds.has(l.id))
 
@@ -121,9 +124,21 @@ export function LeadsPage() {
 
       {/* Barra de búsqueda + filtros */}
       <div className="mb-3 flex flex-col gap-3">
-        <div className="relative max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-          <Input className="pl-9" placeholder="Buscar empresa, email, ciudad…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative max-w-md flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input className="pl-9" placeholder="Buscar empresa, email, ciudad…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
+          <button
+            onClick={() => setFFavoritos((v) => !v)}
+            className={cn(
+              'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+              fFavoritos ? 'border-amber-400 bg-amber-400/10 text-amber-500' : 'border-border text-muted hover:text-fg',
+            )}
+            title="Mostrar solo favoritos"
+          >
+            <Star className={cn('h-3.5 w-3.5', fFavoritos && 'fill-amber-400')} /> Solo favoritos
+          </button>
         </div>
         {showFilters && (
           <div className="card flex flex-wrap items-end gap-3 p-3">
@@ -180,6 +195,7 @@ export function LeadsPage() {
                   <th className="w-10 px-3 py-3">
                     <input type="checkbox" checked={allSelected} onChange={(e) => e.target.checked ? selectAll(filtered.map((l) => l.id)) : clearSelection()} className="accent-primary-400" />
                   </th>
+                  <Th onClick={() => toggleSort('favorito')}><span className="sr-only">Favorito</span><Star className="h-3.5 w-3.5" /></Th>
                   <Th onClick={() => toggleSort('empresa')}>Empresa</Th>
                   <th className="px-3 py-3 text-left font-medium">Contacto</th>
                   <Th onClick={() => toggleSort('ciudad')}>Ciudad</Th>
@@ -198,6 +214,15 @@ export function LeadsPage() {
                     <tr key={l.id} className="border-b border-border last:border-0 hover:bg-surface-2/60">
                       <td className="px-3 py-2.5">
                         <input type="checkbox" checked={selectedIds.has(l.id)} onChange={() => toggleSelect(l.id)} className="accent-primary-400" />
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <button
+                          onClick={() => toggleFavorito(l.id)}
+                          className={cn('flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-surface-2', l.favorito ? 'text-amber-400' : 'text-muted/50 hover:text-muted')}
+                          title={l.favorito ? 'Quitar de favoritos' : 'Marcar como favorito'}
+                        >
+                          <Star className={cn('h-4 w-4', l.favorito && 'fill-amber-400')} />
+                        </button>
                       </td>
                       <td className="max-w-[200px] px-3 py-2.5">
                         <button onClick={() => setDrawerLead(l)} className="block max-w-full truncate font-medium text-fg hover:text-primary-600" title={l.empresa}>{l.empresa}</button>

@@ -92,6 +92,7 @@ export const sheetsService = {
         responsable: pl['Responsable'] || 'JD',
         proximoSeguimiento: pl['Proximo seguimiento'] || pl['Próximo seguimiento'],
         ultimaAccion: pl['Fecha ultimo contacto'] || pl['Fecha último contacto'],
+        favorito: /^(true|1)$/i.test(pl['Favorito'] || ''),
       }
     })
   },

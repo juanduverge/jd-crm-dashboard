@@ -65,6 +65,7 @@ export interface Lead {
   ultimaAccion?: string
   proximoSeguimiento?: string
   fechaUltimoMovimiento?: string   // ISO; cuándo entró a la etapa actual (para "días en columna")
+  favorito?: boolean          // Marcado como favorito (col Favorito en pipeline)
 }
 
 /** Mensaje = fila de la hoja "messages" */

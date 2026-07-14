@@ -202,7 +202,7 @@ export const crmApi = {
   },
 
   /** Escribe SOLO Probabilidad y Fecha cierre estimada (celdas aisladas, no toca el resto de la fila). */
-  async updatePipelineExtra(payload: { leadId: string; probabilidad?: number; fechaCierreEstimada?: string }) {
+  async updatePipelineExtra(payload: { leadId: string; probabilidad?: number; fechaCierreEstimada?: string; favorito?: boolean }) {
     const { data } = await http.post('/crm-sheets-write', { action: 'pipeline_extra', ...payload })
     return data
   },
