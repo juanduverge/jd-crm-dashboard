@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst action = body.action;\nconst allowed = ['pipeline_update','lead_create','lead_update','outreach_update','campaign_create','campaign_update','campaign_delete','campaign_restore','lead_delete','lead_restore','pipeline_delete','pipeline_restore','config_update','lead_purge','pipeline_purge','pipeline_extra','analizar_lead'];\nif (!allowed.includes(action)) throw new Error('Invalid action: ' + action);\nif (!body.leadId && action !== 'lead_create' && !action.startsWith('campaign_') && action !== 'config_update') throw new Error('leadId required');\nreturn [{ json: { action, data: body } }];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst action = body.action;\nconst allowed = ['pipeline_update','lead_create','lead_update','outreach_update','campaign_create','campaign_update','campaign_delete','campaign_restore','lead_delete','lead_restore','pipeline_delete','pipeline_restore','config_update','lead_purge','pipeline_purge','pipeline_extra','analizar_lead','contacto_create','contacto_update','contacto_delete'];\nif (!allowed.includes(action)) throw new Error('Invalid action: ' + action);\nif (!body.leadId && action !== 'lead_create' && !action.startsWith('campaign_') && action !== 'config_update' && action !== 'contacto_create' && action !== 'contacto_update' && action !== 'contacto_delete') throw new Error('leadId required');\nreturn [{ json: { action, data: body } }];"
       },
       "id": "a2222222-2222-4222-8222-222222222222",
       "name": "Validate",
@@ -408,6 +408,72 @@
               },
               "renameOutput": true,
               "outputKey": "analizar_lead"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "contacto_create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "contacto_create"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "contacto_update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "contacto_update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "contacto_delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "contacto_delete"
             }
           ]
         },
@@ -1746,6 +1812,241 @@
           }
         }
       }
+    },
+    {
+      "id": "ct0-build",
+      "name": "Build Contacto Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        2300
+      ],
+      "parameters": {
+        "jsCode": "const d = $json.data;\nconst id = d.id || ('CT-' + Date.now());\nconst now = new Date().toISOString();\nconst body = {\n  range: 'contactos!A:J',\n  majorDimension: 'ROWS',\n  values: [[\n    id, d.leadId || '', d.nombre || '', d.cargo || '', d.email || '', d.telefono || '',\n    d.tipo || 'otro', d.notas || '', now, ''\n  ]]\n};\nreturn [{ json: { id, body } }];"
+      }
+    },
+    {
+      "id": "ct1-append",
+      "name": "Append Contacto Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        2300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/contactos!A:J:append?valueInputOption=USER_ENTERED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "ct2-respond",
+      "name": "Respond Contacto Create",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1280,
+        2300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, id: $json.id }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "ct3-find",
+      "name": "Find Contacto Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        2500
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/contactos!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "ct4-buildupd",
+      "name": "Build Contacto Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        2500
+      ],
+      "parameters": {
+        "jsCode": "const ids = ($json.values || []).map(r => r[0]);\nconst d = $('Validate').item.json.data;\nconst idx = ids.indexOf(d.id);\nif (idx === -1) throw new Error('Contacto no encontrado: ' + d.id);\nconst rowNum = idx + 1;\nconst fieldMap = { nombre: 'C', cargo: 'D', email: 'E', telefono: 'F', tipo: 'G', notas: 'H' };\nconst updates = [];\nfor (const [k, col] of Object.entries(fieldMap)) {\n  if (d[k] !== undefined) updates.push({ range: `contactos!${col}${rowNum}`, values: [[d[k]]] });\n}\nreturn [{ json: { body: { valueInputOption: 'USER_ENTERED', data: updates } } }];"
+      }
+    },
+    {
+      "id": "ct5-updfields",
+      "name": "Update Contacto Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        2500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "ct6-resp",
+      "name": "Respond Contacto Update",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1480,
+        2500
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "ct7-find",
+      "name": "Find Contacto Row Delete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        2700
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/contactos!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "ct8-builddel",
+      "name": "Build Contacto Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        2700
+      ],
+      "parameters": {
+        "jsCode": "const ids = ($json.values || []).map(r => r[0]);\nconst d = $('Validate').item.json.data;\nconst idx = ids.indexOf(d.id);\nif (idx === -1) throw new Error('Contacto no encontrado: ' + d.id);\nconst rowNum = idx + 1;\nconst body = { valueInputOption: 'USER_ENTERED', data: [{ range: `contactos!J${rowNum}`, values: [['true']] }] };\nreturn [{ json: { body } }];"
+      }
+    },
+    {
+      "id": "ct9-delfields",
+      "name": "Delete Contacto Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        2700
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "ct10-resp",
+      "name": "Respond Contacto Delete",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1480,
+        2700
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "connections": {
@@ -1888,6 +2189,27 @@
         [
           {
             "node": "Find Prospects Row Analizar",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Contacto Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Contacto Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Contacto Row Delete",
             "type": "main",
             "index": 0
           }
@@ -2463,6 +2785,94 @@
         [
           {
             "node": "Respond Analizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Contacto Row": {
+      "main": [
+        [
+          {
+            "node": "Append Contacto Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Contacto Row": {
+      "main": [
+        [
+          {
+            "node": "Respond Contacto Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Contacto Row": {
+      "main": [
+        [
+          {
+            "node": "Build Contacto Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Contacto Update": {
+      "main": [
+        [
+          {
+            "node": "Update Contacto Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Contacto Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond Contacto Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Contacto Row Delete": {
+      "main": [
+        [
+          {
+            "node": "Build Contacto Delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Contacto Delete": {
+      "main": [
+        [
+          {
+            "node": "Delete Contacto Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Contacto Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond Contacto Delete",
             "type": "main",
             "index": 0
           }

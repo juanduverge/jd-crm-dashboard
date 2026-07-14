@@ -24,7 +24,7 @@ const http = axios.create({
   },
 })
 
-export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox' | 'campaigns' | 'search_log' | 'web_leads' | 'tareas'
+export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox' | 'campaigns' | 'search_log' | 'web_leads' | 'tareas' | 'contactos'
 
 export interface PipelineUpdatePayload {
   leadId: string
@@ -304,6 +304,24 @@ export const crmApi = {
     ratingGoogle?: number; numResenas?: number; diagnosticoIA?: string; notas?: string
   }): Promise<{ ok: boolean; scoreIA: number; observaciones: string; recomendaciones: string; oportunidades: string; errores: string }> {
     const { data } = await http.post('/crm-sheets-write', { action: 'analizar_lead', ...payload }, { timeout: 60000 })
+    return data
+  },
+
+  /** Crea un contacto nuevo para un lead (append en contactos). */
+  async createContact(payload: { leadId: string; nombre: string; cargo?: string; email?: string; telefono?: string; tipo?: string; notas?: string }) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'contacto_create', ...payload })
+    return data as { ok: boolean; id: string }
+  },
+
+  /** Edita campos de un contacto existente. */
+  async updateContact(payload: { leadId: string; id: string; nombre?: string; cargo?: string; email?: string; telefono?: string; tipo?: string; notas?: string }) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'contacto_update', ...payload })
+    return data
+  },
+
+  /** Elimina (soft-delete) un contacto. */
+  async deleteContact(payload: { leadId: string; id: string }) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'contacto_delete', ...payload })
     return data
   },
 

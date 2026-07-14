@@ -4,47 +4,49 @@
     {
       "parameters": {
         "httpMethod": "GET",
-        "path": "crm/sheets/:tab",
+        "path": "crm-sheets-read",
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "wh-read",
-      "name": "Webhook GET",
+      "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-260, 0],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "crm-sheets-read"
     },
     {
       "parameters": {
-        "jsCode": "// Whitelist de hojas permitidas; evita lecturas arbitrarias.\nconst allowed = ['prospects', 'outreach', 'pipeline', 'messages', 'config'];\nconst tab = ($json.params && $json.params.tab) || '';\nif (!allowed.includes(tab)) {\n  throw new Error('Hoja no permitida: ' + tab);\n}\nreturn [{ json: { tab } }];"
+        "jsCode": "const allowed = ['prospects','outreach','pipeline','messages','config','inbox','campaigns','optout','search_log','web_leads','tareas','contactos'];\nconst q = ($input.first().json.query) || {};\nconst sheet = String(q.sheet || '').trim();\nif (!allowed.includes(sheet)) {\n  throw new Error('Invalid sheet param: ' + sheet);\n}\nreturn [{ json: { sheet } }];"
       },
-      "id": "validate",
-      "name": "Validar hoja",
+      "id": "22222222-2222-4222-8222-222222222222",
+      "name": "Validate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-40, 0]
+      "position": [
+        220,
+        0
+      ]
     },
     {
       "parameters": {
-        "operation": "read",
-        "documentId": {
-          "__rl": true,
-          "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE",
-          "mode": "id"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "={{ $json.tab }}",
-          "mode": "name"
-        },
+        "method": "GET",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/{{ encodeURIComponent($json.sheet) }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
         "options": {}
       },
-      "id": "read-sheet",
-      "name": "Leer hoja",
-      "type": "n8n-nodes-base.googleSheets",
+      "id": "33333333-3333-4333-8333-333333333333",
+      "name": "Sheets Values",
+      "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [200, 0],
+      "position": [
+        440,
+        0
+      ],
       "credentials": {
         "googleSheetsOAuth2Api": {
           "id": "86m52fKwvUB07q9D",
@@ -54,13 +56,16 @@
     },
     {
       "parameters": {
-        "jsCode": "// Empaqueta todas las filas en una sola respuesta { rows: [...] }.\nconst rows = items.map((i) => i.json);\nreturn [{ json: { rows } }];"
+        "jsCode": "const v = $json.values || [];\nif (v.length === 0) return [{ json: { rows: [] } }];\nconst headers = v[0];\nconst rows = v.slice(1).map(r => {\n  const o = {};\n  headers.forEach((h, i) => { o[h] = r[i] != null ? r[i] : ''; });\n  return o;\n});\nreturn [{ json: { rows } }];"
       },
-      "id": "pack",
-      "name": "Empaquetar",
+      "id": "44444444-4444-4444-8444-444444444444",
+      "name": "To Objects",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [440, 0]
+      "position": [
+        660,
+        0
+      ]
     },
     {
       "parameters": {
@@ -69,23 +74,71 @@
         "options": {
           "responseHeaders": {
             "entries": [
-              { "name": "Access-Control-Allow-Origin", "value": "*" }
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
             ]
           }
         }
       },
-      "id": "respond",
-      "name": "Responder",
+      "id": "55555555-5555-4555-8555-555555555555",
+      "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [680, 0]
+      "position": [
+        880,
+        0
+      ]
     }
   ],
   "connections": {
-    "Webhook GET": { "main": [[{ "node": "Validar hoja", "type": "main", "index": 0 }]] },
-    "Validar hoja": { "main": [[{ "node": "Leer hoja", "type": "main", "index": 0 }]] },
-    "Leer hoja": { "main": [[{ "node": "Empaquetar", "type": "main", "index": 0 }]] },
-    "Empaquetar": { "main": [[{ "node": "Responder", "type": "main", "index": 0 }]] }
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate": {
+      "main": [
+        [
+          {
+            "node": "Sheets Values",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets Values": {
+      "main": [
+        [
+          {
+            "node": "To Objects",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "To Objects": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

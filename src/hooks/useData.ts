@@ -518,6 +518,40 @@ export function useUpdateConfig() {
   })
 }
 
+/** Contactos de un lead (hoja "contactos", varios por lead). */
+export function useContacts(leadId?: string) {
+  return useQuery({
+    queryKey: ['contactos', leadId],
+    queryFn: () => sheetsService.getContacts(leadId as string),
+    enabled: !!leadId,
+    staleTime: 10_000,
+  })
+}
+
+export function useCreateContact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof crmApi.createContact>[0]) => crmApi.createContact(payload),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['contactos', vars.leadId] }),
+  })
+}
+
+export function useUpdateContact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof crmApi.updateContact>[0]) => crmApi.updateContact(payload),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['contactos', vars.leadId] }),
+  })
+}
+
+export function useDeleteContact() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof crmApi.deleteContact>[0]) => crmApi.deleteContact(payload),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['contactos', vars.leadId] }),
+  })
+}
+
 /** Actividad reciente derivada de mensajes reales (sheet "messages"). */
 export function useActivity() {
   return useQuery({

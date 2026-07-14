@@ -1,15 +1,21 @@
 import { useState, useEffect } from 'react'
-import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2 } from 'lucide-react'
+import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn } from '@/lib/utils'
 import { PIPELINE_STAGES } from '@/lib/config'
 import { crmApi } from '@/services/crmApi'
 import { useLeadsStore } from '@/store/leadsStore'
+import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '@/hooks/useData'
 import toast from 'react-hot-toast'
-import type { Lead } from '@/types'
+import type { Lead, Contact, ContactType } from '@/types'
 
-const TABS = ['Detalles', 'Actividad', 'Mensajes', 'Notas'] as const
+const TABS = ['Detalles', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
+
+const TIPO_LABELS: Record<ContactType, string> = {
+  principal: 'Principal', ventas: 'Ventas', soporte: 'Soporte',
+  facturacion: 'Facturación', personal: 'Personal', otro: 'Otro',
+}
 
 export function LeadDrawer({
   lead, onClose, onEdit, onMoveStage,
@@ -168,6 +174,7 @@ export function LeadDrawer({
             </div>
           </div>
         )}
+        {tab === 'Contactos' && <ContactsTab leadId={lead.id} />}
         {tab === 'Actividad' && <Timeline lead={lead} />}
         {tab === 'Mensajes' && <p className="text-sm text-muted">Historial de mensajes disponible en el tab Mensajes (Fase 3).</p>}
         {tab === 'Notas' && <p className="whitespace-pre-wrap text-sm text-fg">{lead.notas || 'Sin notas.'}</p>}
@@ -193,6 +200,135 @@ function Stat({ label, value }: { label: string; value?: number }) {
     <div className="rounded-xl border border-border p-2 text-center">
       <p className="text-lg font-bold text-fg">{value ?? '—'}</p>
       <p className="text-[10px] text-muted">{label}</p>
+    </div>
+  )
+}
+
+const emptyForm = { nombre: '', cargo: '', email: '', telefono: '', tipo: 'otro' as ContactType, notas: '' }
+
+function ContactsTab({ leadId }: { leadId: string }) {
+  const { data: contacts, isLoading } = useContacts(leadId)
+  const createContact = useCreateContact()
+  const updateContact = useUpdateContact()
+  const deleteContact = useDeleteContact()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [showNew, setShowNew] = useState(false)
+  const [form, setForm] = useState(emptyForm)
+
+  const startEdit = (c: Contact) => {
+    setEditingId(c.id)
+    setShowNew(false)
+    setForm({ nombre: c.nombre, cargo: c.cargo || '', email: c.email || '', telefono: c.telefono || '', tipo: c.tipo, notas: c.notas || '' })
+  }
+
+  const startNew = () => {
+    setShowNew(true)
+    setEditingId(null)
+    setForm(emptyForm)
+  }
+
+  const cancel = () => {
+    setShowNew(false)
+    setEditingId(null)
+    setForm(emptyForm)
+  }
+
+  const save = async () => {
+    if (!form.nombre.trim()) return toast.error('El nombre es obligatorio')
+    try {
+      if (editingId) {
+        await updateContact.mutateAsync({ leadId, id: editingId, ...form })
+        toast.success('Contacto actualizado')
+      } else {
+        await createContact.mutateAsync({ leadId, ...form })
+        toast.success('Contacto agregado')
+      }
+      cancel()
+    } catch {
+      toast.error('No se pudo guardar el contacto')
+    }
+  }
+
+  const remove = async (id: string) => {
+    try {
+      await deleteContact.mutateAsync({ leadId, id })
+      toast.success('Contacto eliminado')
+    } catch {
+      toast.error('No se pudo eliminar el contacto')
+    }
+  }
+
+  const saving = createContact.isPending || updateContact.isPending
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="flex items-center gap-1 text-xs font-medium text-muted"><Users className="h-3.5 w-3.5" /> Contactos del lead</p>
+        {!showNew && !editingId && (
+          <Button size="sm" variant="outline" onClick={startNew}><Plus className="h-3.5 w-3.5" /> Agregar</Button>
+        )}
+      </div>
+
+      {isLoading && <p className="text-sm text-muted">Cargando contactos…</p>}
+      {!isLoading && contacts?.length === 0 && !showNew && <p className="text-sm text-muted">Sin contactos registrados.</p>}
+
+      {contacts?.map((c) => (
+        editingId === c.id ? (
+          <ContactForm key={c.id} form={form} setForm={setForm} onSave={save} onCancel={cancel} saving={saving} />
+        ) : (
+          <div key={c.id} className="rounded-xl border border-border p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-sm font-medium text-fg">
+                  {c.nombre}
+                  <Badge>{TIPO_LABELS[c.tipo]}</Badge>
+                </p>
+                {c.cargo && <p className="text-xs text-muted">{c.cargo}</p>}
+                {c.email && <p className="truncate text-xs text-muted">{c.email}</p>}
+                {c.telefono && <p className="text-xs text-muted">{c.telefono}</p>}
+                {c.notas && <p className="mt-1 text-xs text-muted">{c.notas}</p>}
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <button onClick={() => startEdit(c)} className="btn-ghost h-7 w-7"><Pencil className="h-3.5 w-3.5" /></button>
+                <button onClick={() => remove(c.id)} className="btn-ghost h-7 w-7 text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+          </div>
+        )
+      ))}
+
+      {showNew && <ContactForm form={form} setForm={setForm} onSave={save} onCancel={cancel} saving={saving} />}
+    </div>
+  )
+}
+
+function ContactForm({
+  form, setForm, onSave, onCancel, saving,
+}: {
+  form: typeof emptyForm
+  setForm: (f: typeof emptyForm) => void
+  onSave: () => void
+  onCancel: () => void
+  saving: boolean
+}) {
+  return (
+    <div className="space-y-2 rounded-xl border border-primary-500/30 bg-primary-500/5 p-3">
+      <input className="input" placeholder="Nombre *" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+      <div className="grid grid-cols-2 gap-2">
+        <input className="input" placeholder="Cargo" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
+        <select className="input" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value as ContactType })}>
+          {Object.entries(TIPO_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <input className="input" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <input className="input" placeholder="Teléfono" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
+      </div>
+      <textarea className="input" placeholder="Notas" rows={2} value={form.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} />
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="outline" onClick={onCancel}>Cancelar</Button>
+        <Button size="sm" onClick={onSave} disabled={saving}>{saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} Guardar</Button>
+      </div>
     </div>
   )
 }

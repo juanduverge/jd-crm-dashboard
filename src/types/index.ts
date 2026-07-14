@@ -216,6 +216,21 @@ export interface Tarea {
   actualizado?: string
 }
 
+export type ContactType = 'principal' | 'ventas' | 'soporte' | 'facturacion' | 'personal' | 'otro'
+
+/** Contacto = fila de la hoja "contactos" (varios contactos por lead) */
+export interface Contact {
+  id: string           // ID Contacto
+  leadId: string        // ID Lead
+  nombre: string
+  cargo?: string
+  email?: string
+  telefono?: string
+  tipo: ContactType
+  notas?: string
+  creado?: string       // Fecha creacion
+}
+
 export type TrashModule = 'lead' | 'pipeline' | 'campaign' | 'tarea' | 'web_lead'
 
 /** Registro eliminado (soft-delete) pendiente de purga, mostrado en la Papelera. */
