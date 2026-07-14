@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
-import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag } from 'lucide-react'
+import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2 } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn } from '@/lib/utils'
 import { PIPELINE_STAGES } from '@/lib/config'
+import { crmApi } from '@/services/crmApi'
+import { useLeadsStore } from '@/store/leadsStore'
+import toast from 'react-hot-toast'
 import type { Lead } from '@/types'
 
 const TABS = ['Detalles', 'Actividad', 'Mensajes', 'Notas'] as const
@@ -18,11 +21,33 @@ export function LeadDrawer({
 }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Detalles')
   const [selectedEmail, setSelectedEmail] = useState<string | undefined>(undefined)
+  const [analizando, setAnalizando] = useState(false)
+  const patchLocal = useLeadsStore((s) => s.patchLocal)
   useEffect(() => { setSelectedEmail(undefined) }, [lead?.id])
   if (!lead) return null
   const sc = scoreColor(lead.score)
   const emailOptions = lead.emails && lead.emails.length > 1 ? lead.emails : undefined
   const activeEmail = selectedEmail && emailOptions?.includes(selectedEmail) ? selectedEmail : (emailOptions?.[0] ?? lead.email)
+
+  const analizarConIA = async () => {
+    setAnalizando(true)
+    try {
+      const r = await crmApi.analizarLead({
+        leadId: lead.id, empresa: lead.empresa, nicho: lead.nicho, web: lead.web, score: lead.score,
+        pageSpeedMovil: lead.pageSpeedMovil, pageSpeedDesktop: lead.pageSpeedDesktop, tieneSSL: lead.tieneSSL,
+        ratingGoogle: lead.ratingGoogle, numResenas: lead.numResenas, diagnosticoIA: lead.diagnosticoIA, notas: lead.notas,
+      })
+      patchLocal(lead.id, {
+        scoreIA: r.scoreIA, observacionesIA: r.observaciones, recomendacionesIA: r.recomendaciones,
+        oportunidadesIA: r.oportunidades, erroresIA: r.errores,
+      })
+      toast.success('Análisis IA completado')
+    } catch {
+      toast.error('No se pudo analizar el lead')
+    } finally {
+      setAnalizando(false)
+    }
+  }
 
   return (
     <Drawer open={!!lead} onClose={onClose}>
@@ -46,6 +71,10 @@ export function LeadDrawer({
         </div>
         <div className="mt-3 flex gap-2">
           <Button size="sm" onClick={() => onEdit(lead)}><Edit3 className="h-3.5 w-3.5" /> Editar</Button>
+          <Button size="sm" variant="outline" onClick={analizarConIA} disabled={analizando}>
+            {analizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            {analizando ? 'Analizando…' : lead.scoreIA !== undefined ? 'Reanalizar con IA' : 'Analizar con IA'}
+          </Button>
           {activeEmail && <a className="btn btn-outline h-8 px-3 text-xs" href={`mailto:${activeEmail}`}><Mail className="h-3.5 w-3.5" /> Email</a>}
           {lead.whatsapp && <a className="btn btn-outline h-8 px-3 text-xs" target="_blank" href={`https://wa.me/${lead.whatsapp.replace(/\D/g, '')}`}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</a>}
         </div>
@@ -108,6 +137,18 @@ export function LeadDrawer({
               <div className="rounded-xl bg-surface-2 p-3">
                 <p className="mb-1 text-xs font-medium text-muted">Diagnóstico IA</p>
                 <p className="text-sm text-fg">{lead.diagnosticoIA}</p>
+              </div>
+            )}
+            {lead.scoreIA !== undefined && (
+              <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="flex items-center gap-1 text-xs font-medium text-primary-600"><Sparkles className="h-3.5 w-3.5" /> Análisis IA</p>
+                  <Badge className={cn(scoreColor(lead.scoreIA).bg, scoreColor(lead.scoreIA).text)}>{lead.scoreIA}/100</Badge>
+                </div>
+                {lead.observacionesIA && <p className="text-sm text-fg"><b className="text-muted">Observaciones: </b>{lead.observacionesIA}</p>}
+                {lead.recomendacionesIA && <p className="text-sm text-fg"><b className="text-muted">Recomendaciones: </b>{lead.recomendacionesIA}</p>}
+                {lead.oportunidadesIA && <p className="text-sm text-fg"><b className="text-muted">Oportunidades: </b>{lead.oportunidadesIA}</p>}
+                {lead.erroresIA && <p className="text-sm text-fg"><b className="text-muted">Errores: </b>{lead.erroresIA}</p>}
               </div>
             )}
             <div className="grid grid-cols-2 gap-2">

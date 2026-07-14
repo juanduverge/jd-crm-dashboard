@@ -45,6 +45,11 @@ export interface Lead {
   pageSpeedDesktop?: number
   tieneSSL?: boolean
   diagnosticoIA?: string
+  scoreIA?: number             // Score IA Lead (0-100), análisis bajo demanda
+  observacionesIA?: string
+  recomendacionesIA?: string
+  oportunidadesIA?: string
+  erroresIA?: string
   score: number               // Score lead (0-100) / Score Final Combinado
   fuente?: string             // Fuente Apify
   notas?: string

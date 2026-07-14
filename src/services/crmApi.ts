@@ -297,6 +297,16 @@ export const crmApi = {
     return data
   },
 
+  /** Analiza un lead con IA bajo demanda: score, observaciones, recomendaciones, oportunidades y errores. */
+  async analizarLead(payload: {
+    leadId: string; empresa?: string; nicho?: string; web?: string; score?: number
+    pageSpeedMovil?: number; pageSpeedDesktop?: number; tieneSSL?: boolean
+    ratingGoogle?: number; numResenas?: number; diagnosticoIA?: string; notas?: string
+  }): Promise<{ ok: boolean; scoreIA: number; observaciones: string; recomendaciones: string; oportunidades: string; errores: string }> {
+    const { data } = await http.post('/crm-sheets-write', { action: 'analizar_lead', ...payload }, { timeout: 60000 })
+    return data
+  },
+
   /** Genera asunto+cuerpo de outreach vía Claude (workflow n8n). */
   async generateWithAI(payload: GenerateAIPayload): Promise<GenerateAIResult> {
     const { data } = await http.post('/crm-generate-ai', payload, { timeout: 60000 })
