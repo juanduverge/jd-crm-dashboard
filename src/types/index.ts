@@ -53,6 +53,8 @@ export interface Lead {
   prioridad?: Priority
   canalPrincipal?: Channel
   valorEstimado?: number      // Valor estimado (USD)
+  probabilidad?: number       // % de cierre (override de la etapa); col Probabilidad
+  fechaCierreEstimada?: string // Fecha estimada de cierre; col Fecha cierre estimada
   responsable?: string
   ultimaAccion?: string
   proximoSeguimiento?: string

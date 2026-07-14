@@ -201,6 +201,12 @@ export const crmApi = {
     return data
   },
 
+  /** Escribe SOLO Probabilidad y Fecha cierre estimada (celdas aisladas, no toca el resto de la fila). */
+  async updatePipelineExtra(payload: { leadId: string; probabilidad?: number; fechaCierreEstimada?: string }) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'pipeline_extra', ...payload })
+    return data
+  },
+
   /** Crea un lead nuevo (append en prospects). */
   async createLead(payload: LeadCreatePayload) {
     const { data } = await http.post('/crm-sheets-write', { action: 'lead_create', ...payload })

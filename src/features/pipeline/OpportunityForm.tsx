@@ -3,6 +3,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button, Input, Select, Textarea } from '@/components/ui'
 import { PIPELINE_STAGES } from '@/lib/config'
 import { formatCurrency } from '@/lib/utils'
+import { crmApi } from '@/services/crmApi'
 import type { Lead, LeadStatus, Priority, Channel } from '@/types'
 
 /**
@@ -24,6 +25,8 @@ export function OpportunityForm({
   const [responsable, setResponsable] = useState('')
   const [proximoSeguimiento, setProximo] = useState('')
   const [notas, setNotas] = useState('')
+  const [probabilidad, setProb] = useState<number | ''>('')
+  const [fechaCierreEstimada, setCierre] = useState('')
 
   useEffect(() => {
     if (lead && open) {
@@ -34,16 +37,28 @@ export function OpportunityForm({
       setResponsable(lead.responsable ?? '')
       setProximo(lead.proximoSeguimiento ?? '')
       setNotas(lead.notas ?? '')
+      setProb(lead.probabilidad ?? '')
+      setCierre(lead.fechaCierreEstimada ?? '')
     }
   }, [lead, open])
 
   if (!lead) return null
 
   const stageProb = PIPELINE_STAGES.find((s) => s.id === estado)?.probability ?? 0
-  const ponderado = Math.round((valorEstimado || 0) * stageProb)
+  const probEfectiva = probabilidad === '' ? stageProb : probabilidad / 100
+  const ponderado = Math.round((valorEstimado || 0) * probEfectiva)
 
   const save = () => {
-    onSave(lead.id, { estado, valorEstimado, prioridad, canalPrincipal, responsable, proximoSeguimiento, notas })
+    onSave(lead.id, {
+      estado, valorEstimado, prioridad, canalPrincipal, responsable, proximoSeguimiento, notas,
+      probabilidad: probabilidad === '' ? undefined : probabilidad, fechaCierreEstimada,
+    })
+    // Probabilidad y fecha de cierre viven en columnas aisladas → acción dedicada.
+    crmApi.updatePipelineExtra({
+      leadId: lead.id,
+      probabilidad: probabilidad === '' ? undefined : probabilidad,
+      fechaCierreEstimada,
+    }).catch(() => {})
     onClose()
   }
 
@@ -96,14 +111,28 @@ export function OpportunityForm({
           <span className="mb-1 block text-xs font-medium text-muted">Próximo seguimiento</span>
           <Input type="date" value={proximoSeguimiento?.slice(0, 10) ?? ''} onChange={(e) => setProximo(e.target.value)} />
         </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">
+            Probabilidad de cierre (%) <span className="text-muted/70">· vacío = {Math.round(stageProb * 100)}% por etapa</span>
+          </span>
+          <Input
+            type="number" min={0} max={100} value={probabilidad}
+            placeholder={String(Math.round(stageProb * 100))}
+            onChange={(e) => setProb(e.target.value === '' ? '' : Math.max(0, Math.min(100, +e.target.value)))}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">Fecha estimada de cierre</span>
+          <Input type="date" value={fechaCierreEstimada?.slice(0, 10) ?? ''} onChange={(e) => setCierre(e.target.value)} />
+        </label>
         <div className="sm:col-span-2">
           <span className="mb-1 block text-xs font-medium text-muted">Notas</span>
           <Textarea value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="Contexto, siguiente paso…" />
         </div>
 
-        {/* Resumen ponderado (probabilidad por etapa) */}
+        {/* Resumen ponderado */}
         <div className="sm:col-span-2 flex items-center justify-between rounded-xl border border-border bg-surface-2 px-4 py-2.5 text-sm">
-          <span className="text-muted">Probabilidad de la etapa: <b className="text-fg">{Math.round(stageProb * 100)}%</b></span>
+          <span className="text-muted">Probabilidad efectiva: <b className="text-fg">{Math.round(probEfectiva * 100)}%</b></span>
           <span className="text-muted">Valor ponderado: <b className="text-fg">{formatCurrency(ponderado)}</b></span>
         </div>
       </div>

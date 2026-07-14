@@ -74,6 +74,8 @@ export const sheetsService = {
         prioridad: (pl['Prioridad']?.toLowerCase() as Lead['prioridad']) || 'media',
         canalPrincipal: (pl['Canal principal']?.toLowerCase() as Lead['canalPrincipal']) || 'email',
         valorEstimado: num(pl['Valor estimado (USD)']),
+        probabilidad: pl['Probabilidad'] ? num(pl['Probabilidad']) : undefined,
+        fechaCierreEstimada: pl['Fecha cierre estimada'] || undefined,
         responsable: pl['Responsable'] || 'JD',
         proximoSeguimiento: pl['Proximo seguimiento'] || pl['Próximo seguimiento'],
         ultimaAccion: pl['Fecha ultimo contacto'] || pl['Fecha último contacto'],

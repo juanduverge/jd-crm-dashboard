@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst action = body.action;\nconst allowed = ['pipeline_update','lead_create','lead_update','outreach_update','campaign_create','campaign_update','campaign_delete','campaign_restore','lead_delete','lead_restore','pipeline_delete','pipeline_restore','config_update','lead_purge','pipeline_purge'];\nif (!allowed.includes(action)) throw new Error('Invalid action: ' + action);\nif (!body.leadId && action !== 'lead_create' && !action.startsWith('campaign_') && action !== 'config_update') throw new Error('leadId required');\nreturn [{ json: { action, data: body } }];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst action = body.action;\nconst allowed = ['pipeline_update','lead_create','lead_update','outreach_update','campaign_create','campaign_update','campaign_delete','campaign_restore','lead_delete','lead_restore','pipeline_delete','pipeline_restore','config_update','lead_purge','pipeline_purge','pipeline_extra'];\nif (!allowed.includes(action)) throw new Error('Invalid action: ' + action);\nif (!body.leadId && action !== 'lead_create' && !action.startsWith('campaign_') && action !== 'config_update') throw new Error('leadId required');\nreturn [{ json: { action, data: body } }];"
       },
       "id": "a2222222-2222-4222-8222-222222222222",
       "name": "Validate",
@@ -364,6 +364,28 @@
               },
               "renameOutput": true,
               "outputKey": "pipeline_purge"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "pipeline_extra",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pipeline_extra"
             }
           ]
         },
@@ -1467,6 +1489,92 @@
           }
         }
       }
+    },
+    {
+      "id": "ex0-gvgan217",
+      "name": "Find Pipeline Row Extra",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        1900
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/pipeline!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "ex1-jmy363gw",
+      "name": "Build Pipeline Extra",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        1900
+      ],
+      "parameters": {
+        "jsCode": "const ids = ($json.values || []).map(r => r[0]);\nconst d = $('Validate').item.json.data;\nconst idx = ids.indexOf(d.leadId);\nif (idx === -1) throw new Error('Pipeline no encontrado: ' + d.leadId);\nconst rowNum = idx + 1;\nconst fieldMap = { probabilidad: 'O', fechaCierreEstimada: 'P' };\nconst updates = [];\nfor (const [k, col] of Object.entries(fieldMap)) {\n  if (d[k] !== undefined) updates.push({ range: `pipeline!${col}${rowNum}`, values: [[d[k]]] });\n}\nreturn [{ json: { body: { valueInputOption: 'USER_ENTERED', data: updates } } }];"
+      }
+    },
+    {
+      "id": "ex2-z3ph79qv",
+      "name": "Pipeline Extra Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        1900
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "ex3-93159rlg",
+      "name": "Respond Pipeline Extra",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        1900
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "connections": {
@@ -1595,6 +1703,13 @@
         [
           {
             "node": "Find Pipeline Row Purge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Pipeline Row Extra",
             "type": "main",
             "index": 0
           }
@@ -2071,6 +2186,39 @@
         [
           {
             "node": "Respond Pipeline Purge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Pipeline Row Extra": {
+      "main": [
+        [
+          {
+            "node": "Build Pipeline Extra",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Pipeline Extra": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Extra Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipeline Extra Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond Pipeline Extra",
             "type": "main",
             "index": 0
           }
