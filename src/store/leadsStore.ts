@@ -22,9 +22,23 @@ const persist = {
     }).catch(() => {})
   },
   update(lead: Lead) {
+    // Campos que viven en la hoja prospects.
     crmApi.updateLead({
-      leadId: lead.id, empresa: lead.empresa, email: lead.email, telefono: lead.telefono,
-      ciudad: lead.ciudad, nicho: lead.nicho, web: lead.web, score: lead.score,
+      leadId: lead.id,
+      empresa: lead.empresa, cargo: lead.cargo, nicho: lead.nicho,
+      ciudad: lead.ciudad, pais: lead.pais, direccion: lead.direccion,
+      telefono: lead.telefono, email: lead.email, web: lead.web,
+      whatsapp: lead.whatsapp, instagram: lead.instagram,
+      facebook: lead.facebook, linkedin: lead.linkedin,
+      score: lead.score, fuente: lead.fuente, notas: lead.notas,
+      etiquetas: (lead.etiquetas ?? []).join(', '),
+    }).catch(() => {})
+    // Campos que viven en la hoja pipeline.
+    crmApi.updatePipeline({
+      leadId: lead.id, empresa: lead.empresa, estado: lead.estado,
+      valorEstimado: lead.valorEstimado, prioridad: lead.prioridad,
+      canalPrincipal: lead.canalPrincipal, responsable: lead.responsable,
+      proximoSeguimiento: lead.proximoSeguimiento,
     }).catch(() => {})
   },
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch } from 'lucide-react'
+import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn } from '@/lib/utils'
@@ -60,10 +60,28 @@ export function LeadDrawer({
       <div className="p-5">
         {tab === 'Detalles' && (
           <div className="space-y-3 text-sm">
+            <Row icon={Briefcase} label="Cargo" value={lead.cargo} />
             <Row icon={Globe} label="Web" value={lead.web} link={lead.web} />
             <Row icon={Mail} label="Email" value={lead.email} link={lead.email ? `mailto:${lead.email}` : undefined} />
             <Row icon={Phone} label="Teléfono" value={lead.telefono} />
+            <Row icon={MessageCircle} label="WhatsApp" value={lead.whatsapp} />
+            <Row icon={Instagram} label="Instagram" value={lead.instagram} />
+            <Row icon={Facebook} label="Facebook" value={lead.facebook} />
+            <Row icon={Linkedin} label="LinkedIn" value={lead.linkedin} />
+            <Row icon={MapPin} label="Dirección" value={lead.direccion} />
             <Row icon={MapPin} label="Ciudad" value={lead.ciudad} />
+            <Row icon={MapPin} label="País" value={lead.pais} />
+            <Row icon={Flag} label="Fuente" value={lead.fuente} />
+            <Row icon={User} label="Responsable" value={lead.responsable} />
+            {lead.etiquetas && lead.etiquetas.length > 0 && (
+              <div className="flex items-start gap-2">
+                <Tag className="mt-0.5 h-4 w-4 text-muted" />
+                <span className="w-20 text-xs text-muted">Etiquetas</span>
+                <div className="flex min-w-0 flex-1 flex-wrap gap-1">
+                  {lead.etiquetas.map((t) => <Badge key={t}>{t}</Badge>)}
+                </div>
+              </div>
+            )}
             {lead.diagnosticoIA && (
               <div className="rounded-xl bg-surface-2 p-3">
                 <p className="mb-1 text-xs font-medium text-muted">Diagnóstico IA</p>

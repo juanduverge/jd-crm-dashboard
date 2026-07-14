@@ -15,7 +15,7 @@ import { useLeadsStore } from '@/store/leadsStore'
 import { DEFAULT_NICHES, PIPELINE_STAGES } from '@/lib/config'
 import { scoreColor, fuzzyMatch, formatCurrency, downloadCSV, cn } from '@/lib/utils'
 import type { Lead } from '@/types'
-import type { LeadFormValues } from './leadSchema'
+import { formToLeadPatch, type LeadFormValues } from './leadSchema'
 
 type SortKey = 'empresa' | 'score' | 'ciudad' | 'valorEstimado' | 'estado'
 
@@ -60,11 +60,12 @@ export function LeadsPage() {
     setSort((s) => ({ key, dir: s.key === key && s.dir === 'desc' ? 'asc' : 'desc' }))
 
   const handleSubmit = (values: LeadFormValues) => {
+    const patch = formToLeadPatch(values)
     if (editing) {
-      updateLead(editing.id, values)
+      updateLead(editing.id, patch)
       toast.success('Lead actualizado')
     } else {
-      addLead({ ...values, id: `L-${Date.now()}`, fechaCaptura: new Date().toISOString().slice(0, 10) } as Lead)
+      addLead({ ...patch, id: `L-${Date.now()}`, fechaCaptura: new Date().toISOString().slice(0, 10) } as Lead)
       toast.success('Lead agregado')
     }
     setFormOpen(false)

@@ -70,6 +70,7 @@ export interface LeadCreatePayload {
 export interface LeadUpdatePayload {
   leadId: string
   empresa?: string
+  cargo?: string
   nicho?: string
   ciudad?: string
   pais?: string
@@ -92,6 +93,7 @@ export interface LeadUpdatePayload {
   score?: number
   fuente?: string
   notas?: string
+  etiquetas?: string
   screenshotUrl?: string
 }
 

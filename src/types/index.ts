@@ -24,6 +24,7 @@ export interface Lead {
   id: string                  // ID Lead
   fechaCaptura?: string
   empresa: string             // Nombre empresa
+  cargo?: string              // Cargo del contacto principal (col Cargo)
   nicho?: string              // Categoria / nicho
   ciudad?: string
   pais?: string
@@ -36,6 +37,7 @@ export interface Lead {
   facebook?: string
   linkedin?: string
   googleMaps?: string
+  etiquetas?: string[]        // Etiquetas libres (col Etiquetas, separadas por coma)
   ratingGoogle?: number
   numResenas?: number
   pageSpeedMovil?: number

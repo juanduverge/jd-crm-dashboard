@@ -20,7 +20,7 @@ import { KanbanCard } from './KanbanCard'
 import { KanbanColumn } from './KanbanColumn'
 import { HScrollBoard } from './HScrollBoard'
 import type { Lead, LeadStatus } from '@/types'
-import type { LeadFormValues } from '../leads/leadSchema'
+import { formToLeadPatch, type LeadFormValues } from '../leads/leadSchema'
 
 // Columnas del tablero: 7 etapas abiertas + columna combinada de cierre (Ganado/Perdido).
 const CLOSED = PIPELINE_STAGES.filter((s) => s.id === 'ganado' || s.id === 'perdido')
@@ -94,7 +94,7 @@ export function PipelinePage() {
 
   const handleSubmit = (values: LeadFormValues) => {
     addLead({
-      ...values,
+      ...formToLeadPatch(values),
       id: `L-${Date.now()}`,
       fechaCaptura: new Date().toISOString().slice(0, 10),
       fechaUltimoMovimiento: new Date().toISOString(),
