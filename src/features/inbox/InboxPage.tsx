@@ -4,8 +4,8 @@ import { Search, Mail, MailOpen, RefreshCw, User, Send, Loader2 } from 'lucide-r
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Textarea, Skeleton, EmptyState, Badge } from '@/components/ui'
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
-import { useInbox, useLeads } from '@/hooks/useData'
-import { crmApi, REPLY_ALIASES } from '@/services/crmApi'
+import { useInbox, useLeads, useEmailAliases } from '@/hooks/useData'
+import { crmApi } from '@/services/crmApi'
 import { cn, fuzzyMatch, initials, stringToColor, fileToBase64 } from '@/lib/utils'
 import type { InboxMessage } from '@/types'
 
@@ -29,12 +29,13 @@ function formatFecha(fecha: string) {
 export function InboxPage() {
   const { data: emails, isLoading, isError, refetch, isFetching } = useInbox()
   const { leads } = useLeads()
+  const aliases = useEmailAliases()
   const [query, setQuery] = useState('')
   const [onlyUnread, setOnlyUnread] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [readIds, setReadIds] = useState<Set<string>>(() => loadReadIds())
   const [replyOpen, setReplyOpen] = useState(false)
-  const [replyFrom, setReplyFrom] = useState<string>(REPLY_ALIASES[0].email)
+  const [replyFrom, setReplyFrom] = useState<string>(aliases[0].email)
   const [replyText, setReplyText] = useState('')
   const [replyAttachment, setReplyAttachment] = useState<File | null>(null)
   const [sending, setSending] = useState(false)
@@ -66,7 +67,7 @@ export function InboxPage() {
     setReplyOpen(false)
     setReplyText('')
     setReplyAttachment(null)
-    setReplyFrom(REPLY_ALIASES[0].email)
+    setReplyFrom(aliases[0].email)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
 
@@ -229,7 +230,7 @@ export function InboxPage() {
                   ) : (
                     <div className="space-y-2">
                       <select className="input" value={replyFrom} onChange={(e) => setReplyFrom(e.target.value)} disabled={sending}>
-                        {REPLY_ALIASES.map((a) => <option key={a.email} value={a.email}>Desde: {a.label} — {a.email}</option>)}
+                        {aliases.map((a) => <option key={a.email} value={a.email}>Desde: {a.label} — {a.email}</option>)}
                       </select>
                       <Textarea
                         value={replyText}

@@ -9,8 +9,8 @@ import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { cn } from '@/lib/utils'
-import { useUpdateWebLead, useConvertWebLead, useCreateTarea, useDeleteWebLead } from '@/hooks/useData'
-import { crmApi, REPLY_ALIASES } from '@/services/crmApi'
+import { useUpdateWebLead, useConvertWebLead, useCreateTarea, useDeleteWebLead, useEmailAliases } from '@/hooks/useData'
+import { crmApi } from '@/services/crmApi'
 import type { WebLead } from '@/types'
 import { ESTADOS, ESTADO_ORDER, PRIORIDADES, PRIORIDAD_ORDER, initials, colorFromString } from './webLeadMeta'
 
@@ -26,12 +26,13 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
   const convert = useConvertWebLead()
   const crearTarea = useCreateTarea()
   const deleteWebLead = useDeleteWebLead()
+  const aliases = useEmailAliases()
   const [tab, setTab] = useState<(typeof TABS)[number]>('Detalles')
   const [notas, setNotas] = useState('')
   const [responsable, setResponsable] = useState('')
   const [nuevaEtiqueta, setNuevaEtiqueta] = useState('')
   const [composerOpen, setComposerOpen] = useState(false)
-  const [replyFrom, setReplyFrom] = useState<string>(REPLY_ALIASES[0].email)
+  const [replyFrom, setReplyFrom] = useState<string>(aliases[0].email)
   const [replyBody, setReplyBody] = useState('')
   const [sending, setSending] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
@@ -139,7 +140,7 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
                 onChange={(e) => setReplyFrom(e.target.value)}
                 className="input h-7 flex-1 text-xs"
               >
-                {REPLY_ALIASES.map((a) => (
+                {aliases.map((a) => (
                   <option key={a.email} value={a.email}>{a.label} — {a.email}</option>
                 ))}
               </select>

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { sheetsService } from '@/services/sheetsService'
 import { n8nService } from '@/services/n8nService'
-import { crmApi, type CampaignCreatePayload, type CampaignUpdatePayload } from '@/services/crmApi'
+import { crmApi, REPLY_ALIASES, type CampaignCreatePayload, type CampaignUpdatePayload } from '@/services/crmApi'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useCampaignsStore } from '@/store/campaignsStore'
 import { STARTER_TEMPLATES } from '@/lib/campaigns'
@@ -516,6 +516,27 @@ export function useUpdateConfig() {
     mutationFn: ({ clave, valor }: { clave: string; valor: string }) => crmApi.updateConfig(clave, valor),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['config'] }),
   })
+}
+
+/**
+ * Alias de remitente disponibles para componer/responder correos.
+ * Se administran desde Configuración (clave "email_aliases" en la hoja config,
+ * JSON: [{ email, label }]). Hostinger no expone API para importarlos
+ * automáticamente, así que viven en el CRM. Si no hay config o es inválida,
+ * cae a REPLY_ALIASES (valor por defecto en crmApi.ts).
+ */
+export function useEmailAliases(): { email: string; label: string }[] {
+  const { data: cfg } = useConfig()
+  const raw = cfg?.['email_aliases']
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length && parsed.every((a) => a?.email)) return parsed
+    } catch {
+      // JSON inválido: usar default
+    }
+  }
+  return [...REPLY_ALIASES]
 }
 
 /** Contactos de un lead (hoja "contactos", varios por lead). */

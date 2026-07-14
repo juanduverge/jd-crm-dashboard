@@ -4,8 +4,8 @@ import { Send, Loader2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button, Input, Textarea } from '@/components/ui'
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
-import { useLeads } from '@/hooks/useData'
-import { crmApi, REPLY_ALIASES } from '@/services/crmApi'
+import { useLeads, useEmailAliases } from '@/hooks/useData'
+import { crmApi } from '@/services/crmApi'
 import { fileToBase64 } from '@/lib/utils'
 
 /** Composer libre: escribe a cualquier email, exista o no como lead en el CRM. */
@@ -23,15 +23,16 @@ export function NewMessageModal({
   lockTo?: boolean
 }) {
   const { leads } = useLeads()
+  const aliases = useEmailAliases()
   const [to, setTo] = useState(initialTo ?? '')
-  const [from, setFrom] = useState<string>(REPLY_ALIASES[0].email)
+  const [from, setFrom] = useState<string>(aliases[0].email)
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [attachment, setAttachment] = useState<File | null>(null)
   const [sending, setSending] = useState(false)
 
   useEffect(() => {
-    if (open) { setTo(initialTo ?? ''); setFrom(REPLY_ALIASES[0].email) }
+    if (open) { setTo(initialTo ?? ''); setFrom(aliases[0].email) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialTo])
 
@@ -92,7 +93,7 @@ export function NewMessageModal({
         <div>
           <label className="mb-1 block text-xs font-medium text-muted">Enviar desde</label>
           <select className="input" value={from} onChange={(e) => setFrom(e.target.value)}>
-            {REPLY_ALIASES.map((a) => <option key={a.email} value={a.email}>{a.label} — {a.email}</option>)}
+            {aliases.map((a) => <option key={a.email} value={a.email}>{a.label} — {a.email}</option>)}
           </select>
         </div>
         <div>

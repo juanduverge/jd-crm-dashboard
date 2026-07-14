@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Building2, Save, CheckCircle2, XCircle, Loader2, ExternalLink, Workflow, Database, Mail as MailIcon,
+  Building2, Save, CheckCircle2, XCircle, Loader2, ExternalLink, Workflow, Database, Mail as MailIcon, Plus, Trash2, AtSign,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardHeader, CardTitle, Button, Input, Textarea, Badge, Skeleton } from '@/components/ui'
-import { useConfig, useUpdateConfig, useWorkflows } from '@/hooks/useData'
+import { useConfig, useUpdateConfig, useWorkflows, useEmailAliases } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
 import { n8nService } from '@/services/n8nService'
 import { config } from '@/lib/config'
@@ -24,10 +24,13 @@ export function SettingsPage() {
   const { data: cfg, isLoading: cfgLoading, isError: cfgError } = useConfig()
   const updateConfig = useUpdateConfig()
   const { data: workflows, isLoading: wfLoading, isError: wfError } = useWorkflows()
+  const savedAliases = useEmailAliases()
 
   const [profile, setProfile] = useState<Record<string, string>>({})
   const [firma, setFirma] = useState('')
   const [savingKey, setSavingKey] = useState<string | null>(null)
+  const [aliases, setAliases] = useState<{ email: string; label: string }[]>([])
+  const [savingAliases, setSavingAliases] = useState(false)
 
   useEffect(() => {
     if (!cfg) return
@@ -36,6 +39,23 @@ export function SettingsPage() {
     setProfile(next)
     setFirma(cfg['firma_email'] ?? `\n\n— ${config.business.name}\n${config.business.emailOutreach}`)
   }, [cfg])
+
+  useEffect(() => { setAliases(savedAliases) }, [cfg]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const saveAliases = async () => {
+    const clean = aliases.filter((a) => a.email.trim() && /\S+@\S+\.\S+/.test(a.email.trim()))
+    if (!clean.length) { toast.error('Debe haber al menos un alias válido'); return }
+    setSavingAliases(true)
+    try {
+      await updateConfig.mutateAsync({ clave: 'email_aliases', valor: JSON.stringify(clean) })
+      setAliases(clean)
+      toast.success('Alias guardados')
+    } catch {
+      toast.error('No se pudo guardar. Verifica el workflow "CRM API - Escribir Sheets".')
+    } finally {
+      setSavingAliases(false)
+    }
+  }
 
   const saveField = async (key: string, value: string) => {
     setSavingKey(key)
@@ -110,6 +130,59 @@ export function SettingsPage() {
                 {savingKey === 'firma_email' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 Guardar firma
               </Button>
+            </div>
+          )}
+        </Card>
+
+        {/* Alias de correo */}
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-2"><AtSign className="h-4 w-4" /> Alias de correo</CardTitle></CardHeader>
+          {cfgLoading ? <Skeleton className="h-40" /> : (
+            <div className="space-y-3">
+              <p className="text-xs text-muted">
+                Direcciones disponibles como "Enviar desde" en la Bandeja y en mensajes nuevos. Hostinger no ofrece una API
+                para leer alias automáticamente, así que se administran aquí. El envío real usa las credenciales SMTP
+                configuradas en n8n para <span className="font-medium text-fg">info@</span> y <span className="font-medium text-fg">sales@</span>;
+                otros alias que agregues aquí se mostrarán en el selector pero se enviarán usando la credencial más cercana disponible.
+              </p>
+              <div className="space-y-2">
+                {aliases.map((a, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <Input
+                      value={a.email}
+                      onChange={(e) => setAliases((prev) => prev.map((x, j) => (j === i ? { ...x, email: e.target.value } : x)))}
+                      placeholder="correo@jddeveloper.com"
+                      className="flex-1"
+                    />
+                    <Input
+                      value={a.label}
+                      onChange={(e) => setAliases((prev) => prev.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))}
+                      placeholder="Etiqueta (ej. Ventas)"
+                      className="w-40"
+                    />
+                    <button
+                      onClick={() => setAliases((prev) => prev.filter((_, j) => j !== i))}
+                      className="btn-ghost h-9 w-9 shrink-0 text-red-500 hover:bg-red-500/10"
+                      title="Eliminar alias"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAliases((prev) => [...prev, { email: '', label: '' }])}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Agregar alias
+                </Button>
+                <Button size="sm" disabled={savingAliases} onClick={saveAliases}>
+                  {savingAliases ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Guardar alias
+                </Button>
+              </div>
             </div>
           )}
         </Card>
