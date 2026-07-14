@@ -1,6 +1,6 @@
 import {
   Home, Users, Target, KanbanSquare, Inbox, MessageSquare,
-  Bot, BarChart3, Settings, Globe, CheckSquare,
+  Bot, BarChart3, Settings, Globe, CheckSquare, Trash2,
 } from 'lucide-react'
 
 export const navItems = [
@@ -14,5 +14,6 @@ export const navItems = [
   { to: '/messages', label: 'Mensajes', icon: MessageSquare },
   { to: '/automations', label: 'Automatizaciones', icon: Bot },
   { to: '/analytics', label: 'Analíticas', icon: BarChart3 },
+  { to: '/papelera', label: 'Papelera', icon: Trash2 },
   { to: '/settings', label: 'Configuración', icon: Settings },
 ] as const

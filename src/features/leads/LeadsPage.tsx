@@ -6,10 +6,11 @@ import {
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Select, Badge, Skeleton, EmptyState } from '@/components/ui'
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { LeadForm } from './LeadForm'
 import { LeadDrawer } from './LeadDrawer'
 import { LeadSearchModal } from './LeadSearchModal'
-import { useLeads } from '@/hooks/useData'
+import { useLeads, useDeleteLead, useDeletePipeline } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
 import { DEFAULT_NICHES, PIPELINE_STAGES } from '@/lib/config'
 import { scoreColor, fuzzyMatch, formatCurrency, downloadCSV, cn } from '@/lib/utils'
@@ -33,6 +34,9 @@ export function LeadsPage() {
   const [editing, setEditing] = useState<Lead | null>(null)
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const deleteLead = useDeleteLead()
+  const deletePipeline = useDeletePipeline()
 
   const filtered = useMemo(() => {
     let res = leads.filter((l) =>
@@ -68,12 +72,22 @@ export function LeadsPage() {
   }
 
   const handleDelete = () => {
+    if (!selectedIds.size) return
+    setConfirmDeleteOpen(true)
+  }
+
+  const confirmDelete = async () => {
     const ids = [...selectedIds]
     if (!ids.length) return
-    if (confirm(`¿Eliminar ${ids.length} lead(s)?`)) {
-      removeLeads(ids)
-      toast.success(`${ids.length} lead(s) eliminado(s)`)
-    }
+    await Promise.all(
+      ids.flatMap((id) => [
+        deleteLead.mutateAsync({ leadId: id }),
+        deletePipeline.mutateAsync({ leadId: id }),
+      ]),
+    )
+    removeLeads(ids)
+    clearSelection()
+    toast.success(`${ids.length} lead(s) eliminado(s)`)
   }
 
   return (
@@ -201,6 +215,13 @@ export function LeadsPage() {
                           {l.email && <a className="btn-ghost h-7 w-7 p-0" href={`mailto:${l.email}`} title="Email"><Mail className="h-4 w-4" /></a>}
                           {l.whatsapp && <a className="btn-ghost h-7 w-7 p-0" target="_blank" href={`https://wa.me/${l.whatsapp.replace(/\D/g, '')}`} title="WhatsApp"><MessageCircle className="h-4 w-4" /></a>}
                           <button className="btn-ghost h-7 w-7 p-0" onClick={() => setDrawerLead(l)} title="Ver"><Eye className="h-4 w-4" /></button>
+                          <button
+                            className="btn-ghost h-7 w-7 p-0 text-red-500 hover:bg-red-500/10"
+                            onClick={() => { clearSelection(); toggleSelect(l.id); setConfirmDeleteOpen(true) }}
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -219,6 +240,14 @@ export function LeadsPage() {
         onClose={() => setDrawerLead(null)}
         onEdit={(l) => { setDrawerLead(null); setEditing(l); setFormOpen(true) }}
         onMoveStage={(id, estado) => { moveStage(id, estado); toast.success('Etapa actualizada'); setDrawerLead((d) => d ? { ...d, estado } : d) }}
+      />
+      <ConfirmDeleteModal
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        onConfirm={confirmDelete}
+        title={selectedIds.size > 1 ? `Eliminar ${selectedIds.size} leads` : 'Eliminar lead'}
+        itemLabel={selectedIds.size === 1 ? leads.find((l) => selectedIds.has(l.id))?.empresa : undefined}
+        warning="También se eliminará su registro en Pipeline. Sus notas y tareas asociadas permanecerán, pero quedarán sin lead visible mientras esté en la Papelera."
       />
     </div>
   )

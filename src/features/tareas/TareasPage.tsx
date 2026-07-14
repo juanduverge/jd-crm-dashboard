@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react'
 import { format, isPast, isToday } from 'date-fns'
 import toast from 'react-hot-toast'
 import {
-  CheckSquare, Plus, RefreshCw, Phone, Mail, Users, MessageCircle, CalendarClock, Check, Circle,
+  CheckSquare, Plus, RefreshCw, Phone, Mail, Users, MessageCircle, CalendarClock, Check, Circle, Trash2,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, EmptyState, Input, Select, Skeleton } from '@/components/ui'
 import { Modal } from '@/components/ui/Modal'
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { cn } from '@/lib/utils'
-import { useTareas, useCreateTarea, useUpdateTarea } from '@/hooks/useData'
+import { useTareas, useCreateTarea, useUpdateTarea, useDeleteTarea } from '@/hooks/useData'
 import { PRIORIDADES, PRIORIDAD_ORDER } from '@/features/webleads/webLeadMeta'
 import type { Tarea, TareaTipo } from '@/types'
 
@@ -35,8 +36,10 @@ function venc(iso?: string): { txt: string; tone: string } {
 export function TareasPage() {
   const { data: tareas, isLoading, isError, refetch, isFetching } = useTareas()
   const update = useUpdateTarea()
+  const deleteTarea = useDeleteTarea()
   const [filtro, setFiltro] = useState<'pendientes' | 'todas' | 'hechas'>('pendientes')
   const [nueva, setNueva] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<Tarea | null>(null)
 
   const all = tareas ?? []
   const list = useMemo(() => all.filter((t) =>
@@ -116,6 +119,13 @@ export function TareasPage() {
                 </div>
                 <span className={cn('shrink-0 text-xs', v.tone)}>{v.txt}</span>
                 <span className={cn('hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium sm:inline', pri.badge)}>{pri.label}</span>
+                <button
+                  onClick={() => setDeleteTarget(t)}
+                  className="btn-ghost h-7 w-7 shrink-0 p-0 text-red-500 hover:bg-red-500/10"
+                  title="Eliminar"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
             )
           })}
@@ -123,6 +133,18 @@ export function TareasPage() {
       )}
 
       <NuevaTareaModal open={nueva} onClose={() => setNueva(false)} />
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Eliminar tarea"
+        itemLabel={deleteTarget?.titulo}
+        onConfirm={async () => {
+          if (!deleteTarget) return
+          await deleteTarea.mutateAsync({ id: deleteTarget.id })
+          toast.success('Tarea eliminada')
+          setDeleteTarget(null)
+        }}
+      />
     </div>
   )
 }

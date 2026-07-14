@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
-  Megaphone, Plus, Pause, Play, Copy, Send, X, Mail, Users, TrendingUp, DollarSign,
+  Megaphone, Plus, Pause, Play, Copy, Send, X, Mail, Users, TrendingUp, DollarSign, Trash2,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, Button, Badge, EmptyState, Skeleton, Input, Textarea } from '@/components/ui'
 import { Drawer } from '@/components/ui/Modal'
-import { useLeads, useCampaigns, useCreateCampaign, useUpdateCampaign } from '@/hooks/useData'
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
+import { useLeads, useCampaigns, useCreateCampaign, useUpdateCampaign, useDeleteCampaign } from '@/hooks/useData'
 import { useCampaignsStore } from '@/store/campaignsStore'
 import { n8nService } from '@/services/n8nService'
 import { config } from '@/lib/config'
@@ -21,10 +22,12 @@ export function CampaignsPage() {
   const { addTemplate } = useCampaignsStore()
   const createCampaign = useCreateCampaign()
   const updateCampaignMutation = useUpdateCampaign()
+  const deleteCampaign = useDeleteCampaign()
 
   const [wizardOpen, setWizardOpen] = useState(false)
   const [detail, setDetail] = useState<Campaign | null>(null)
   const [tab, setTab] = useState<'campaigns' | 'templates'>('campaigns')
+  const [deleteTarget, setDeleteTarget] = useState<Campaign | null>(null)
 
   const totals = useMemo(() => {
     const enviados = campaigns.reduce((s, c) => s + c.enviados, 0)
@@ -133,6 +136,7 @@ export function CampaignsPage() {
                 onOpen={() => setDetail(c)}
                 onTogglePause={() => togglePause(c)}
                 onDuplicate={() => duplicate(c)}
+                onDelete={() => setDeleteTarget(c)}
               />
             ))}
           </div>
@@ -156,6 +160,21 @@ export function CampaignsPage() {
         onTogglePause={() => detail && togglePause(detail)}
         onDuplicate={() => detail && duplicate(detail)}
         onFollowUp={() => detail && sendFollowUp(detail)}
+        onDelete={() => detail && setDeleteTarget(detail)}
+      />
+
+      <ConfirmDeleteModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Eliminar campaña"
+        itemLabel={deleteTarget?.nombre}
+        onConfirm={async () => {
+          if (!deleteTarget) return
+          await deleteCampaign.mutateAsync(deleteTarget.id)
+          toast.success('Campaña eliminada')
+          setDetail(null)
+          setDeleteTarget(null)
+        }}
       />
     </div>
   )
@@ -174,12 +193,13 @@ function MetricCard({ icon, label, value }: { icon: React.ReactNode; label: stri
 }
 
 function CampaignCard({
-  campaign, onOpen, onTogglePause, onDuplicate,
+  campaign, onOpen, onTogglePause, onDuplicate, onDelete,
 }: {
   campaign: Campaign
   onOpen: () => void
   onTogglePause: () => void
   onDuplicate: () => void
+  onDelete: () => void
 }) {
   const meta = CAMPAIGN_STATUS_META[campaign.estado]
   const rate = campaign.enviados ? Math.round((campaign.respondieron / campaign.enviados) * 100) : 0
@@ -208,13 +228,16 @@ function CampaignCard({
           </Button>
         )}
         <Button size="sm" variant="outline" onClick={onDuplicate}><Copy className="h-3.5 w-3.5" /> Duplicar</Button>
+        <button onClick={onDelete} className="btn-ghost ml-auto h-8 w-8 p-0 text-red-500 hover:bg-red-500/10" title="Eliminar">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
     </Card>
   )
 }
 
 function CampaignDetail({
-  campaign, leads, onClose, onTogglePause, onDuplicate, onFollowUp,
+  campaign, leads, onClose, onTogglePause, onDuplicate, onFollowUp, onDelete,
 }: {
   campaign: Campaign | null
   leads: ReturnType<typeof useLeads>['leads']
@@ -222,6 +245,7 @@ function CampaignDetail({
   onTogglePause: () => void
   onDuplicate: () => void
   onFollowUp: () => void
+  onDelete: () => void
 }) {
   const campaignLeads = useMemo(
     () => leads.filter((l) => campaign?.leadIds?.includes(l.id)),
@@ -237,6 +261,7 @@ function CampaignDetail({
               <h3 className="truncate font-semibold text-fg" title={campaign.nombre}>{campaign.nombre}</h3>
               <p className="truncate text-xs text-muted">{campaign.nicho} {campaign.ciudad ? `· ${campaign.ciudad}` : ''}</p>
             </div>
+            <button onClick={onDelete} className="btn-ghost shrink-0 text-red-500 hover:bg-red-500/10" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
             <button onClick={onClose} className="btn-ghost shrink-0"><X className="h-4 w-4" /></button>
           </div>
 

@@ -3,12 +3,13 @@ import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 import {
   X, Mail, MessageCircle, Phone, Globe, Save, UserPlus, CalendarClock,
-  UserCheck, Sparkles, Paperclip, ArrowRightCircle, Tag,
+  UserCheck, Sparkles, Paperclip, ArrowRightCircle, Tag, Trash2,
 } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { cn } from '@/lib/utils'
-import { useUpdateWebLead, useConvertWebLead, useCreateTarea } from '@/hooks/useData'
+import { useUpdateWebLead, useConvertWebLead, useCreateTarea, useDeleteWebLead } from '@/hooks/useData'
 import { crmApi, REPLY_ALIASES } from '@/services/crmApi'
 import type { WebLead } from '@/types'
 import { ESTADOS, ESTADO_ORDER, PRIORIDADES, PRIORIDAD_ORDER, initials, colorFromString } from './webLeadMeta'
@@ -24,6 +25,7 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
   const update = useUpdateWebLead()
   const convert = useConvertWebLead()
   const crearTarea = useCreateTarea()
+  const deleteWebLead = useDeleteWebLead()
   const [tab, setTab] = useState<(typeof TABS)[number]>('Detalles')
   const [notas, setNotas] = useState('')
   const [responsable, setResponsable] = useState('')
@@ -32,6 +34,7 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
   const [replyFrom, setReplyFrom] = useState<string>(REPLY_ALIASES[0].email)
   const [replyBody, setReplyBody] = useState('')
   const [sending, setSending] = useState(false)
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
   useEffect(() => {
     if (lead) {
@@ -98,7 +101,10 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
               <p className="truncate text-xs text-muted" title={lead.empresa}>{lead.empresa || 'Sin empresa'}</p>
             </div>
           </div>
-          <button onClick={onClose} className="btn-ghost shrink-0"><X className="h-4 w-4" /></button>
+          <div className="flex shrink-0 items-center gap-1">
+            <button onClick={() => setConfirmDeleteOpen(true)} className="btn-ghost text-red-500 hover:bg-red-500/10" title="Eliminar"><Trash2 className="h-4 w-4" /></button>
+            <button onClick={onClose} className="btn-ghost"><X className="h-4 w-4" /></button>
+          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -292,6 +298,18 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
           </div>
         )}
       </div>
+      <ConfirmDeleteModal
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+        title="Eliminar solicitud"
+        itemLabel={lead.nombre}
+        onConfirm={async () => {
+          await deleteWebLead.mutateAsync({ id: lead.id })
+          toast.success('Solicitud eliminada')
+          setConfirmDeleteOpen(false)
+          onClose()
+        }}
+      />
     </Drawer>
   )
 }

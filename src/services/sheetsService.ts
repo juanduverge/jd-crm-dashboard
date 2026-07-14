@@ -38,7 +38,9 @@ export const sheetsService = {
       pipelineRowObjs.map((p) => [p['ID Lead'], p]),
     )
 
-    return prospects.map((p): Lead => {
+    return prospects
+      .filter((p) => !p['Eliminado'] && !pipelineByLead.get(p['ID Lead'])?.['Eliminado'])
+      .map((p): Lead => {
       const pl = pipelineByLead.get(p['ID Lead']) ?? {}
       return {
         id: p['ID Lead'] || crypto.randomUUID(),

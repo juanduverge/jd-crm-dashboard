@@ -205,3 +205,17 @@ export interface Tarea {
   creado?: string
   actualizado?: string
 }
+
+export type TrashModule = 'lead' | 'pipeline' | 'campaign' | 'tarea' | 'web_lead'
+
+/** Registro eliminado (soft-delete) pendiente de purga, mostrado en la Papelera. */
+export interface TrashItem {
+  /** id compuesto único (módulo + id real), para usarlo como key de lista. */
+  key: string
+  module: TrashModule
+  id: string
+  label: string
+  detail?: string
+  eliminadoEn?: string
+  eliminadoPor?: string
+}

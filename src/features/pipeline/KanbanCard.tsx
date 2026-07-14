@@ -1,11 +1,11 @@
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { Mail, MessageCircle, Clock, AlertTriangle, ArrowRight } from 'lucide-react'
+import { Mail, MessageCircle, Clock, AlertTriangle, ArrowRight, Trash2 } from 'lucide-react'
 import { initials, stringToColor, formatCurrency, scoreColor, cn } from '@/lib/utils'
 import { daysInStage, isStale, PRIORITY_META } from '@/lib/pipeline'
 import type { Lead } from '@/types'
 
-export function KanbanCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => void }) {
+export function KanbanCard({ lead, onOpen, onDelete }: { lead: Lead; onOpen: (l: Lead) => void; onDelete?: (l: Lead) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
     data: { lead },
@@ -50,6 +50,16 @@ export function KanbanCard({ lead, onOpen }: { lead: Lead; onOpen: (l: Lead) => 
         <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold', sc.bg, sc.text)}>
           {lead.score}
         </span>
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(lead) }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="btn-ghost h-6 w-6 shrink-0 p-0 text-red-500 opacity-0 transition-opacity hover:bg-red-500/10 group-hover:opacity-100"
+            title="Eliminar"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <div className="mt-2.5 flex items-center justify-between gap-2">

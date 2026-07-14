@@ -22,14 +22,14 @@
     },
     {
       "parameters": {
-        "jsCode": "// Valida el payload del formulario web, filtra bots (honeypot) y arma la fila\n// para la hoja web_leads. Acciones: create (default) | update (gestion desde CRM).\nconst req = $input.first().json;\nconst b = req.body || {};\nconst headers = req.headers || {};\nif (b.website) return [{ json: { skip: true } }];\nconst norm = (v) => String(v ?? '').trim();\nconst email = norm(b.email).toLowerCase();\nconst nombre = norm(b.nombre);\nconst esUpdate = b.action === 'update' && norm(b.id);\nif (!esUpdate && (!email || !email.includes('@') || !nombre)) return [{ json: { skip: true } }];\nfunction hash(s){let x=5381;for(let i=0;i<s.length;i++){x=((x<<5)+x+s.charCodeAt(i))|0;}return (x>>>0).toString(36);}\nconst now = new Date();\nconst dia = now.toISOString().slice(0,10);\nconst id = norm(b.id) || 'WL-' + hash(email + '|' + norm(b.detalle||b.mensaje) + '|' + dia);\nconst row = { id };\nif (esUpdate) {\n  if (b.estado) row.estado = norm(b.estado);\n  if (b.responsable !== undefined) row.responsable = norm(b.responsable);\n  if (b.notas_internas !== undefined) row.notas_internas = norm(b.notas_internas);\n  if (b.prioridad !== undefined) row.prioridad = norm(b.prioridad);\n  if (b.etiquetas !== undefined) row.etiquetas = norm(b.etiquetas);\n  row.actualizado = now.toISOString();\n} else {\n  Object.assign(row, {\n    fecha_hora: now.toISOString(), nombre, email,\n    empresa: norm(b.empresa), telefono: norm(b.telefono),\n    asunto: norm(b.tema||b.asunto), mensaje: norm(b.detalle||b.mensaje),\n    pagina: norm(b.pagina), url: norm(b.url), referrer: norm(b.referrer),\n    utm_source: norm(b.utm_source), utm_medium: norm(b.utm_medium), utm_campaign: norm(b.utm_campaign),\n    ip: norm(headers['cf-connecting-ip']||headers['x-forwarded-for']),\n    user_agent: norm(headers['user-agent']).slice(0,200),\n    fuente: 'web', formulario: norm(b.formulario)||'contacto',\n    estado: 'nuevo', responsable: '', notas_internas: '',\n    prioridad: 'media', etiquetas: '',\n    actualizado: now.toISOString(),\n  });\n}\nreturn [{ json: row }];"
+        "jsCode": "// Valida el payload del formulario web, filtra bots (honeypot) y arma la fila\n// para la hoja web_leads. Acciones: create (default) | update | delete | restore | purge (gestion desde CRM).\nconst req = $input.first().json;\nconst b = req.body || {};\nconst headers = req.headers || {};\nif (b.hp_confirm_jd || b.website) return [{ json: { skip: true } }];\nconst norm = (v) => String(v ?? '').trim();\nconst email = norm(b.email).toLowerCase();\nconst nombre = norm(b.nombre);\nconst esUpdate = b.action === 'update' && norm(b.id);\nconst esDelete = b.action === 'delete' && norm(b.id);\nconst esRestore = b.action === 'restore' && norm(b.id);\nconst esPurge = b.action === 'purge' && norm(b.id);\nif (!esUpdate && !esDelete && !esRestore && !esPurge && (!email || !email.includes('@') || !nombre)) return [{ json: { skip: true } }];\nfunction hash(s){let x=5381;for(let i=0;i<s.length;i++){x=((x<<5)+x+s.charCodeAt(i))|0;}return (x>>>0).toString(36);}\nconst now = new Date();\nconst dia = now.toISOString().slice(0,10);\nconst id = norm(b.id) || 'WL-' + hash(email + '|' + norm(b.detalle||b.mensaje) + '|' + dia);\nconst row = { id };\nif (esDelete) {\n  row.Eliminado = now.toISOString();\n  row.Eliminado_por = norm(b.eliminadoPor) || 'CRM';\n} else if (esRestore) {\n  row.Eliminado = '';\n  row.Eliminado_por = '';\n} else if (esPurge) {\n  row.Purgado = now.toISOString();\n} else if (esUpdate) {\n  if (b.estado) row.estado = norm(b.estado);\n  if (b.responsable !== undefined) row.responsable = norm(b.responsable);\n  if (b.notas_internas !== undefined) row.notas_internas = norm(b.notas_internas);\n  if (b.prioridad !== undefined) row.prioridad = norm(b.prioridad);\n  if (b.etiquetas !== undefined) row.etiquetas = norm(b.etiquetas);\n  row.actualizado = now.toISOString();\n} else {\n  Object.assign(row, {\n    fecha_hora: now.toISOString(), nombre, email,\n    empresa: norm(b.empresa), telefono: norm(b.telefono),\n    asunto: norm(b.tema||b.asunto), mensaje: norm(b.detalle||b.mensaje),\n    pagina: norm(b.pagina), url: norm(b.url), referrer: norm(b.referrer),\n    utm_source: norm(b.utm_source), utm_medium: norm(b.utm_medium), utm_campaign: norm(b.utm_campaign),\n    ip: norm(headers['cf-connecting-ip']||headers['x-forwarded-for']),\n    user_agent: norm(headers['user-agent']).slice(0,200),\n    fuente: 'web', formulario: norm(b.formulario)||'contacto',\n    estado: 'nuevo', responsable: '', notas_internas: '',\n    prioridad: 'media', etiquetas: '',\n    actualizado: now.toISOString(),\n  });\n}\nreturn [{ json: row }];"
       },
       "id": "wl-code",
       "name": "Validar y Preparar",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        220,
+        224,
         0
       ]
     },
@@ -39,7 +39,8 @@
           "options": {
             "caseSensitive": true,
             "leftValue": "",
-            "typeValidation": "loose"
+            "typeValidation": "loose",
+            "version": 1
           },
           "conditions": [
             {
@@ -60,7 +61,7 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        440,
+        448,
         0
       ]
     },
@@ -91,12 +92,12 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
       "position": [
-        660,
-        -100
+        672,
+        -96
       ],
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "REEMPLAZAR_AL_IMPORTAR",
+          "id": "86m52fKwvUB07q9D",
           "name": "Google Sheets account"
         }
       }
@@ -112,8 +113,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1320,
-        -100
+        1328,
+        -96
       ]
     },
     {
@@ -127,8 +128,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        660,
-        140
+        672,
+        144
       ]
     },
     {
@@ -136,7 +137,9 @@
         "conditions": {
           "options": {
             "caseSensitive": true,
-            "typeValidation": "loose"
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
           },
           "conditions": [
             {
@@ -159,7 +162,7 @@
       "typeVersion": 2,
       "position": [
         880,
-        -100
+        -96
       ]
     },
     {
@@ -176,9 +179,10 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2,
       "position": [
-        1100,
-        -200
+        1104,
+        -208
       ],
+      "webhookId": "6f3527c6-858f-4748-b920-3715281ddf90",
       "credentials": {
         "smtp": {
           "id": "qxrjS1UTOOOVymj8",
@@ -270,6 +274,7 @@
     }
   },
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "binaryMode": "separate"
   }
 }

@@ -34,6 +34,125 @@ export function useMessages() {
   })
 }
 
+/**
+ * Papelera: registros con soft-delete (Eliminado / estado=eliminada) que aún no
+ * fueron purgados. Une leads+pipeline en una sola entrada porque siempre se
+ * eliminan/restauran juntos (ver LeadsPage/PipelinePage).
+ */
+export function useTrash() {
+  return useQuery({
+    queryKey: ['trash'],
+    queryFn: async () => {
+      const [prospects, pipeline, campaigns, tareas, webLeads] = await Promise.all([
+        crmApi.readSheet('prospects'),
+        crmApi.readSheet('pipeline'),
+        crmApi.readSheet('campaigns'),
+        crmApi.readSheet('tareas'),
+        crmApi.readSheet('web_leads'),
+      ])
+
+      const pipelineByLead = new Map(pipeline.map((p) => [p['ID Lead'], p]))
+      const items: import('@/types').TrashItem[] = []
+
+      for (const p of prospects) {
+        if (!p['Eliminado'] || p['Purgado']) continue
+        items.push({
+          key: `lead-${p['ID Lead']}`,
+          module: 'lead',
+          id: p['ID Lead'],
+          label: p['Nombre empresa'] || '(sin nombre)',
+          detail: pipelineByLead.get(p['ID Lead']) ? 'Lead + Pipeline' : 'Lead',
+          eliminadoEn: p['Eliminado'],
+          eliminadoPor: p['Eliminado_por'],
+        })
+      }
+
+      for (const c of campaigns) {
+        if (!c['id'] || c['estado'] !== 'eliminada') continue
+        items.push({
+          key: `campaign-${c['id']}`,
+          module: 'campaign',
+          id: c['id'],
+          label: c['nombre'] || '(sin nombre)',
+          detail: 'Campaña',
+        })
+      }
+
+      for (const t of tareas) {
+        if (!t['id'] || !t['Eliminado'] || t['Purgado']) continue
+        items.push({
+          key: `tarea-${t['id']}`,
+          module: 'tarea',
+          id: t['id'],
+          label: t['titulo'] || '(sin título)',
+          detail: 'Tarea',
+          eliminadoEn: t['Eliminado'],
+          eliminadoPor: t['Eliminado_por'],
+        })
+      }
+
+      for (const w of webLeads) {
+        if (!w['id'] || !w['Eliminado'] || w['Purgado']) continue
+        items.push({
+          key: `web_lead-${w['id']}`,
+          module: 'web_lead',
+          id: w['id'],
+          label: w['nombre'] || w['email'] || '(sin nombre)',
+          detail: 'Solicitud web',
+          eliminadoEn: w['Eliminado'],
+          eliminadoPor: w['Eliminado_por'],
+        })
+      }
+
+      return items.sort((a, b) => (b.eliminadoEn || '').localeCompare(a.eliminadoEn || ''))
+    },
+    refetchInterval: 30_000,
+    retry: 1,
+  })
+}
+
+export function useRestoreTrashItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (item: import('@/types').TrashItem) => {
+      if (item.module === 'lead') {
+        await Promise.all([crmApi.restoreLead(item.id), crmApi.restorePipeline(item.id)])
+      } else if (item.module === 'campaign') {
+        await crmApi.restoreCampaign(item.id)
+      } else if (item.module === 'tarea') {
+        await crmApi.restoreTarea(item.id)
+      } else {
+        await crmApi.restoreWebLead(item.id)
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['trash'] })
+      qc.invalidateQueries({ queryKey: ['leads'] })
+      qc.invalidateQueries({ queryKey: ['campaigns'] })
+      qc.invalidateQueries({ queryKey: ['tareas'] })
+      qc.invalidateQueries({ queryKey: ['web_leads'] })
+    },
+  })
+}
+
+export function usePurgeTrashItem() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (item: import('@/types').TrashItem) => {
+      if (item.module === 'lead') {
+        await Promise.all([crmApi.purgeLead(item.id), crmApi.purgePipeline(item.id)])
+      } else if (item.module === 'campaign') {
+        await crmApi.purgeCampaign(item.id)
+      } else if (item.module === 'tarea') {
+        await crmApi.purgeTarea(item.id)
+      } else {
+        await crmApi.purgeWebLead(item.id)
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['trash'] }),
+  })
+}
+
 /** Emails recibidos vía IMAP (hoja "inbox"), leídos sin marcar en el servidor. */
 export function useInbox() {
   return useQuery({
@@ -60,6 +179,7 @@ export function useWebLeads() {
     queryFn: async () => {
       const rows = await crmApi.readSheet('web_leads')
       return rows
+        .filter((r) => !r['Eliminado'])
         .map((r): import('@/types').WebLead => ({
           id: r.id ?? '',
           fechaHora: r.fecha_hora ?? '',
@@ -100,6 +220,33 @@ export function useUpdateWebLead() {
     mutationFn: (payload: { id: string; estado?: string; responsable?: string; notas_internas?: string; prioridad?: string; etiquetas?: string }) =>
       crmApi.updateWebLead(payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['web_leads'] }),
+  })
+}
+
+export function useDeleteWebLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, eliminadoPor }: { id: string; eliminadoPor?: string }) => crmApi.deleteWebLead(id, eliminadoPor),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['web_leads'] }),
+  })
+}
+
+export function useRestoreWebLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => crmApi.restoreWebLead(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['web_leads'] }),
+  })
+}
+
+export function usePurgeWebLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => crmApi.purgeWebLead(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['web_leads'] })
+      queryClient.invalidateQueries({ queryKey: ['trash'] })
+    },
   })
 }
 
@@ -150,6 +297,7 @@ export function useTareas() {
     queryFn: async () => {
       const rows = await crmApi.readSheet('tareas')
       return rows
+        .filter((r) => !r['Eliminado'])
         .map((r): import('@/types').Tarea => ({
           id: r.id ?? '',
           titulo: r.titulo ?? '',
@@ -177,6 +325,33 @@ export function useCreateTarea() {
   return useMutation({
     mutationFn: (p: Parameters<typeof crmApi.createTarea>[0]) => crmApi.createTarea(p),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tareas'] }),
+  })
+}
+
+export function useDeleteTarea() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, eliminadoPor }: { id: string; eliminadoPor?: string }) => crmApi.deleteTarea(id, eliminadoPor),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tareas'] }),
+  })
+}
+
+export function useRestoreTarea() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => crmApi.restoreTarea(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tareas'] }),
+  })
+}
+
+export function usePurgeTarea() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => crmApi.purgeTarea(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tareas'] })
+      qc.invalidateQueries({ queryKey: ['trash'] })
+    },
   })
 }
 
@@ -245,11 +420,84 @@ export function useUpdateCampaign() {
   })
 }
 
+export function useRestoreCampaign() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => crmApi.restoreCampaign(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }),
+  })
+}
+
+export function useDeleteLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ leadId, eliminadoPor }: { leadId: string; eliminadoPor?: string }) => crmApi.deleteLead(leadId, eliminadoPor),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+  })
+}
+
+export function useRestoreLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (leadId: string) => crmApi.restoreLead(leadId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+  })
+}
+
+export function useDeletePipeline() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ leadId, eliminadoPor }: { leadId: string; eliminadoPor?: string }) => crmApi.deletePipeline(leadId, eliminadoPor),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+  })
+}
+
+export function useRestorePipeline() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (leadId: string) => crmApi.restorePipeline(leadId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+  })
+}
+
+export function usePurgeLead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (leadId: string) => crmApi.purgeLead(leadId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['trash'] })
+    },
+  })
+}
+
+export function usePurgePipeline() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (leadId: string) => crmApi.purgePipeline(leadId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['trash'] })
+    },
+  })
+}
+
 export function useDeleteCampaign() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => crmApi.deleteCampaign(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }),
+  })
+}
+
+export function usePurgeCampaign() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => crmApi.purgeCampaign(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['campaigns'] })
+      queryClient.invalidateQueries({ queryKey: ['trash'] })
+    },
   })
 }
 

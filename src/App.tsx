@@ -16,6 +16,7 @@ const MessagesPage = lazy(() => import('./features/messages/MessagesPage').then(
 const AutomationsPage = lazy(() => import('./features/automations/AutomationsPage').then((m) => ({ default: m.AutomationsPage })))
 const AnalyticsPage = lazy(() => import('./features/analytics/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })))
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
+const TrashPage = lazy(() => import('./features/trash/TrashPage').then((m) => ({ default: m.TrashPage })))
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const isAuth = useAuthStore((s) => s.isAuthenticated)
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="automations" element={<Suspense fallback={<RouteFallback />}><AutomationsPage /></Suspense>} />
           <Route path="analytics" element={<Suspense fallback={<RouteFallback />}><AnalyticsPage /></Suspense>} />
           <Route path="settings" element={<Suspense fallback={<RouteFallback />}><SettingsPage /></Suspense>} />
+          <Route path="papelera" element={<Suspense fallback={<RouteFallback />}><TrashPage /></Suspense>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

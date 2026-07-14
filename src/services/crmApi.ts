@@ -235,6 +235,54 @@ export const crmApi = {
     return data
   },
 
+  /** Restaura una campaña eliminada (estado=activa). */
+  async restoreCampaign(id: string) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'campaign_restore', id, leadId: id })
+    return data
+  },
+
+  /** Elimina definitivamente (purga lógica, estado=purgada) una campaña ya eliminada. No borra la fila física. */
+  async purgeCampaign(id: string) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'campaign_update', id, leadId: id, estado: 'purgada' })
+    return data
+  },
+
+  /** Elimina (soft-delete) un lead en prospects. */
+  async deleteLead(leadId: string, eliminadoPor?: string) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'lead_delete', leadId, eliminadoPor })
+    return data
+  },
+
+  /** Restaura un lead eliminado en prospects. */
+  async restoreLead(leadId: string) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'lead_restore', leadId })
+    return data
+  },
+
+  /** Elimina (soft-delete) la fila de un lead en pipeline. */
+  async deletePipeline(leadId: string, eliminadoPor?: string) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'pipeline_delete', leadId, eliminadoPor })
+    return data
+  },
+
+  /** Restaura la fila de un lead en pipeline. */
+  async restorePipeline(leadId: string) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'pipeline_restore', leadId })
+    return data
+  },
+
+  /** Elimina definitivamente (purga lógica) un lead ya eliminado en prospects. No borra la fila física. */
+  async purgeLead(leadId: string) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'lead_purge', leadId })
+    return data
+  },
+
+  /** Elimina definitivamente (purga lógica) la fila de un lead ya eliminado en pipeline. No borra la fila física. */
+  async purgePipeline(leadId: string) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'pipeline_purge', leadId })
+    return data
+  },
+
   /** Actualiza (o crea) un par clave/valor en la hoja config. */
   async updateConfig(clave: string, valor: string) {
     const { data } = await http.post('/crm-sheets-write', { action: 'config_update', leadId: clave, clave, valor })
@@ -259,6 +307,24 @@ export const crmApi = {
     return data
   },
 
+  /** Elimina (soft-delete) una solicitud web. */
+  async deleteWebLead(id: string, eliminadoPor?: string) {
+    const { data } = await http.post('/crm-web-lead', { action: 'delete', id, eliminadoPor })
+    return data
+  },
+
+  /** Restaura una solicitud web eliminada. */
+  async restoreWebLead(id: string) {
+    const { data } = await http.post('/crm-web-lead', { action: 'restore', id })
+    return data
+  },
+
+  /** Elimina definitivamente (purga lógica) una solicitud web ya eliminada. No borra la fila física. */
+  async purgeWebLead(id: string) {
+    const { data } = await http.post('/crm-web-lead', { action: 'purge', id })
+    return data
+  },
+
   /** Crea una tarea/seguimiento manual (workflow "CRM API - Tareas"). */
   async createTarea(payload: { titulo: string; tipo?: string; leadId?: string; leadNombre?: string; fechaVencimiento?: string; prioridad?: string; responsable?: string; notas?: string }) {
     const { data } = await http.post('/crm-tarea', {
@@ -271,6 +337,24 @@ export const crmApi = {
   /** Actualiza una tarea (estado/fecha/etc). */
   async updateTarea(payload: { id: string; estado?: string; titulo?: string; fecha_vencimiento?: string; prioridad?: string; notas?: string; responsable?: string }) {
     const { data } = await http.post('/crm-tarea', { action: 'update', ...payload })
+    return data
+  },
+
+  /** Elimina (soft-delete) una tarea. */
+  async deleteTarea(id: string, eliminadoPor?: string) {
+    const { data } = await http.post('/crm-tarea', { action: 'delete', id, eliminadoPor })
+    return data
+  },
+
+  /** Restaura una tarea eliminada. */
+  async restoreTarea(id: string) {
+    const { data } = await http.post('/crm-tarea', { action: 'restore', id })
+    return data
+  },
+
+  /** Elimina definitivamente (purga lógica) una tarea ya eliminada. No borra la fila física. */
+  async purgeTarea(id: string) {
+    const { data } = await http.post('/crm-tarea', { action: 'purge', id })
     return data
   },
 

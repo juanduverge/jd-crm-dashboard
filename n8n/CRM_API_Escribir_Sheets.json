@@ -4,117 +4,2081 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "crm/sheets/:action",
+        "path": "crm-sheets-write",
         "responseMode": "responseNode",
         "options": {}
       },
-      "id": "wh-write",
-      "name": "Webhook POST",
+      "id": "a1111111-1111-4111-8111-111111111111",
+      "name": "Webhook",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-320, 0],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "crm-sheets-write"
     },
     {
       "parameters": {
-        "jsCode": "// Da forma a la fila según la acción y mapea a los nombres de columna reales.\nconst action = ($json.params && $json.params.action) || '';\nconst b = $json.body || {};\nconst now = new Date().toISOString();\n\nif (action === 'pipeline-update') {\n  return [{ json: {\n    __action: action,\n    'ID Lead': b.idLead,\n    'Estado': b.estado,\n    'Valor estimado (USD)': b.valorEstimado ?? '',\n    'Prioridad': b.prioridad ?? '',\n    'Responsable': b.responsable ?? '',\n    'Fecha ultimo contacto': now,\n    'Notas': b.nota ?? ''\n  }}];\n}\n\nif (action === 'lead-create') {\n  const id = b.id || ('L-' + Date.now());\n  return [{ json: {\n    __action: action,\n    'ID Lead': id,\n    'Fecha captura': now,\n    'Nombre empresa': b.empresa,\n    'Categoria / nicho': b.nicho ?? '',\n    'Ciudad': b.ciudad ?? '',\n    'Email Contacto': b.email ?? '',\n    'Telefono': b.telefono ?? '',\n    'Sitio web': b.web ?? '',\n    'Score Final Combinado': b.score ?? '',\n    'Estado': b.estado ?? 'nuevo',\n    'Valor estimado (USD)': b.valorEstimado ?? '',\n    'Prioridad': b.prioridad ?? 'media'\n  }}];\n}\n\nif (action === 'lead-update') {\n  return [{ json: {\n    __action: action,\n    'ID Lead': b.id,\n    'Nombre empresa': b.empresa,\n    'Categoria / nicho': b.nicho ?? '',\n    'Ciudad': b.ciudad ?? '',\n    'Email Contacto': b.email ?? '',\n    'Telefono': b.telefono ?? '',\n    'Sitio web': b.web ?? '',\n    'Score Final Combinado': b.score ?? ''\n  }}];\n}\n\nthrow new Error('Acción no soportada: ' + action);"
+        "jsCode": "const body = $input.first().json.body || {};\nconst action = body.action;\nconst allowed = ['pipeline_update','lead_create','lead_update','outreach_update','campaign_create','campaign_update','campaign_delete','campaign_restore','lead_delete','lead_restore','pipeline_delete','pipeline_restore','config_update','lead_purge','pipeline_purge'];\nif (!allowed.includes(action)) throw new Error('Invalid action: ' + action);\nif (!body.leadId && action !== 'lead_create' && !action.startsWith('campaign_') && action !== 'config_update') throw new Error('leadId required');\nreturn [{ json: { action, data: body } }];"
       },
-      "id": "shape",
-      "name": "Dar forma",
+      "id": "a2222222-2222-4222-8222-222222222222",
+      "name": "Validate",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-100, 0]
+      "position": [
+        220,
+        0
+      ]
     },
     {
       "parameters": {
         "rules": {
           "values": [
-            { "conditions": { "options": { "caseSensitive": true }, "conditions": [{ "leftValue": "={{ $json.__action }}", "rightValue": "pipeline-update", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": false },
-            { "conditions": { "options": { "caseSensitive": true }, "conditions": [{ "leftValue": "={{ $json.__action }}", "rightValue": "lead-create", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": false },
-            { "conditions": { "options": { "caseSensitive": true }, "conditions": [{ "leftValue": "={{ $json.__action }}", "rightValue": "lead-update", "operator": { "type": "string", "operation": "equals" } }] }, "renameOutput": false }
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "pipeline_update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pipeline_update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "lead_create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "lead_create"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "lead_update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "lead_update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "outreach_update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "outreach_update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "campaign_create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "campaign_create"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "campaign_update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "campaign_update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "campaign_delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "campaign_delete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "config_update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "config_update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "lead_delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "lead_delete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "lead_restore",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "lead_restore"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "pipeline_delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pipeline_delete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "pipeline_restore",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pipeline_restore"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "campaign_restore",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "campaign_restore"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "lead_purge",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "lead_purge"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "pipeline_purge",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pipeline_purge"
+            }
           ]
         },
         "options": {}
       },
-      "id": "switch",
-      "name": "Switch acción",
+      "id": "a3333333-3333-4333-8333-333333333333",
+      "name": "Route",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
-      "position": [140, 0]
+      "position": [
+        440,
+        0
+      ]
     },
     {
       "parameters": {
-        "operation": "appendOrUpdate",
-        "documentId": { "__rl": true, "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE", "mode": "id" },
-        "sheetName": { "__rl": true, "value": "pipeline", "mode": "name" },
-        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": ["ID Lead"], "value": {} },
-        "options": {}
+        "jsCode": "const d = $json.data;\nconst body = {\n  range: 'pipeline!A:K',\n  majorDimension: 'ROWS',\n  values: [[\n    d.leadId,\n    d.empresa || '',\n    d.estado || '',\n    d.prioridad || '',\n    d.canalPrincipal || '',\n    d.fechaPrimerContacto || '',\n    new Date().toISOString(),\n    d.proximoSeguimiento || '',\n    d.valorEstimado != null ? d.valorEstimado : '',\n    d.responsable || '',\n    d.notas || ''\n  ]]\n};\nreturn [{ json: { leadId: d.leadId, body } }];"
       },
-      "id": "sheet-pipeline",
-      "name": "Pipeline upsert",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.4,
-      "position": [400, -180],
-      "credentials": { "googleSheetsOAuth2Api": { "id": "86m52fKwvUB07q9D", "name": "Google Sheets account" } }
+      "id": "a4444444-4444-4444-8444-444444444444",
+      "name": "Build Pipeline Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        -220
+      ]
     },
     {
       "parameters": {
-        "operation": "append",
-        "documentId": { "__rl": true, "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE", "mode": "id" },
-        "sheetName": { "__rl": true, "value": "prospects", "mode": "name" },
-        "columns": { "mappingMode": "autoMapInputData", "value": {} },
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/pipeline!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
         "options": {}
       },
-      "id": "sheet-create",
-      "name": "Prospects append",
-      "type": "n8n-nodes-base.googleSheets",
+      "id": "a5555555-5555-4555-8555-555555555555",
+      "name": "Find Pipeline Row",
+      "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [400, 0],
-      "credentials": { "googleSheetsOAuth2Api": { "id": "86m52fKwvUB07q9D", "name": "Google Sheets account" } }
+      "position": [
+        880,
+        -220
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
     },
     {
       "parameters": {
-        "operation": "appendOrUpdate",
-        "documentId": { "__rl": true, "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE", "mode": "id" },
-        "sheetName": { "__rl": true, "value": "prospects", "mode": "name" },
-        "columns": { "mappingMode": "autoMapInputData", "matchingColumns": ["ID Lead"], "value": {} },
+        "jsCode": "const ids = $json.values.map(r => r[0]);\nconst leadId = $('Build Pipeline Row').item.json.leadId;\nconst idx = ids.indexOf(leadId);\nconst body = $('Build Pipeline Row').item.json.body;\nif (idx !== -1) {\n  body.range = `pipeline!A${idx + 1}:K${idx + 1}`;\n}\nreturn [{ json: { rowIndex: idx, body, leadId } }];"
+      },
+      "id": "a6666666-6666-4666-8666-666666666666",
+      "name": "Locate Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.rowIndex }}",
+              "rightValue": -1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
         "options": {}
       },
-      "id": "sheet-update",
-      "name": "Prospects upsert",
-      "type": "n8n-nodes-base.googleSheets",
+      "id": "a7777777-7777-4777-8777-777777777777",
+      "name": "Row Exists?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        -220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/pipeline!A:K:append?valueInputOption=USER_ENTERED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "a8888888-8888-4888-8888-888888888888",
+      "name": "Append Pipeline Row",
+      "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [400, 180],
-      "credentials": { "googleSheetsOAuth2Api": { "id": "86m52fKwvUB07q9D", "name": "Google Sheets account" } }
+      "position": [
+        1540,
+        -320
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/{{ encodeURIComponent($json.body.range) }}?valueInputOption=USER_ENTERED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "a9999999-9999-4999-8999-999999999999",
+      "name": "Update Pipeline Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1540,
+        -120
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json.data;\nconst body = {\n  range: 'prospects!A:AE',\n  majorDimension: 'ROWS',\n  values: [[\n    d.leadId || ('L-' + Date.now()),\n    new Date().toISOString(),\n    d.empresa || '',\n    d.nicho || '',\n    d.ciudad || '',\n    d.pais || '',\n    d.direccion || '',\n    d.telefono || '',\n    d.email || '',\n    d.web || '',\n    d.emailContacto || d.email || '',\n    d.whatsapp || '',\n    d.instagram || '',\n    d.facebook || '',\n    d.linkedin || '',\n    d.googleMaps || '',\n    d.ratingGoogle != null ? d.ratingGoogle : '',\n    d.numResenas != null ? d.numResenas : '',\n    d.pageSpeedMovil != null ? d.pageSpeedMovil : '',\n    d.pageSpeedDesktop != null ? d.pageSpeedDesktop : '',\n    d.tieneSSL != null ? d.tieneSSL : '',\n    d.diagnosticoIA || '',\n    d.score != null ? d.score : '',\n    d.fuente || 'Manual CRM',\n    d.notas || '',\n    d.screenshotUrl || '',\n    '', '', '', '', ''\n  ]]\n};\nreturn [{ json: { leadId: d.leadId, body } }];"
+      },
+      "id": "b1111111-1111-4111-8111-111111111112",
+      "name": "Build Lead Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/prospects!A:AE:append?valueInputOption=USER_ENTERED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "b2222222-2222-4222-8222-222222222223",
+      "name": "Append Lead Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/prospects!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "b3333333-3333-4333-8333-333333333334",
+      "name": "Find Lead Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        660,
+        220
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ids = ($json.values || []).map(r => r[0]);\nconst d = $('Validate').item.json.data;\nconst idx = ids.indexOf(d.leadId);\nif (idx === -1) throw new Error('Lead not found: ' + d.leadId);\nconst rowNum = idx + 1;\nconst fieldMap = {\n  empresa: 'C', nicho: 'D', ciudad: 'E', pais: 'F', direccion: 'G', telefono: 'H',\n  email: 'I', web: 'J', emailContacto: 'K', whatsapp: 'L', instagram: 'M',\n  facebook: 'N', linkedin: 'O', googleMaps: 'P', ratingGoogle: 'Q', numResenas: 'R',\n  pageSpeedMovil: 'S', pageSpeedDesktop: 'T', tieneSSL: 'U', diagnosticoIA: 'V',\n  score: 'W', fuente: 'X', notas: 'Y', screenshotUrl: 'Z'\n};\nconst updates = [];\nfor (const [key, col] of Object.entries(fieldMap)) {\n  if (d[key] !== undefined) {\n    updates.push({ range: `prospects!${col}${rowNum}`, values: [[d[key]]] });\n  }\n}\nreturn [{ json: { body: { valueInputOption: 'USER_ENTERED', data: updates } } }];"
+      },
+      "id": "b4444444-4444-4444-8444-444444444445",
+      "name": "Build Lead Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "b5555555-5555-4555-8555-555555555556",
+      "name": "Update Lead Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1100,
+        220
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/outreach!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "b6666666-6666-4666-8666-666666666667",
+      "name": "Find Outreach Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        660,
+        440
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ids = ($json.values || []).map(r => r[0]);\nconst d = $('Validate').item.json.data;\nconst idx = ids.indexOf(d.leadId);\nif (idx === -1) throw new Error('Lead not found in outreach: ' + d.leadId);\nconst rowNum = idx + 1;\nconst fieldMap = {\n  asuntoEmail: 'R', cuerpoEmail: 'S', estado: 'T', fechaEnvio: 'U'\n};\nconst updates = [];\nfor (const [key, col] of Object.entries(fieldMap)) {\n  if (d[key] !== undefined) {\n    updates.push({ range: `outreach!${col}${rowNum}`, values: [[d[key]]] });\n  }\n}\nreturn [{ json: { body: { valueInputOption: 'USER_ENTERED', data: updates } } }];"
+      },
+      "id": "b7777777-7777-4777-8777-777777777778",
+      "name": "Build Outreach Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "b8888888-8888-4888-8888-888888888889",
+      "name": "Update Outreach Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1100,
+        440
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { ok: true } }];"
+      },
+      "id": "c1111111-1111-4111-8111-111111111113",
+      "name": "Merge OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ]
     },
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ ok: true, action: $json.__action || 'done' }) }}",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
         "options": {
-          "responseHeaders": { "entries": [{ "name": "Access-Control-Allow-Origin", "value": "*" }] }
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
         }
       },
-      "id": "respond",
-      "name": "Responder",
+      "id": "c2222222-2222-4222-8222-222222222224",
+      "name": "Respond",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [680, 0]
+      "position": [
+        1980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $json.data;\nconst id = d.id || ('C-' + Date.now());\nconst now = new Date().toISOString();\nconst body = {\n  range: 'campaigns!A:O',\n  majorDimension: 'ROWS',\n  values: [[\n    id,\n    d.nombre || '',\n    d.nicho || '',\n    d.idioma || 'es',\n    d.estado || 'borrador',\n    d.tipoMensaje || 'email',\n    d.template || '',\n    Array.isArray(d.leadIds) ? d.leadIds.join(',') : (d.leadIds || ''),\n    now,\n    d.fechaInicio || '',\n    d.fechaFin || '',\n    d.totalLeads != null ? d.totalLeads : (Array.isArray(d.leadIds) ? d.leadIds.length : 0),\n    d.enviados != null ? d.enviados : 0,\n    d.respondidos != null ? d.respondidos : 0,\n    d.notas || ''\n  ]]\n};\nreturn [{ json: { id, body } }];"
+      },
+      "id": "camp-build-create",
+      "name": "Build Campaign Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/campaigns!A:O:append?valueInputOption=USER_ENTERED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "camp-append",
+      "name": "Append Campaign Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        880,
+        660
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, id: $json.id }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "camp-respond-create",
+      "name": "Respond Campaign Create",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        660
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/campaigns!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "camp-find-update",
+      "name": "Find Campaign Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        660,
+        860
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ids = ($json.values || []).map(r => r[0]);\nconst d = $('Validate').item.json.data;\nconst idx = ids.indexOf(d.id);\nif (idx === -1) throw new Error('Campaign not found: ' + d.id);\nconst rowNum = idx + 1;\nconst fieldMap = {\n  nombre: 'B', nicho: 'C', idioma: 'D', estado: 'E', tipoMensaje: 'F', template: 'G',\n  fechaInicio: 'J', fechaFin: 'K', totalLeads: 'L', enviados: 'M', respondidos: 'N', notas: 'O'\n};\nconst updates = [];\nfor (const [key, col] of Object.entries(fieldMap)) {\n  if (d[key] !== undefined) updates.push({ range: `campaigns!${col}${rowNum}`, values: [[d[key]]] });\n}\nif (d.leadIds !== undefined) {\n  const val = Array.isArray(d.leadIds) ? d.leadIds.join(',') : d.leadIds;\n  updates.push({ range: `campaigns!H${rowNum}`, values: [[val]] });\n}\nreturn [{ json: { body: { valueInputOption: 'USER_ENTERED', data: updates } } }];"
+      },
+      "id": "camp-build-update",
+      "name": "Build Campaign Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        860
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "camp-update-fields",
+      "name": "Update Campaign Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1100,
+        860
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "camp-respond-update",
+      "name": "Respond Campaign Update",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        860
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/campaigns!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "camp-find-delete",
+      "name": "Find Campaign Row Delete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        660,
+        1060
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ids = ($json.values || []).map(r => r[0]);\nconst d = $('Validate').item.json.data;\nconst idx = ids.indexOf(d.id);\nif (idx === -1) throw new Error('Campaign not found: ' + d.id);\nconst rowNum = idx + 1;\nconst body = { valueInputOption: 'USER_ENTERED', data: [{ range: `campaigns!E${rowNum}`, values: [['eliminada']] }] };\nreturn [{ json: { body } }];"
+      },
+      "id": "camp-build-delete",
+      "name": "Build Campaign Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1060
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "camp-delete-fields",
+      "name": "Delete Campaign Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1100,
+        1060
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "camp-respond-delete",
+      "name": "Respond Campaign Delete",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        1060
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/config!A:B",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "id": "cfg-find",
+      "name": "Find Config Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        660,
+        1260
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const values = $json.values || [];\nconst d = $('Validate').item.json.data;\nconst claves = values.map(r => r[0]);\nconst idx = claves.indexOf(d.clave);\nif (idx === -1) {\n  return [{ json: { mode: 'append', body: { range: 'config!A:B', majorDimension: 'ROWS', values: [[d.clave, d.valor]] } } }];\n}\nconst rowNum = idx + 1;\nreturn [{ json: { mode: 'update', body: { valueInputOption: 'USER_ENTERED', data: [{ range: `config!B${rowNum}`, values: [[d.valor]] }] } } }];"
+      },
+      "id": "cfg-build",
+      "name": "Build Config Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1260
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "append",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cfg-if",
+      "name": "Config Append?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        1260
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/config!A:B:append?valueInputOption=USER_ENTERED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "cfg-append",
+      "name": "Append Config Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1320,
+        1180
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "cfg-update",
+      "name": "Update Config Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1320,
+        1340
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "cfg-respond",
+      "name": "Respond Config Update",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        1260
+      ]
+    },
+    {
+      "id": "find-lead-trash",
+      "name": "Find Lead Row Trash",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        1480
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/prospects!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "build-lead-trash",
+      "name": "Build Lead Trash",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1480
+      ],
+      "parameters": {
+        "jsCode": "const action = $('Validate').item.json.action;\nconst d = $('Validate').item.json.data;\nconst ids = ($json.values || []).map(r => r[0]);\nconst idx = ids.indexOf(d.leadId);\nif (idx === -1) throw new Error('Lead no encontrado: ' + d.leadId);\nconst rowNum = idx + 1;\nconst isRestore = action === 'lead_restore';\nconst now = new Date().toISOString();\nconst body = { valueInputOption: 'USER_ENTERED', data: [\n  { range: `prospects!AF${rowNum}`, values: [[isRestore ? '' : now]] },\n  { range: `prospects!AG${rowNum}`, values: [[isRestore ? '' : (d.eliminadoPor || 'CRM')]] },\n] };\nreturn [{ json: { body } }];"
+      }
+    },
+    {
+      "id": "lead-trash-fields",
+      "name": "Lead Trash Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        1480
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "respond-lead-trash",
+      "name": "Respond Lead Trash",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        1480
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "find-pipeline-trash",
+      "name": "Find Pipeline Row Trash",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        1680
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/pipeline!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "build-pipeline-trash",
+      "name": "Build Pipeline Trash",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1680
+      ],
+      "parameters": {
+        "jsCode": "const action = $('Validate').item.json.action;\nconst d = $('Validate').item.json.data;\nconst ids = ($json.values || []).map(r => r[0]);\nconst idx = ids.indexOf(d.leadId);\nif (idx === -1) throw new Error('Pipeline no encontrado: ' + d.leadId);\nconst rowNum = idx + 1;\nconst isRestore = action === 'pipeline_restore';\nconst now = new Date().toISOString();\nconst body = { valueInputOption: 'USER_ENTERED', data: [\n  { range: `pipeline!L${rowNum}`, values: [[isRestore ? '' : now]] },\n  { range: `pipeline!M${rowNum}`, values: [[isRestore ? '' : (d.eliminadoPor || 'CRM')]] },\n] };\nreturn [{ json: { body } }];"
+      }
+    },
+    {
+      "id": "pipeline-trash-fields",
+      "name": "Pipeline Trash Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        1680
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "respond-pipeline-trash",
+      "name": "Respond Pipeline Trash",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1320,
+        1680
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "find-campaign-restore",
+      "name": "Find Campaign Row Restore",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        1880
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/campaigns!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "build-campaign-restore",
+      "name": "Build Campaign Restore",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        1880
+      ],
+      "parameters": {
+        "jsCode": "const ids = ($json.values || []).map(r => r[0]);\nconst d = $('Validate').item.json.data;\nconst id = d.id || d.leadId;\nconst idx = ids.indexOf(id);\nif (idx === -1) throw new Error('Campana no encontrada: ' + id);\nconst rowNum = idx + 1;\nconst body = { valueInputOption: 'USER_ENTERED', data: [{ range: `campaigns!E${rowNum}`, values: [['activa']] }] };\nreturn [{ json: { body } }];"
+      }
+    },
+    {
+      "id": "bf4fc90620f0050a",
+      "name": "Find Lead Row Purge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        1480
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/prospects!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "1cc772f52d26bb4e",
+      "name": "Build Lead Purge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        1480
+      ],
+      "parameters": {
+        "jsCode": "const d = $('Validate').item.json.data;\nconst ids = ($json.values || []).map(r => r[0]);\nconst idx = ids.indexOf(d.leadId);\nif (idx === -1) throw new Error('Lead no encontrado: ' + d.leadId);\nconst rowNum = idx + 1;\nconst now = new Date().toISOString();\nconst body = { valueInputOption: 'USER_ENTERED', data: [\n  { range: `prospects!AH${rowNum}`, values: [[now]] },\n] };\nreturn [{ json: { body } }];"
+      }
+    },
+    {
+      "id": "b164d42b4957bbf4",
+      "name": "Lead Purge Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        1480
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "547b6660179e171b",
+      "name": "Respond Lead Purge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        1480
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "50d8f85d1ebcd84c",
+      "name": "Find Pipeline Row Purge",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        1680
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/pipeline!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "8fe7235aa34acbb9",
+      "name": "Build Pipeline Purge",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        1680
+      ],
+      "parameters": {
+        "jsCode": "const d = $('Validate').item.json.data;\nconst ids = ($json.values || []).map(r => r[0]);\nconst idx = ids.indexOf(d.leadId);\nif (idx === -1) throw new Error('Pipeline no encontrado: ' + d.leadId);\nconst rowNum = idx + 1;\nconst now = new Date().toISOString();\nconst body = { valueInputOption: 'USER_ENTERED', data: [\n  { range: `pipeline!N${rowNum}`, values: [[now]] },\n] };\nreturn [{ json: { body } }];"
+      }
+    },
+    {
+      "id": "70d2a1900783c565",
+      "name": "Pipeline Purge Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1480,
+        1680
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "728630a01fc2f50c",
+      "name": "Respond Pipeline Purge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        1680
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "connections": {
-    "Webhook POST": { "main": [[{ "node": "Dar forma", "type": "main", "index": 0 }]] },
-    "Dar forma": { "main": [[{ "node": "Switch acción", "type": "main", "index": 0 }]] },
-    "Switch acción": {
+    "Webhook": {
       "main": [
-        [{ "node": "Pipeline upsert", "type": "main", "index": 0 }],
-        [{ "node": "Prospects append", "type": "main", "index": 0 }],
-        [{ "node": "Prospects upsert", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Validate",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Pipeline upsert": { "main": [[{ "node": "Responder", "type": "main", "index": 0 }]] },
-    "Prospects append": { "main": [[{ "node": "Responder", "type": "main", "index": 0 }]] },
-    "Prospects upsert": { "main": [[{ "node": "Responder", "type": "main", "index": 0 }]] }
+    "Validate": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Build Pipeline Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Lead Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Lead Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Outreach Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Campaign Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Campaign Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Campaign Row Delete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Config Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Lead Row Trash",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Lead Row Trash",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Pipeline Row Trash",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Pipeline Row Trash",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Campaign Row Restore",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Lead Row Purge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Pipeline Row Purge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Pipeline Row": {
+      "main": [
+        [
+          {
+            "node": "Find Pipeline Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Pipeline Row": {
+      "main": [
+        [
+          {
+            "node": "Locate Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Locate Row": {
+      "main": [
+        [
+          {
+            "node": "Row Exists?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Row Exists?": {
+      "main": [
+        [
+          {
+            "node": "Append Pipeline Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Pipeline Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Pipeline Row": {
+      "main": [
+        [
+          {
+            "node": "Merge OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Pipeline Row": {
+      "main": [
+        [
+          {
+            "node": "Merge OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Lead Row": {
+      "main": [
+        [
+          {
+            "node": "Append Lead Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Lead Row": {
+      "main": [
+        [
+          {
+            "node": "Merge OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Lead Row": {
+      "main": [
+        [
+          {
+            "node": "Build Lead Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Lead Update": {
+      "main": [
+        [
+          {
+            "node": "Update Lead Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Lead Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Outreach Row": {
+      "main": [
+        [
+          {
+            "node": "Build Outreach Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Outreach Update": {
+      "main": [
+        [
+          {
+            "node": "Update Outreach Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Outreach Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge OK": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Campaign Row": {
+      "main": [
+        [
+          {
+            "node": "Append Campaign Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Campaign Row": {
+      "main": [
+        [
+          {
+            "node": "Respond Campaign Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Campaign Row": {
+      "main": [
+        [
+          {
+            "node": "Build Campaign Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Campaign Update": {
+      "main": [
+        [
+          {
+            "node": "Update Campaign Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Campaign Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond Campaign Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Campaign Row Delete": {
+      "main": [
+        [
+          {
+            "node": "Build Campaign Delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Campaign Delete": {
+      "main": [
+        [
+          {
+            "node": "Delete Campaign Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Campaign Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond Campaign Delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Config Row": {
+      "main": [
+        [
+          {
+            "node": "Build Config Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Config Update": {
+      "main": [
+        [
+          {
+            "node": "Config Append?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config Append?": {
+      "main": [
+        [
+          {
+            "node": "Append Config Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update Config Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Config Row": {
+      "main": [
+        [
+          {
+            "node": "Respond Config Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Config Row": {
+      "main": [
+        [
+          {
+            "node": "Respond Config Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Lead Row Trash": {
+      "main": [
+        [
+          {
+            "node": "Build Lead Trash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Lead Trash": {
+      "main": [
+        [
+          {
+            "node": "Lead Trash Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Trash Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond Lead Trash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Pipeline Row Trash": {
+      "main": [
+        [
+          {
+            "node": "Build Pipeline Trash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Pipeline Trash": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Trash Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipeline Trash Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond Pipeline Trash",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Campaign Row Restore": {
+      "main": [
+        [
+          {
+            "node": "Build Campaign Restore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Campaign Restore": {
+      "main": [
+        [
+          {
+            "node": "Delete Campaign Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Lead Row Purge": {
+      "main": [
+        [
+          {
+            "node": "Build Lead Purge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Lead Purge": {
+      "main": [
+        [
+          {
+            "node": "Lead Purge Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Purge Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond Lead Purge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Pipeline Row Purge": {
+      "main": [
+        [
+          {
+            "node": "Build Pipeline Purge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Pipeline Purge": {
+      "main": [
+        [
+          {
+            "node": "Pipeline Purge Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pipeline Purge Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond Pipeline Purge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
-  "settings": { "executionOrder": "v1" }
+  "settings": {
+    "executionOrder": "v1"
+  }
 }

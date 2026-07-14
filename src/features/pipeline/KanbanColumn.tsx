@@ -10,9 +10,10 @@ interface Props {
   leads: Lead[]
   onOpen: (l: Lead) => void
   onAdd: (stage: LeadStatus) => void
+  onDelete?: (l: Lead) => void
 }
 
-export function KanbanColumn({ stage, leads, onOpen, onAdd }: Props) {
+export function KanbanColumn({ stage, leads, onOpen, onAdd, onDelete }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id, data: { stage: stage.id } })
   const { count, value } = stageTotals(leads, stage.id)
   const cards = leads.filter((l) => l.estado === stage.id)
@@ -45,7 +46,7 @@ export function KanbanColumn({ stage, leads, onOpen, onAdd }: Props) {
         )}
       >
         {cards.map((l) => (
-          <KanbanCard key={l.id} lead={l} onOpen={onOpen} />
+          <KanbanCard key={l.id} lead={l} onOpen={onOpen} onDelete={onDelete} />
         ))}
         {cards.length === 0 && (
           <p className="py-6 text-center text-xs text-muted/60">Sin leads</p>
