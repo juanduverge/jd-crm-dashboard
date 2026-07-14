@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
@@ -17,8 +17,12 @@ export function LeadDrawer({
   onMoveStage: (id: string, estado: Lead['estado']) => void
 }) {
   const [tab, setTab] = useState<(typeof TABS)[number]>('Detalles')
+  const [selectedEmail, setSelectedEmail] = useState<string | undefined>(undefined)
+  useEffect(() => { setSelectedEmail(undefined) }, [lead?.id])
   if (!lead) return null
   const sc = scoreColor(lead.score)
+  const emailOptions = lead.emails && lead.emails.length > 1 ? lead.emails : undefined
+  const activeEmail = selectedEmail && emailOptions?.includes(selectedEmail) ? selectedEmail : (emailOptions?.[0] ?? lead.email)
 
   return (
     <Drawer open={!!lead} onClose={onClose}>
@@ -42,7 +46,7 @@ export function LeadDrawer({
         </div>
         <div className="mt-3 flex gap-2">
           <Button size="sm" onClick={() => onEdit(lead)}><Edit3 className="h-3.5 w-3.5" /> Editar</Button>
-          {lead.email && <a className="btn btn-outline h-8 px-3 text-xs" href={`mailto:${lead.email}`}><Mail className="h-3.5 w-3.5" /> Email</a>}
+          {activeEmail && <a className="btn btn-outline h-8 px-3 text-xs" href={`mailto:${activeEmail}`}><Mail className="h-3.5 w-3.5" /> Email</a>}
           {lead.whatsapp && <a className="btn btn-outline h-8 px-3 text-xs" target="_blank" href={`https://wa.me/${lead.whatsapp.replace(/\D/g, '')}`}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</a>}
         </div>
       </div>
@@ -62,7 +66,25 @@ export function LeadDrawer({
           <div className="space-y-3 text-sm">
             <Row icon={Briefcase} label="Cargo" value={lead.cargo} />
             <Row icon={Globe} label="Web" value={lead.web} link={lead.web} />
-            <Row icon={Mail} label="Email" value={lead.email} link={lead.email ? `mailto:${lead.email}` : undefined} />
+            {emailOptions ? (
+              <div className="flex items-start gap-3 py-2 text-sm">
+                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
+                <div className="min-w-0 flex-1">
+                  <span className="mb-1 block text-xs font-medium text-muted">
+                    Email <span className="text-muted/70">· {emailOptions.length} encontrados en el registro</span>
+                  </span>
+                  <select
+                    className="w-full rounded-lg border border-border bg-surface px-2 py-1.5 text-sm"
+                    value={activeEmail}
+                    onChange={(e) => setSelectedEmail(e.target.value)}
+                  >
+                    {emailOptions.map((e) => <option key={e} value={e}>{e}</option>)}
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <Row icon={Mail} label="Email" value={lead.email} link={lead.email ? `mailto:${lead.email}` : undefined} />
+            )}
             <Row icon={Phone} label="Teléfono" value={lead.telefono} />
             <Row icon={MessageCircle} label="WhatsApp" value={lead.whatsapp} />
             <Row icon={Instagram} label="Instagram" value={lead.instagram} />

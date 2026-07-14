@@ -17,6 +17,13 @@ const num = (v?: string) => {
   return isNaN(n) ? 0 : n
 }
 
+/** Separa varios emails apretados en una sola celda (coma/punto y coma/salto de línea). */
+const parseEmails = (raw?: string): string[] =>
+  (raw ?? '')
+    .split(/[,;\n]+/)
+    .map((e) => e.trim())
+    .filter((e) => /\S+@\S+\.\S+/.test(e))
+
 const ESTADO_MAP: Record<string, Lead['estado']> = {
   nuevo: 'nuevo', contactado: 'contactado', seguimiento: 'seguimiento',
   respondio: 'respondio', 'respondió': 'respondio', reunion: 'reunion',
@@ -52,7 +59,8 @@ export const sheetsService = {
         pais: p['Pais'] || p['País'],
         direccion: p['Direccion'] || p['Dirección'],
         telefono: p['Telefono'] || p['Teléfono'],
-        email: p['Email Contacto'] || p['Email'],
+        email: parseEmails(p['Email Contacto'] || p['Email'])[0] || (p['Email Contacto'] || p['Email']),
+        emails: parseEmails(p['Email Contacto'] || p['Email']),
         web: p['Sitio web'],
         whatsapp: p['WhatsApp'],
         instagram: p['Instagram'],

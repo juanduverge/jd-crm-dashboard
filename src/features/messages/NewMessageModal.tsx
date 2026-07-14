@@ -17,9 +17,14 @@ export function NewMessageModal({ open, onClose, onSent }: { open: boolean; onCl
   const [attachment, setAttachment] = useState<File | null>(null)
   const [sending, setSending] = useState(false)
 
-  const matchedLead = useMemo(
-    () => leads.find((l) => l.email?.trim().toLowerCase() === to.trim().toLowerCase()),
-    [leads, to],
+  const matchedLead = useMemo(() => {
+    const target = to.trim().toLowerCase()
+    return leads.find((l) => (l.emails?.length ? l.emails : [l.email]).some((e) => e?.trim().toLowerCase() === target))
+  }, [leads, to])
+
+  const allEmails = useMemo(
+    () => leads.flatMap((l) => (l.emails?.length ? l.emails : [l.email]).filter((e): e is string => !!e).map((e) => ({ email: e, empresa: l.empresa }))),
+    [leads],
   )
 
   const reset = () => { setTo(''); setSubject(''); setBody(''); setAttachment(null) }
@@ -75,7 +80,7 @@ export function NewMessageModal({ open, onClose, onSent }: { open: boolean; onCl
             list="leads-emails"
           />
           <datalist id="leads-emails">
-            {leads.filter((l) => l.email).map((l) => <option key={l.id} value={l.email} />)}
+            {allEmails.map(({ email, empresa }) => <option key={email} value={email}>{empresa}</option>)}
           </datalist>
           {matchedLead && (
             <p className="mt-1 text-[11px] text-primary-600 dark:text-primary-400">Coincide con el lead: {matchedLead.empresa}</p>

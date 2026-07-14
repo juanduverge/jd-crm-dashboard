@@ -30,7 +30,8 @@ export interface Lead {
   pais?: string
   direccion?: string
   telefono?: string
-  email?: string              // Email Contacto
+  email?: string              // Email Contacto (primer email si hay varios en la celda)
+  emails?: string[]           // Todos los emails detectados en la celda (para elegir cuál usar)
   web?: string                // Sitio web
   whatsapp?: string
   instagram?: string
