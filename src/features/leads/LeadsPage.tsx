@@ -18,7 +18,15 @@ import { scoreColor, fuzzyMatch, formatCurrency, downloadCSV, cn } from '@/lib/u
 import type { Lead } from '@/types'
 import { formToLeadPatch, type LeadFormValues } from './leadSchema'
 
-type SortKey = 'empresa' | 'score' | 'ciudad' | 'valorEstimado' | 'estado' | 'favorito'
+type SortKey = 'empresa' | 'score' | 'ciudad' | 'valorEstimado' | 'estado' | 'favorito' | 'fechaCaptura' | 'actualizado'
+
+/** Fecha corta legible (ej. "14 jul 2026"); vacío si no hay valor o no parsea. */
+function fmtShort(v?: string): string {
+  if (!v) return ''
+  const d = new Date(v.length <= 10 ? v + 'T00:00:00' : v)
+  if (isNaN(d.getTime())) return v
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+}
 
 export function LeadsPage() {
   const { isLoading, isError, refetch, isFetching } = useLeads()
@@ -49,9 +57,14 @@ export function LeadsPage() {
       (l.score >= fScoreMin) &&
       (!fFavoritos || l.favorito),
     )
+    const sortVal = (l: Lead): string | number => {
+      if (sort.key === 'favorito') return l.favorito ? 1 : 0
+      if (sort.key === 'actualizado') return l.fechaUltimoMovimiento || l.ultimaAccion || ''
+      return l[sort.key] ?? ''
+    }
     res = [...res].sort((a, b) => {
-      const av = sort.key === 'favorito' ? (a.favorito ? 1 : 0) : (a[sort.key] ?? '')
-      const bv = sort.key === 'favorito' ? (b.favorito ? 1 : 0) : (b[sort.key] ?? '')
+      const av = sortVal(a)
+      const bv = sortVal(b)
       const cmp = typeof av === 'number' && typeof bv === 'number'
         ? av - bv : String(av).localeCompare(String(bv))
       return sort.dir === 'asc' ? cmp : -cmp
@@ -188,9 +201,9 @@ export function LeadsPage() {
         <EmptyState icon={<Search className="h-8 w-8" />} title="Sin leads" description="Ajusta los filtros o agrega tu primer lead." action={<Button onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" /> Agregar lead</Button>} />
       ) : (
         <div className="card overflow-hidden p-0">
-          <div className="overflow-x-auto">
+          <div className="max-h-[calc(100vh-16rem)] overflow-auto">
             <table className="w-full text-sm">
-              <thead className="border-b border-border bg-surface-2 text-xs text-muted">
+              <thead className="sticky top-0 z-10 border-b border-border bg-surface-2 text-xs text-muted">
                 <tr>
                   <th className="w-10 px-3 py-3">
                     <input type="checkbox" checked={allSelected} onChange={(e) => e.target.checked ? selectAll(filtered.map((l) => l.id)) : clearSelection()} className="accent-primary-400" />
@@ -203,6 +216,8 @@ export function LeadsPage() {
                   <Th onClick={() => toggleSort('score')}>Score</Th>
                   <Th onClick={() => toggleSort('estado')}>Estado</Th>
                   <Th onClick={() => toggleSort('valorEstimado')}>Valor</Th>
+                  <Th onClick={() => toggleSort('fechaCaptura')}>Creado</Th>
+                  <Th onClick={() => toggleSort('actualizado')}>Actualizado</Th>
                   <th className="px-3 py-3 text-right font-medium">Acciones</th>
                 </tr>
               </thead>
@@ -238,6 +253,8 @@ export function LeadsPage() {
                         <Badge>{PIPELINE_STAGES.find((s) => s.id === l.estado)?.label}</Badge>
                       </td>
                       <td className="px-3 py-2.5 font-medium text-fg">{l.valorEstimado ? formatCurrency(l.valorEstimado) : '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted">{fmtShort(l.fechaCaptura) || '—'}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-xs text-muted">{fmtShort(l.fechaUltimoMovimiento || l.ultimaAccion) || '—'}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex justify-end gap-1">
                           {l.email && <button className="btn-ghost h-7 w-7 p-0" onClick={() => setComposeLead(l)} title="Email"><Mail className="h-4 w-4" /></button>}

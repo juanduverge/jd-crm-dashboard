@@ -203,8 +203,8 @@ export function PipelinePage() {
         <div className="flex gap-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-96 w-72" />)}</div>
       ) : view === 'kanban' ? (
         <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <HScrollBoard>
-            <div className="flex gap-3 pb-4">
+          <HScrollBoard className="max-h-[calc(100vh-15rem)] overflow-y-auto">
+            <div className="flex gap-3 pb-3">
               {OPEN_STAGES.map((stage) => (
                 <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={setDrawerLead} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} />
               ))}
