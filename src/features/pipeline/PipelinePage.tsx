@@ -18,6 +18,7 @@ import { LeadForm } from '../leads/LeadForm'
 import { LeadDrawer } from '../leads/LeadDrawer'
 import { KanbanCard } from './KanbanCard'
 import { KanbanColumn } from './KanbanColumn'
+import { OpportunityForm } from './OpportunityForm'
 import { HScrollBoard } from './HScrollBoard'
 import type { Lead, LeadStatus } from '@/types'
 import { formToLeadPatch, type LeadFormValues } from '../leads/leadSchema'
@@ -42,6 +43,7 @@ export function PipelinePage() {
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null)
   const [formStage, setFormStage] = useState<LeadStatus | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null)
+  const [editOpp, setEditOpp] = useState<Lead | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
@@ -196,12 +198,12 @@ export function PipelinePage() {
           <HScrollBoard>
             <div className="flex gap-3 pb-4">
               {OPEN_STAGES.map((stage) => (
-                <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={setDrawerLead} onAdd={setFormStage} onDelete={setDeleteTarget} />
+                <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={setDrawerLead} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} />
               ))}
               {/* Columna combinada de cierre */}
               <div className="flex w-72 shrink-0 flex-col gap-3">
                 {CLOSED.map((stage) => (
-                  <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={setDrawerLead} onAdd={setFormStage} onDelete={setDeleteTarget} />
+                  <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={setDrawerLead} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} />
                 ))}
               </div>
             </div>
@@ -231,6 +233,12 @@ export function PipelinePage() {
         title="Eliminar lead"
         itemLabel={deleteTarget?.empresa}
         warning="También se eliminará su registro en Pipeline. Sus notas y tareas asociadas permanecerán, pero quedarán sin lead visible mientras esté en la Papelera."
+      />
+      <OpportunityForm
+        lead={editOpp}
+        open={!!editOpp}
+        onClose={() => setEditOpp(null)}
+        onSave={(id, patch) => { updateLead(id, patch); toast.success('Oportunidad actualizada') }}
       />
     </div>
   )

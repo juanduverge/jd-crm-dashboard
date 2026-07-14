@@ -1,11 +1,11 @@
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { Mail, MessageCircle, Clock, AlertTriangle, ArrowRight, Trash2 } from 'lucide-react'
+import { Mail, MessageCircle, Clock, AlertTriangle, ArrowRight, Trash2, Pencil } from 'lucide-react'
 import { initials, stringToColor, formatCurrency, scoreColor, cn } from '@/lib/utils'
 import { daysInStage, isStale, PRIORITY_META } from '@/lib/pipeline'
 import type { Lead } from '@/types'
 
-export function KanbanCard({ lead, onOpen, onDelete }: { lead: Lead; onOpen: (l: Lead) => void; onDelete?: (l: Lead) => void }) {
+export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onOpen: (l: Lead) => void; onDelete?: (l: Lead) => void; onEdit?: (l: Lead) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
     data: { lead },
@@ -50,6 +50,16 @@ export function KanbanCard({ lead, onOpen, onDelete }: { lead: Lead; onOpen: (l:
         <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold', sc.bg, sc.text)}>
           {lead.score}
         </span>
+        {onEdit && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(lead) }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="btn-ghost h-6 w-6 shrink-0 p-0 text-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-primary-600 group-hover:opacity-100"
+            title="Editar oportunidad"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+        )}
         {onDelete && (
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(lead) }}
