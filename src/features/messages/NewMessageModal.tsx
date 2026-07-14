@@ -1,21 +1,39 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Send, Loader2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button, Input, Textarea } from '@/components/ui'
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { useLeads } from '@/hooks/useData'
-import { crmApi } from '@/services/crmApi'
+import { crmApi, REPLY_ALIASES } from '@/services/crmApi'
 import { fileToBase64 } from '@/lib/utils'
 
 /** Composer libre: escribe a cualquier email, exista o no como lead en el CRM. */
-export function NewMessageModal({ open, onClose, onSent }: { open: boolean; onClose: () => void; onSent?: () => void }) {
+export function NewMessageModal({
+  open, onClose, onSent, initialTo, leadId, lockTo,
+}: {
+  open: boolean
+  onClose: () => void
+  onSent?: () => void
+  /** Prellena el destinatario (ej. al abrir desde el perfil de un lead). */
+  initialTo?: string
+  /** Asocia el envío a un lead ya conocido, sin depender del auto-match por email. */
+  leadId?: string
+  /** Si true, el campo "Para" no se puede editar (viene de un contexto ya definido). */
+  lockTo?: boolean
+}) {
   const { leads } = useLeads()
-  const [to, setTo] = useState('')
+  const [to, setTo] = useState(initialTo ?? '')
+  const [from, setFrom] = useState<string>(REPLY_ALIASES[0].email)
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [attachment, setAttachment] = useState<File | null>(null)
   const [sending, setSending] = useState(false)
+
+  useEffect(() => {
+    if (open) { setTo(initialTo ?? ''); setFrom(REPLY_ALIASES[0].email) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialTo])
 
   const matchedLead = useMemo(() => {
     const target = to.trim().toLowerCase()
@@ -38,9 +56,10 @@ export function NewMessageModal({ open, onClose, onSent }: { open: boolean; onCl
       const att = attachment ? await fileToBase64(attachment) : null
       await crmApi.sendReply({
         to: email,
+        from,
         subject: subject.trim() || 'Mensaje de JD Developer',
         body: body.trim(),
-        leadId: matchedLead?.id,
+        leadId: leadId ?? matchedLead?.id,
         ...(att ? { attachmentName: attachment!.name, attachmentBase64: att, attachmentMimeType: attachment!.type } : {}),
       })
       toast.success('Mensaje enviado')
@@ -71,6 +90,12 @@ export function NewMessageModal({ open, onClose, onSent }: { open: boolean; onCl
     >
       <div className="space-y-3">
         <div>
+          <label className="mb-1 block text-xs font-medium text-muted">Enviar desde</label>
+          <select className="input" value={from} onChange={(e) => setFrom(e.target.value)}>
+            {REPLY_ALIASES.map((a) => <option key={a.email} value={a.email}>{a.label} — {a.email}</option>)}
+          </select>
+        </div>
+        <div>
           <label className="mb-1 block text-xs font-medium text-muted">Para</label>
           <Input
             type="email"
@@ -78,6 +103,7 @@ export function NewMessageModal({ open, onClose, onSent }: { open: boolean; onCl
             onChange={(e) => setTo(e.target.value)}
             placeholder="destinatario@ejemplo.com"
             list="leads-emails"
+            disabled={lockTo}
           />
           <datalist id="leads-emails">
             {allEmails.map(({ email, empresa }) => <option key={email} value={email}>{empresa}</option>)}
@@ -95,7 +121,7 @@ export function NewMessageModal({ open, onClose, onSent }: { open: boolean; onCl
           <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Escribe tu mensaje..." disabled={sending} />
         </div>
         <AttachmentPicker file={attachment} onChange={setAttachment} />
-        <p className="text-[11px] text-muted">Se agrega automáticamente el pie legal (dirección y link de baja).</p>
+        <p className="text-[11px] text-muted">Se agrega automáticamente el pie legal (dirección).</p>
       </div>
     </Modal>
   )

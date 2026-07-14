@@ -180,7 +180,7 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
 
             <Field label="Contacto">
               <div className="space-y-1.5 text-sm">
-                <a href={`mailto:${lead.email}`} className="flex items-center gap-2 text-fg hover:text-primary-500"><Mail className="h-4 w-4 text-muted" /> {lead.email}</a>
+                <button onClick={() => { setTab('Detalles'); setComposerOpen(true) }} className="flex items-center gap-2 text-left text-fg hover:text-primary-500"><Mail className="h-4 w-4 text-muted" /> {lead.email}</button>
                 {lead.telefono && <a href={`tel:${lead.telefono}`} className="flex items-center gap-2 text-fg hover:text-primary-500"><Phone className="h-4 w-4 text-muted" /> {lead.telefono}</a>}
               </div>
             </Field>

@@ -10,6 +10,7 @@ import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { LeadForm } from './LeadForm'
 import { LeadDrawer } from './LeadDrawer'
 import { LeadSearchModal } from './LeadSearchModal'
+import { NewMessageModal } from '@/features/messages/NewMessageModal'
 import { useLeads, useDeleteLead, useDeletePipeline } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
 import { DEFAULT_NICHES, PIPELINE_STAGES } from '@/lib/config'
@@ -33,6 +34,7 @@ export function LeadsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Lead | null>(null)
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null)
+  const [composeLead, setComposeLead] = useState<Lead | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const deleteLead = useDeleteLead()
@@ -213,7 +215,7 @@ export function LeadsPage() {
                       <td className="px-3 py-2.5 font-medium text-fg">{l.valorEstimado ? formatCurrency(l.valorEstimado) : '—'}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex justify-end gap-1">
-                          {l.email && <a className="btn-ghost h-7 w-7 p-0" href={`mailto:${l.email}`} title="Email"><Mail className="h-4 w-4" /></a>}
+                          {l.email && <button className="btn-ghost h-7 w-7 p-0" onClick={() => setComposeLead(l)} title="Email"><Mail className="h-4 w-4" /></button>}
                           {l.whatsapp && <a className="btn-ghost h-7 w-7 p-0" target="_blank" href={`https://wa.me/${l.whatsapp.replace(/\D/g, '')}`} title="WhatsApp"><MessageCircle className="h-4 w-4" /></a>}
                           <button className="btn-ghost h-7 w-7 p-0" onClick={() => setDrawerLead(l)} title="Ver"><Eye className="h-4 w-4" /></button>
                           <button
@@ -241,6 +243,13 @@ export function LeadsPage() {
         onClose={() => setDrawerLead(null)}
         onEdit={(l) => { setDrawerLead(null); setEditing(l); setFormOpen(true) }}
         onMoveStage={(id, estado) => { moveStage(id, estado); toast.success('Etapa actualizada'); setDrawerLead((d) => d ? { ...d, estado } : d) }}
+      />
+      <NewMessageModal
+        open={!!composeLead}
+        onClose={() => setComposeLead(null)}
+        initialTo={composeLead?.email}
+        leadId={composeLead?.id}
+        lockTo
       />
       <ConfirmDeleteModal
         open={confirmDeleteOpen}

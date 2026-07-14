@@ -7,6 +7,7 @@ import { PIPELINE_STAGES } from '@/lib/config'
 import { crmApi } from '@/services/crmApi'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useNotes, useCreateNote, useUpdateNote, useDeleteNote, useMessages } from '@/hooks/useData'
+import { NewMessageModal } from '@/features/messages/NewMessageModal'
 import toast from 'react-hot-toast'
 import type { Lead, Contact, ContactType, Note, Channel } from '@/types'
 
@@ -35,6 +36,7 @@ export function LeadDrawer({
   const [tab, setTab] = useState<(typeof TABS)[number]>('Detalles')
   const [selectedEmail, setSelectedEmail] = useState<string | undefined>(undefined)
   const [analizando, setAnalizando] = useState(false)
+  const [composeOpen, setComposeOpen] = useState(false)
   const patchLocal = useLeadsStore((s) => s.patchLocal)
   useEffect(() => { setSelectedEmail(undefined) }, [lead?.id])
   if (!lead) return null
@@ -88,7 +90,7 @@ export function LeadDrawer({
             {analizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
             {analizando ? 'Analizando…' : lead.scoreIA !== undefined ? 'Reanalizar con IA' : 'Analizar con IA'}
           </Button>
-          {activeEmail && <a className="btn btn-outline h-8 px-3 text-xs" href={`mailto:${activeEmail}`}><Mail className="h-3.5 w-3.5" /> Email</a>}
+          {activeEmail && <Button size="sm" variant="outline" onClick={() => setComposeOpen(true)}><Mail className="h-3.5 w-3.5" /> Email</Button>}
           {lead.whatsapp && <a className="btn btn-outline h-8 px-3 text-xs" target="_blank" href={`https://wa.me/${lead.whatsapp.replace(/\D/g, '')}`}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</a>}
         </div>
       </div>
@@ -125,7 +127,7 @@ export function LeadDrawer({
                 </div>
               </div>
             ) : (
-              <Row icon={Mail} label="Email" value={lead.email} link={lead.email ? `mailto:${lead.email}` : undefined} />
+              <Row icon={Mail} label="Email" value={lead.email} onClick={lead.email ? () => setComposeOpen(true) : undefined} />
             )}
             <Row icon={Phone} label="Teléfono" value={lead.telefono} />
             <Row icon={MessageCircle} label="WhatsApp" value={lead.whatsapp} />
@@ -186,17 +188,25 @@ export function LeadDrawer({
         {tab === 'Mensajes' && <MessagesTab leadId={lead.id} />}
         {tab === 'Notas' && <NotesTab leadId={lead.id} />}
       </div>
+      <NewMessageModal
+        open={composeOpen}
+        onClose={() => setComposeOpen(false)}
+        initialTo={activeEmail}
+        leadId={lead.id}
+        lockTo
+      />
     </Drawer>
   )
 }
 
-function Row({ icon: Icon, label, value, link }: { icon: any; label: string; value?: string; link?: string }) {
+function Row({ icon: Icon, label, value, link, onClick }: { icon: any; label: string; value?: string; link?: string; onClick?: () => void }) {
   if (!value) return null
   return (
     <div className="flex items-center gap-2">
       <Icon className="h-4 w-4 text-muted" />
       <span className="w-20 text-xs text-muted">{label}</span>
-      {link ? <a href={link} target="_blank" className="min-w-0 flex-1 truncate text-primary-600 hover:underline" title={value}>{value}</a>
+      {onClick ? <button onClick={onClick} className="min-w-0 flex-1 truncate text-left text-primary-600 hover:underline" title={value}>{value}</button>
+      : link ? <a href={link} target="_blank" className="min-w-0 flex-1 truncate text-primary-600 hover:underline" title={value}>{value}</a>
             : <span className="min-w-0 flex-1 truncate text-fg" title={value}>{value}</span>}
     </div>
   )
