@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star } from 'lucide-react'
+import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star, Calendar, Clock } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge, Skeleton } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn, htmlToText } from '@/lib/utils'
@@ -12,6 +12,14 @@ import toast from 'react-hot-toast'
 import type { Lead, Contact, ContactType, Note, Channel } from '@/types'
 
 const TABS = ['Detalles', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
+
+/** Formatea una fecha ISO o 'YYYY-MM-DD' de forma legible; devuelve el original si no parsea. */
+function fmtFecha(v?: string): string {
+  if (!v) return ''
+  const d = new Date(v.length <= 10 ? v + 'T00:00:00' : v)
+  if (isNaN(d.getTime())) return v
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })
+}
 
 const channelIcon: Record<Channel, typeof Mail> = {
   email: Mail,
@@ -191,6 +199,16 @@ export function LeadDrawer({
                 ))}
               </div>
             </div>
+            {(lead.fechaCaptura || lead.fechaUltimoMovimiento || lead.ultimaAccion) && (
+              <div className="flex flex-col gap-1 border-t border-border pt-3 text-[11px] text-muted">
+                {lead.fechaCaptura && (
+                  <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" /> Creado el {fmtFecha(lead.fechaCaptura)}</span>
+                )}
+                {(lead.fechaUltimoMovimiento || lead.ultimaAccion) && (
+                  <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> Última actualización: {fmtFecha(lead.fechaUltimoMovimiento || lead.ultimaAccion)}</span>
+                )}
+              </div>
+            )}
           </div>
         )}
         {tab === 'Contactos' && <ContactsTab leadId={lead.id} />}
