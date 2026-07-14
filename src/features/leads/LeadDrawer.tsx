@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react'
-import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users } from 'lucide-react'
+import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn } from '@/lib/utils'
 import { PIPELINE_STAGES } from '@/lib/config'
 import { crmApi } from '@/services/crmApi'
 import { useLeadsStore } from '@/store/leadsStore'
-import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useNotes, useCreateNote, useUpdateNote, useDeleteNote } from '@/hooks/useData'
+import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useNotes, useCreateNote, useUpdateNote, useDeleteNote, useMessages } from '@/hooks/useData'
 import toast from 'react-hot-toast'
-import type { Lead, Contact, ContactType, Note } from '@/types'
+import type { Lead, Contact, ContactType, Note, Channel } from '@/types'
 
 const TABS = ['Detalles', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
+
+const channelIcon: Record<Channel, typeof Mail> = {
+  email: Mail,
+  whatsapp: MessageCircle,
+  instagram: Instagram,
+  linkedin: Linkedin,
+}
 
 const TIPO_LABELS: Record<ContactType, string> = {
   principal: 'Principal', ventas: 'Ventas', soporte: 'Soporte',
@@ -176,7 +183,7 @@ export function LeadDrawer({
         )}
         {tab === 'Contactos' && <ContactsTab leadId={lead.id} />}
         {tab === 'Actividad' && <Timeline lead={lead} />}
-        {tab === 'Mensajes' && <p className="text-sm text-muted">Historial de mensajes disponible en el tab Mensajes (Fase 3).</p>}
+        {tab === 'Mensajes' && <MessagesTab leadId={lead.id} />}
         {tab === 'Notas' && <NotesTab leadId={lead.id} />}
       </div>
     </Drawer>
@@ -329,6 +336,37 @@ function ContactForm({
         <Button size="sm" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button size="sm" onClick={onSave} disabled={saving}>{saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} Guardar</Button>
       </div>
+    </div>
+  )
+}
+
+function MessagesTab({ leadId }: { leadId: string }) {
+  const { data: allMessages, isLoading } = useMessages()
+  const messages = (allMessages ?? [])
+    .filter((m) => m.idLead === leadId)
+    .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
+
+  if (isLoading) return <p className="text-sm text-muted">Cargando mensajes…</p>
+  if (!messages.length) return <p className="text-sm text-muted">Sin mensajes registrados para este lead.</p>
+
+  return (
+    <div className="space-y-2">
+      {messages.map((m, i) => {
+        const Icon = channelIcon[m.canal] ?? MessageSquare
+        const recibido = m.direccion === 'recibido'
+        return (
+          <div key={`${leadId}-${i}`} className={cn('rounded-xl border border-border p-3 text-sm', recibido && 'bg-primary-500/5')}>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-fg">
+                <Icon className="h-3.5 w-3.5" /> {m.tipo || (recibido ? 'Respuesta recibida' : 'Mensaje enviado')}
+              </div>
+              <span className="text-[11px] text-muted">{new Date(m.fecha).toLocaleString('es')}</span>
+            </div>
+            {m.contenido && <p className="mt-1.5 whitespace-pre-wrap text-fg">{m.contenido}</p>}
+            {m.estadoEnvio && <p className="mt-1 text-[11px] text-muted">Estado: {m.estadoEnvio}</p>}
+          </div>
+        )
+      })}
     </div>
   )
 }
