@@ -6,7 +6,7 @@ import { Button, Input, Skeleton, EmptyState, Badge, Textarea } from '@/componen
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { useMessages, useLeads } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
-import { cn, fuzzyMatch, initials, stringToColor, fileToBase64 } from '@/lib/utils'
+import { cn, fuzzyMatch, initials, stringToColor, fileToBase64, htmlToText } from '@/lib/utils'
 import { NewMessageModal } from './NewMessageModal'
 import type { Channel, Message } from '@/types'
 
@@ -174,7 +174,7 @@ export function MessagesPage() {
                         </div>
                         <div className="flex items-center gap-1 text-xs text-muted">
                           <Icon className="h-3 w-3 shrink-0" />
-                          <span className="min-w-0 flex-1 truncate" title={t.last.contenido}>{t.last.contenido}</span>
+                          <span className="min-w-0 flex-1 truncate">{htmlToText(t.last.contenido)}</span>
                         </div>
                       </div>
                     </button>
@@ -214,7 +214,7 @@ export function MessagesPage() {
                           <span className="font-medium text-fg">{recibido ? 'Recibido' : m.tipo || 'Enviado'}</span>
                           <span className="ml-auto">{formatFecha(m.fecha)}</span>
                         </div>
-                        <p className="whitespace-pre-wrap text-sm text-fg">{m.contenido}</p>
+                        <p className="whitespace-pre-wrap text-sm text-fg">{htmlToText(m.contenido)}</p>
                         {m.estadoEnvio && <span className="text-[11px] text-muted">Estado: {m.estadoEnvio}</span>}
                       </div>
                     )

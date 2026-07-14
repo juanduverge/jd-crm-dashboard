@@ -6,7 +6,7 @@ import { Button, Input, Textarea, Skeleton, EmptyState, Badge } from '@/componen
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { useInbox, useLeads, useEmailAliases } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
-import { cn, fuzzyMatch, initials, stringToColor, fileToBase64 } from '@/lib/utils'
+import { cn, fuzzyMatch, initials, stringToColor, fileToBase64, htmlToText } from '@/lib/utils'
 import type { InboxMessage } from '@/types'
 
 const READ_STORAGE_KEY = 'jd-crm-inbox-read-ids'
@@ -219,7 +219,7 @@ export function InboxPage() {
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto py-4">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-fg">{selected.cuerpo}</p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-fg">{htmlToText(selected.cuerpo)}</p>
                 </div>
 
                 <div className="border-t border-border pt-3">

@@ -42,6 +42,7 @@ export function PipelinePage() {
   const [activeLead, setActiveLead] = useState<Lead | null>(null)
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null)
   const [formStage, setFormStage] = useState<LeadStatus | null>(null)
+  const [editing, setEditing] = useState<Lead | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null)
   const [editOpp, setEditOpp] = useState<Lead | null>(null)
 
@@ -95,14 +96,21 @@ export function PipelinePage() {
   }
 
   const handleSubmit = (values: LeadFormValues) => {
-    addLead({
-      ...formToLeadPatch(values),
-      id: `L-${Date.now()}`,
-      fechaCaptura: new Date().toISOString().slice(0, 10),
-      fechaUltimoMovimiento: new Date().toISOString(),
-    } as Lead)
-    toast.success('Lead agregado')
+    const patch = formToLeadPatch(values)
+    if (editing) {
+      updateLead(editing.id, patch)
+      toast.success('Lead actualizado')
+    } else {
+      addLead({
+        ...patch,
+        id: `L-${Date.now()}`,
+        fechaCaptura: new Date().toISOString().slice(0, 10),
+        fechaUltimoMovimiento: new Date().toISOString(),
+      } as Lead)
+      toast.success('Lead agregado')
+    }
     setFormStage(null)
+    setEditing(null)
   }
 
   const clearFilters = () => { setFNicho(''); setFPrioridad(''); setFResponsable(''); setFValorMin(0) }
@@ -215,15 +223,15 @@ export function PipelinePage() {
       )}
 
       <LeadForm
-        open={formStage !== null}
-        onClose={() => setFormStage(null)}
+        open={formStage !== null || editing !== null}
+        onClose={() => { setFormStage(null); setEditing(null) }}
         onSubmit={handleSubmit}
-        initial={formStage ? ({ estado: formStage } as Lead) : null}
+        initial={editing ?? (formStage ? ({ estado: formStage } as Lead) : null)}
       />
       <LeadDrawer
         lead={drawerLead}
         onClose={() => setDrawerLead(null)}
-        onEdit={(l) => { updateLead(l.id, l); setDrawerLead(null) }}
+        onEdit={(l) => { setDrawerLead(null); setEditing(l) }}
         onMoveStage={(id, estado) => { moveStage(id, estado); toast.success('Etapa actualizada'); setDrawerLead((d) => d ? { ...d, estado } : d) }}
       />
       <ConfirmDeleteModal

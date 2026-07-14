@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge, Skeleton } from '@/components/ui'
-import { scoreColor, formatCurrency, initials, stringToColor, cn } from '@/lib/utils'
+import { scoreColor, formatCurrency, initials, stringToColor, cn, htmlToText } from '@/lib/utils'
 import { PIPELINE_STAGES } from '@/lib/config'
 import { crmApi } from '@/services/crmApi'
 import { useLeadsStore } from '@/store/leadsStore'
@@ -382,7 +382,7 @@ function MessagesTab({ leadId }: { leadId: string }) {
               </div>
               <span className="text-[11px] text-muted">{new Date(m.fecha).toLocaleString('es')}</span>
             </div>
-            {m.contenido && <p className="mt-1.5 whitespace-pre-wrap text-fg">{m.contenido}</p>}
+            {m.contenido && <p className="mt-1.5 whitespace-pre-wrap text-fg">{htmlToText(m.contenido)}</p>}
             {m.estadoEnvio && <p className="mt-1 text-[11px] text-muted">Estado: {m.estadoEnvio}</p>}
           </div>
         )

@@ -59,6 +59,26 @@ export function stringToColor(str: string) {
   return palette[Math.abs(hash) % palette.length]
 }
 
+/**
+ * Convierte HTML a texto legible para mostrar el historial de mensajes.
+ * Los correos enviados se registran con su HTML completo (cuerpo + firma);
+ * sin esto, el CRM mostraba las etiquetas `<table>`, `<p style=...>` como texto.
+ */
+export function htmlToText(input: string): string {
+  const s = input || ''
+  // Si claramente no contiene etiquetas, devolver tal cual.
+  if (!/<[a-z!/][\s\S]*>/i.test(s)) return s.trim()
+  try {
+    const doc = new DOMParser().parseFromString(s, 'text/html')
+    doc.querySelectorAll('br').forEach((br) => br.replaceWith('\n'))
+    doc.querySelectorAll('p, div, tr, li, hr, h1, h2, h3').forEach((el) => el.append('\n'))
+    const text = doc.body.textContent || ''
+    return text.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+\n/g, '\n').trim()
+  } catch {
+    return s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  }
+}
+
 export const MAX_ATTACHMENT_MB = 12
 
 /** Convierte un File a base64 (sin el prefijo data:...;base64,) para adjuntarlo por SMTP vía n8n. */
