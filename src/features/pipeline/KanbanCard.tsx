@@ -54,7 +54,7 @@ export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onO
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(lead) }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="btn-ghost h-6 w-6 shrink-0 p-0 text-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-primary-600 group-hover:opacity-100"
+            className="btn-ghost h-6 w-6 shrink-0 p-0 text-muted opacity-0 transition-opacity hover:bg-surface-2 hover:text-primary-600 group-hover:opacity-100 focus-visible:opacity-100"
             title="Editar oportunidad"
           >
             <Pencil className="h-3.5 w-3.5" />
@@ -64,7 +64,7 @@ export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onO
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(lead) }}
             onPointerDown={(e) => e.stopPropagation()}
-            className="btn-ghost h-6 w-6 shrink-0 p-0 text-red-500 opacity-0 transition-opacity hover:bg-red-500/10 group-hover:opacity-100"
+            className="btn-ghost h-6 w-6 shrink-0 p-0 text-red-500 opacity-0 transition-opacity hover:bg-red-500/10 group-hover:opacity-100 focus-visible:opacity-100"
             title="Eliminar"
           >
             <Trash2 className="h-3.5 w-3.5" />

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
-import { Button, Badge } from '@/components/ui'
+import { Button, Badge, Skeleton } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn } from '@/lib/utils'
 import { PIPELINE_STAGES } from '@/lib/config'
 import { crmApi } from '@/services/crmApi'
@@ -296,7 +296,7 @@ function ContactsTab({ leadId }: { leadId: string }) {
         )}
       </div>
 
-      {isLoading && <p className="text-sm text-muted">Cargando contactos…</p>}
+      {isLoading && <div className="space-y-2">{[0, 1].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>}
       {!isLoading && contacts?.length === 0 && !showNew && <p className="text-sm text-muted">Sin contactos registrados.</p>}
 
       {contacts?.map((c) => (
@@ -366,7 +366,7 @@ function MessagesTab({ leadId }: { leadId: string }) {
     .filter((m) => m.idLead === leadId)
     .sort((a, b) => (a.fecha < b.fecha ? 1 : -1))
 
-  if (isLoading) return <p className="text-sm text-muted">Cargando mensajes…</p>
+  if (isLoading) return <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
   if (!messages.length) return <p className="text-sm text-muted">Sin mensajes registrados para este lead.</p>
 
   return (
@@ -449,7 +449,7 @@ function NotesTab({ leadId }: { leadId: string }) {
         </Button>
       </div>
 
-      {isLoading && <p className="text-sm text-muted">Cargando notas…</p>}
+      {isLoading && <div className="space-y-2">{[0, 1].map((i) => <Skeleton key={i} className="h-16 w-full" />)}</div>}
       {!isLoading && notes?.length === 0 && <p className="text-sm text-muted">Sin notas registradas.</p>}
 
       <div className="space-y-2">
