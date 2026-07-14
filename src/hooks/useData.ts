@@ -552,6 +552,40 @@ export function useDeleteContact() {
   })
 }
 
+/** Historial de notas de un lead (hoja "notas"). */
+export function useNotes(leadId?: string) {
+  return useQuery({
+    queryKey: ['notas', leadId],
+    queryFn: () => sheetsService.getNotes(leadId as string),
+    enabled: !!leadId,
+    staleTime: 10_000,
+  })
+}
+
+export function useCreateNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof crmApi.createNote>[0]) => crmApi.createNote(payload),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['notas', vars.leadId] }),
+  })
+}
+
+export function useUpdateNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof crmApi.updateNote>[0]) => crmApi.updateNote(payload),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['notas', vars.leadId] }),
+  })
+}
+
+export function useDeleteNote() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof crmApi.deleteNote>[0]) => crmApi.deleteNote(payload),
+    onSuccess: (_data, vars) => qc.invalidateQueries({ queryKey: ['notas', vars.leadId] }),
+  })
+}
+
 /** Actividad reciente derivada de mensajes reales (sheet "messages"). */
 export function useActivity() {
   return useQuery({

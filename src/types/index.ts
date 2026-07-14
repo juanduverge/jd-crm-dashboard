@@ -231,6 +231,17 @@ export interface Contact {
   creado?: string       // Fecha creacion
 }
 
+/** Nota = fila de la hoja "notas" (historial de notas por lead) */
+export interface Note {
+  id: string           // ID Nota
+  leadId: string        // ID Lead
+  autor: string
+  texto: string
+  creado: string        // Fecha creacion
+  editado?: string       // Fecha edicion
+  fueEditado: boolean
+}
+
 export type TrashModule = 'lead' | 'pipeline' | 'campaign' | 'tarea' | 'web_lead'
 
 /** Registro eliminado (soft-delete) pendiente de purga, mostrado en la Papelera. */

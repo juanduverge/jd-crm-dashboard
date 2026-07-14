@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const allowed = ['prospects','outreach','pipeline','messages','config','inbox','campaigns','optout','search_log','web_leads','tareas','contactos'];\nconst q = ($input.first().json.query) || {};\nconst sheet = String(q.sheet || '').trim();\nif (!allowed.includes(sheet)) {\n  throw new Error('Invalid sheet param: ' + sheet);\n}\nreturn [{ json: { sheet } }];"
+        "jsCode": "const allowed = ['prospects','outreach','pipeline','messages','config','inbox','campaigns','optout','search_log','web_leads','tareas','contactos','notas'];\nconst q = ($input.first().json.query) || {};\nconst sheet = String(q.sheet || '').trim();\nif (!allowed.includes(sheet)) {\n  throw new Error('Invalid sheet param: ' + sheet);\n}\nreturn [{ json: { sheet } }];"
       },
       "id": "22222222-2222-4222-8222-222222222222",
       "name": "Validate",

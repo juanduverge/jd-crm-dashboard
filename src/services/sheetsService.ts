@@ -1,4 +1,4 @@
-import type { Lead, Message, ActivityEvent, InboxMessage, Campaign, Contact, ContactType } from '@/types'
+import type { Lead, Message, ActivityEvent, InboxMessage, Campaign, Contact, ContactType, Note } from '@/types'
 import { crmApi, type SheetTab } from './crmApi'
 
 /**
@@ -168,6 +168,23 @@ export const sheetsService = {
         notas: r['Notas'] || undefined,
         creado: r['Fecha creacion'] || undefined,
       }))
+  },
+
+  /** Lee la hoja notas, filtrada por lead, orden cronológico descendente. */
+  async getNotes(leadId: string): Promise<Note[]> {
+    const rows = await getRows('notas')
+    return rows
+      .filter((r) => r['ID Lead'] === leadId && !/^(true|1)$/i.test(r['Eliminado'] || ''))
+      .map((r): Note => ({
+        id: r['ID Nota'],
+        leadId: r['ID Lead'],
+        autor: r['Autor'] || 'JD',
+        texto: r['Texto'] || '',
+        creado: r['Fecha creacion'],
+        editado: r['Fecha edicion'] || undefined,
+        fueEditado: /^(true|1)$/i.test(r['Editado'] || ''),
+      }))
+      .sort((a, b) => (a.creado < b.creado ? 1 : -1))
   },
 
   /** Lee la hoja config (clave/valor) vía el CRM API. */

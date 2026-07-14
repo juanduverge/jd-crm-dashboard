@@ -24,7 +24,7 @@ const http = axios.create({
   },
 })
 
-export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox' | 'campaigns' | 'search_log' | 'web_leads' | 'tareas' | 'contactos'
+export type SheetTab = 'prospects' | 'outreach' | 'pipeline' | 'messages' | 'config' | 'inbox' | 'campaigns' | 'search_log' | 'web_leads' | 'tareas' | 'contactos' | 'notas'
 
 export interface PipelineUpdatePayload {
   leadId: string
@@ -322,6 +322,24 @@ export const crmApi = {
   /** Elimina (soft-delete) un contacto. */
   async deleteContact(payload: { leadId: string; id: string }) {
     const { data } = await http.post('/crm-sheets-write', { action: 'contacto_delete', ...payload })
+    return data
+  },
+
+  /** Crea una nota nueva para un lead (append en notas). */
+  async createNote(payload: { leadId: string; autor?: string; texto: string }) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'nota_create', ...payload })
+    return data as { ok: boolean; id: string }
+  },
+
+  /** Edita el texto de una nota existente (marca editado + fecha). */
+  async updateNote(payload: { leadId: string; id: string; texto: string }) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'nota_update', ...payload })
+    return data
+  },
+
+  /** Elimina (soft-delete) una nota. */
+  async deleteNote(payload: { leadId: string; id: string }) {
+    const { data } = await http.post('/crm-sheets-write', { action: 'nota_delete', ...payload })
     return data
   },
 

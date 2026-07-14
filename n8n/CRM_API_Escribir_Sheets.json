@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json.body || {};\nconst action = body.action;\nconst allowed = ['pipeline_update','lead_create','lead_update','outreach_update','campaign_create','campaign_update','campaign_delete','campaign_restore','lead_delete','lead_restore','pipeline_delete','pipeline_restore','config_update','lead_purge','pipeline_purge','pipeline_extra','analizar_lead','contacto_create','contacto_update','contacto_delete'];\nif (!allowed.includes(action)) throw new Error('Invalid action: ' + action);\nif (!body.leadId && action !== 'lead_create' && !action.startsWith('campaign_') && action !== 'config_update' && action !== 'contacto_create' && action !== 'contacto_update' && action !== 'contacto_delete') throw new Error('leadId required');\nreturn [{ json: { action, data: body } }];"
+        "jsCode": "const body = $input.first().json.body || {};\nconst action = body.action;\nconst allowed = ['pipeline_update','lead_create','lead_update','outreach_update','campaign_create','campaign_update','campaign_delete','campaign_restore','lead_delete','lead_restore','pipeline_delete','pipeline_restore','config_update','lead_purge','pipeline_purge','pipeline_extra','analizar_lead','contacto_create','contacto_update','contacto_delete','nota_create','nota_update','nota_delete'];\nif (!allowed.includes(action)) throw new Error('Invalid action: ' + action);\nif (!body.leadId && action !== 'lead_create' && !action.startsWith('campaign_') && action !== 'config_update' && action !== 'contacto_create' && action !== 'contacto_update' && action !== 'contacto_delete') throw new Error('leadId required');\nreturn [{ json: { action, data: body } }];"
       },
       "id": "a2222222-2222-4222-8222-222222222222",
       "name": "Validate",
@@ -474,6 +474,72 @@
               },
               "renameOutput": true,
               "outputKey": "contacto_delete"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "nota_create",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "nota_create"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "nota_update",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "nota_update"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "nota_delete",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "nota_delete"
             }
           ]
         },
@@ -2047,6 +2113,241 @@
           }
         }
       }
+    },
+    {
+      "id": "nt0-build",
+      "name": "Build Nota Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        3100
+      ],
+      "parameters": {
+        "jsCode": "const d = $json.data;\nconst id = d.id || ('NT-' + Date.now());\nconst now = new Date().toISOString();\nconst body = {\n  range: 'notas!A:H',\n  majorDimension: 'ROWS',\n  values: [[\n    id, d.leadId || '', d.autor || 'JD', d.texto || '', now, '', 'false', ''\n  ]]\n};\nreturn [{ json: { id, body } }];"
+      }
+    },
+    {
+      "id": "nt1-append",
+      "name": "Append Nota Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1080,
+        3100
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/notas!A:H:append?valueInputOption=USER_ENTERED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "nt2-respond",
+      "name": "Respond Nota Create",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1280,
+        3100
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, id: $json.id }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "nt3-find",
+      "name": "Find Nota Row",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        3300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/notas!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "nt4-buildupd",
+      "name": "Build Nota Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        3300
+      ],
+      "parameters": {
+        "jsCode": "const ids = ($json.values || []).map(r => r[0]);\nconst d = $('Validate').item.json.data;\nconst idx = ids.indexOf(d.id);\nif (idx === -1) throw new Error('Nota no encontrada: ' + d.id);\nconst rowNum = idx + 1;\nconst now = new Date().toISOString();\nconst updates = [\n  { range: `notas!D${rowNum}`, values: [[d.texto || '']] },\n  { range: `notas!F${rowNum}`, values: [[now]] },\n  { range: `notas!G${rowNum}`, values: [['true']] },\n];\nreturn [{ json: { body: { valueInputOption: 'USER_ENTERED', data: updates } } }];"
+      }
+    },
+    {
+      "id": "nt5-updfields",
+      "name": "Update Nota Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        3300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "nt6-resp",
+      "name": "Respond Nota Update",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1480,
+        3300
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "nt7-find",
+      "name": "Find Nota Row Delete",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        3500
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values/notas!A:A",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "nt8-builddel",
+      "name": "Build Nota Delete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        3500
+      ],
+      "parameters": {
+        "jsCode": "const ids = ($json.values || []).map(r => r[0]);\nconst d = $('Validate').item.json.data;\nconst idx = ids.indexOf(d.id);\nif (idx === -1) throw new Error('Nota no encontrada: ' + d.id);\nconst rowNum = idx + 1;\nconst body = { valueInputOption: 'USER_ENTERED', data: [{ range: `notas!H${rowNum}`, values: [['true']] }] };\nreturn [{ json: { body } }];"
+      }
+    },
+    {
+      "id": "nt9-delfields",
+      "name": "Delete Nota Fields",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1280,
+        3500
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE/values:batchUpdate",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "86m52fKwvUB07q9D",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "id": "nt10-resp",
+      "name": "Respond Nota Delete",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1480,
+        3500
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      }
     }
   ],
   "connections": {
@@ -2210,6 +2511,27 @@
         [
           {
             "node": "Find Contacto Row Delete",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Nota Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Nota Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Find Nota Row Delete",
             "type": "main",
             "index": 0
           }
@@ -2873,6 +3195,94 @@
         [
           {
             "node": "Respond Contacto Delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Nota Row": {
+      "main": [
+        [
+          {
+            "node": "Append Nota Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Nota Row": {
+      "main": [
+        [
+          {
+            "node": "Respond Nota Create",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Nota Row": {
+      "main": [
+        [
+          {
+            "node": "Build Nota Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Nota Update": {
+      "main": [
+        [
+          {
+            "node": "Update Nota Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Nota Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond Nota Update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Nota Row Delete": {
+      "main": [
+        [
+          {
+            "node": "Build Nota Delete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Nota Delete": {
+      "main": [
+        [
+          {
+            "node": "Delete Nota Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Nota Fields": {
+      "main": [
+        [
+          {
+            "node": "Respond Nota Delete",
             "type": "main",
             "index": 0
           }

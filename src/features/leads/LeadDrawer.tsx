@@ -6,9 +6,9 @@ import { scoreColor, formatCurrency, initials, stringToColor, cn } from '@/lib/u
 import { PIPELINE_STAGES } from '@/lib/config'
 import { crmApi } from '@/services/crmApi'
 import { useLeadsStore } from '@/store/leadsStore'
-import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '@/hooks/useData'
+import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useNotes, useCreateNote, useUpdateNote, useDeleteNote } from '@/hooks/useData'
 import toast from 'react-hot-toast'
-import type { Lead, Contact, ContactType } from '@/types'
+import type { Lead, Contact, ContactType, Note } from '@/types'
 
 const TABS = ['Detalles', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
 
@@ -177,7 +177,7 @@ export function LeadDrawer({
         {tab === 'Contactos' && <ContactsTab leadId={lead.id} />}
         {tab === 'Actividad' && <Timeline lead={lead} />}
         {tab === 'Mensajes' && <p className="text-sm text-muted">Historial de mensajes disponible en el tab Mensajes (Fase 3).</p>}
-        {tab === 'Notas' && <p className="whitespace-pre-wrap text-sm text-fg">{lead.notas || 'Sin notas.'}</p>}
+        {tab === 'Notas' && <NotesTab leadId={lead.id} />}
       </div>
     </Drawer>
   )
@@ -328,6 +328,100 @@ function ContactForm({
       <div className="flex justify-end gap-2">
         <Button size="sm" variant="outline" onClick={onCancel}>Cancelar</Button>
         <Button size="sm" onClick={onSave} disabled={saving}>{saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} Guardar</Button>
+      </div>
+    </div>
+  )
+}
+
+function NotesTab({ leadId }: { leadId: string }) {
+  const { data: notes, isLoading } = useNotes(leadId)
+  const createNote = useCreateNote()
+  const updateNote = useUpdateNote()
+  const deleteNote = useDeleteNote()
+  const [text, setText] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+
+  const add = async () => {
+    if (!text.trim()) return
+    try {
+      await createNote.mutateAsync({ leadId, texto: text.trim() })
+      setText('')
+    } catch {
+      toast.error('No se pudo agregar la nota')
+    }
+  }
+
+  const startEdit = (n: Note) => {
+    setEditingId(n.id)
+    setEditText(n.texto)
+  }
+
+  const saveEdit = async () => {
+    if (!editingId || !editText.trim()) return
+    try {
+      await updateNote.mutateAsync({ leadId, id: editingId, texto: editText.trim() })
+      setEditingId(null)
+    } catch {
+      toast.error('No se pudo editar la nota')
+    }
+  }
+
+  const remove = async (id: string) => {
+    try {
+      await deleteNote.mutateAsync({ leadId, id })
+      toast.success('Nota eliminada')
+    } catch {
+      toast.error('No se pudo eliminar la nota')
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <textarea
+          className="input flex-1"
+          rows={2}
+          placeholder="Escribe una nota…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+        />
+        <Button size="sm" onClick={add} disabled={createNote.isPending || !text.trim()}>
+          {createNote.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+
+      {isLoading && <p className="text-sm text-muted">Cargando notas…</p>}
+      {!isLoading && notes?.length === 0 && <p className="text-sm text-muted">Sin notas registradas.</p>}
+
+      <div className="space-y-2">
+        {notes?.map((n) => (
+          <div key={n.id} className="rounded-xl border border-border p-3">
+            {editingId === n.id ? (
+              <div className="space-y-2">
+                <textarea className="input" rows={2} value={editText} onChange={(e) => setEditText(e.target.value)} />
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancelar</Button>
+                  <Button size="sm" onClick={saveEdit} disabled={updateNote.isPending}>Guardar</Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="whitespace-pre-wrap text-sm text-fg">{n.texto}</p>
+                <div className="mt-2 flex items-center justify-between">
+                  <p className="text-xs text-muted">
+                    {n.autor} · {new Date(n.creado).toLocaleString('es')}
+                    {n.fueEditado && n.editado && <span> · editado {new Date(n.editado).toLocaleString('es')}</span>}
+                  </p>
+                  <div className="flex gap-1">
+                    <button onClick={() => startEdit(n)} className="btn-ghost h-6 w-6"><Pencil className="h-3 w-3" /></button>
+                    <button onClick={() => remove(n.id)} className="btn-ghost h-6 w-6 text-red-500"><Trash2 className="h-3 w-3" /></button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   )

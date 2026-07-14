@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import {
   Bot, Power, Play, ExternalLink, X, CheckCircle2, XCircle, Clock,
-  RefreshCw, Wifi, WifiOff,
+  RefreshCw, Wifi, WifiOff, Search,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, Button, Badge, Skeleton, EmptyState } from '@/components/ui'
@@ -19,7 +19,14 @@ import type { WorkflowInfo } from '@/types'
 export function AutomationsPage() {
   const { data: workflows, isLoading, isError, refetch, isFetching } = useWorkflows()
   const [panelWf, setPanelWf] = useState<WorkflowInfo | null>(null)
+  const [search, setSearch] = useState('')
   const qc = useQueryClient()
+
+  const filteredWorkflows = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return workflows ?? []
+    return (workflows ?? []).filter((wf) => wf.name.toLowerCase().includes(q))
+  }, [workflows, search])
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) => n8nService.setActive(id, active),
@@ -56,8 +63,21 @@ export function AutomationsPage() {
           description={isError ? 'Verifica VITE_N8N_URL / VITE_N8N_API_KEY y que n8n esté activo.' : 'No hay workflows creados todavía en esta instancia.'}
         />
       ) : (
+        <>
+          <div className="relative mb-3 max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" />
+            <input
+              className="input pl-8"
+              placeholder="Buscar workflow…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          {filteredWorkflows.length === 0 ? (
+            <EmptyState icon={<Search className="h-8 w-8" />} title="Sin resultados" description={`Ningún workflow coincide con "${search}".`} />
+          ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {workflows.map((wf) => (
+          {filteredWorkflows.map((wf) => (
             <WorkflowCard
               key={wf.id}
               workflow={wf}
@@ -68,6 +88,8 @@ export function AutomationsPage() {
             />
           ))}
         </div>
+          )}
+        </>
       )}
 
       <h2 className="mb-3 mt-8 text-base font-semibold text-fg">Integraciones</h2>
