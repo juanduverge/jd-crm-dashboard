@@ -40,7 +40,8 @@ export function PipelinePage() {
   const [fResponsable, setFResponsable] = useState('')
   const [fValorMin, setFValorMin] = useState(0)
   const [activeLead, setActiveLead] = useState<Lead | null>(null)
-  const [drawerLead, setDrawerLead] = useState<Lead | null>(null)
+  const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null)
+  const drawerLead = drawerLeadId ? (leads.find((l) => l.id === drawerLeadId) ?? null) : null
   const [formStage, setFormStage] = useState<LeadStatus | null>(null)
   const [editing, setEditing] = useState<Lead | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null)
@@ -206,12 +207,12 @@ export function PipelinePage() {
           <HScrollBoard className="max-h-[calc(100vh-15rem)] overflow-y-auto">
             <div className="flex gap-3 pb-3">
               {OPEN_STAGES.map((stage) => (
-                <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={setDrawerLead} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} />
+                <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={(l) => setDrawerLeadId(l.id)} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} />
               ))}
               {/* Columna combinada de cierre */}
               <div className="flex w-72 shrink-0 flex-col gap-3">
                 {CLOSED.map((stage) => (
-                  <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={setDrawerLead} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} />
+                  <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={(l) => setDrawerLeadId(l.id)} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} />
                 ))}
               </div>
             </div>
@@ -219,7 +220,7 @@ export function PipelinePage() {
           <DragOverlay>{activeLead ? <div className="w-64"><KanbanCard lead={activeLead} onOpen={() => {}} /></div> : null}</DragOverlay>
         </DndContext>
       ) : (
-        <ListView leads={filtered} onOpen={setDrawerLead} />
+        <ListView leads={filtered} onOpen={(l) => setDrawerLeadId(l.id)} />
       )}
 
       <LeadForm
@@ -230,9 +231,9 @@ export function PipelinePage() {
       />
       <LeadDrawer
         lead={drawerLead}
-        onClose={() => setDrawerLead(null)}
-        onEdit={(l) => { setDrawerLead(null); setEditing(l) }}
-        onMoveStage={(id, estado) => { moveStage(id, estado); toast.success('Etapa actualizada'); setDrawerLead((d) => d ? { ...d, estado } : d) }}
+        onClose={() => setDrawerLeadId(null)}
+        onEdit={(l) => { setDrawerLeadId(null); setEditing(l) }}
+        onMoveStage={(id, estado) => { moveStage(id, estado); toast.success('Etapa actualizada') }}
       />
       <ConfirmDeleteModal
         open={!!deleteTarget}

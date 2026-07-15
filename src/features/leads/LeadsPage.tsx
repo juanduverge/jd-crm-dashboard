@@ -57,7 +57,8 @@ export function LeadsPage() {
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'score', dir: 'desc' })
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Lead | null>(null)
-  const [drawerLead, setDrawerLead] = useState<Lead | null>(null)
+  const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null)
+  const drawerLead = drawerLeadId ? (leads.find((l) => l.id === drawerLeadId) ?? null) : null
   const [composeLead, setComposeLead] = useState<Lead | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
@@ -310,7 +311,7 @@ export function LeadsPage() {
                         </button>
                       </td>
                       <td className="max-w-[200px] px-3 py-2.5">
-                        <button onClick={() => setDrawerLead(l)} className="block max-w-full truncate font-medium text-fg hover:text-primary-600" title={l.empresa}>{l.empresa}</button>
+                        <button onClick={() => setDrawerLeadId(l.id)} className="block max-w-full truncate font-medium text-fg hover:text-primary-600" title={l.empresa}>{l.empresa}</button>
                         {l.web && <p className="truncate text-xs text-muted" title={l.web}>{l.web.replace(/^https?:\/\//, '')}</p>}
                       </td>
                       <td className="max-w-[180px] truncate px-3 py-2.5 text-muted" title={l.email || l.telefono || undefined}>{l.email || l.telefono || '—'}</td>
@@ -329,7 +330,7 @@ export function LeadsPage() {
                         <div className="flex justify-end gap-1">
                           {l.email && <button className="btn-ghost h-7 w-7 p-0" onClick={() => setComposeLead(l)} title="Email"><Mail className="h-4 w-4" /></button>}
                           {l.whatsapp && <a className="btn-ghost h-7 w-7 p-0" target="_blank" href={`https://wa.me/${l.whatsapp.replace(/\D/g, '')}`} title="WhatsApp"><MessageCircle className="h-4 w-4" /></a>}
-                          <button className="btn-ghost h-7 w-7 p-0" onClick={() => setDrawerLead(l)} title="Ver"><Eye className="h-4 w-4" /></button>
+                          <button className="btn-ghost h-7 w-7 p-0" onClick={() => setDrawerLeadId(l.id)} title="Ver"><Eye className="h-4 w-4" /></button>
                           <button
                             className="btn-ghost h-7 w-7 p-0 text-red-500 hover:bg-red-500/10"
                             onClick={() => { clearSelection(); toggleSelect(l.id); setConfirmDeleteOpen(true) }}
@@ -352,9 +353,9 @@ export function LeadsPage() {
       <LeadSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
       <LeadDrawer
         lead={drawerLead}
-        onClose={() => setDrawerLead(null)}
-        onEdit={(l) => { setDrawerLead(null); setEditing(l); setFormOpen(true) }}
-        onMoveStage={(id, estado) => { moveStage(id, estado); toast.success('Etapa actualizada'); setDrawerLead((d) => d ? { ...d, estado } : d) }}
+        onClose={() => setDrawerLeadId(null)}
+        onEdit={(l) => { setDrawerLeadId(null); setEditing(l); setFormOpen(true) }}
+        onMoveStage={(id, estado) => { moveStage(id, estado); toast.success('Etapa actualizada') }}
       />
       <NewMessageModal
         open={!!composeLead}

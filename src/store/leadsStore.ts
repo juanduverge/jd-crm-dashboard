@@ -53,10 +53,14 @@ const persist = {
  * las mutaciones optimistas de v1 (agregar/editar/mover de etapa/eliminar).
  * En iteraciones siguientes estas mutaciones se sincronizan a Sheets vía n8n.
  */
+/** Ventana durante la cual un lead recién editado localmente no se pisa con datos remotos (evita que un refetch en curso revierta un cambio que aún no propagó en Sheets). */
+const DIRTY_WINDOW_MS = 15_000
+
 interface LeadsState {
   leads: Lead[]
   selectedIds: Set<string>
   hydrated: boolean
+  dirty: Record<string, number>
   setLeads: (leads: Lead[]) => void
   addLead: (lead: Lead) => void
   updateLead: (id: string, patch: Partial<Lead>) => void
@@ -73,10 +77,11 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   leads: [],
   selectedIds: new Set(),
   hydrated: false,
+  dirty: {},
   setLeads: (leads) => {
     // No pisar mutaciones locales si ya estaba hidratado y la fuente es la misma.
     if (!get().hydrated) set({ leads, hydrated: true })
-    else set({ leads: mergeKeepLocal(get().leads, leads) })
+    else set({ leads: mergeKeepLocal(get().leads, leads, get().dirty) })
   },
   addLead: (lead) => {
     const withScore = { ...lead, score: Math.min(100, (lead.scoreIA ?? 0) + (lead.scoreManual ?? 0)) }
@@ -91,7 +96,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       merged.score = Math.min(100, (merged.scoreIA ?? 0) + (merged.scoreManual ?? 0))
       return merged
     })
-    set({ leads })
+    set({ leads, dirty: { ...get().dirty, [id]: Date.now() } })
     const updated = leads.find((l) => l.id === id)
     if (updated) persist.update(updated)
   },
@@ -109,7 +114,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   },
   toggleFavorito: (id) => {
     const leads = get().leads.map((l) => (l.id === id ? { ...l, favorito: !l.favorito } : l))
-    set({ leads })
+    set({ leads, dirty: { ...get().dirty, [id]: Date.now() } })
     const updated = leads.find((l) => l.id === id)
     if (updated) persist.favorito(updated)
   },
@@ -135,9 +140,25 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   selectAll: (ids) => set({ selectedIds: new Set(ids) }),
 }))
 
-/** Conserva leads locales que no existan aún en remoto y refresca el resto. */
-function mergeKeepLocal(local: Lead[], remote: Lead[]): Lead[] {
+/**
+ * Conserva leads locales que no existan aún en remoto y refresca el resto.
+ * Los leads con una edición local reciente (favorito, score manual, etc.) se
+ * mantienen tal cual durante DIRTY_WINDOW_MS: un refetch en curso puede traer
+ * datos de Sheets que todavía no reflejan la escritura que acabamos de hacer,
+ * y sin esto ese refetch revertía visualmente el cambio (ver: favoritos que
+ * "se borran" al abrir el detalle del lead justo después de marcarlos).
+ */
+function mergeKeepLocal(local: Lead[], remote: Lead[], dirty: Record<string, number>): Lead[] {
+  const localById = new Map(local.map((l) => [l.id, l]))
   const remoteIds = new Set(remote.map((l) => l.id))
   const localOnly = local.filter((l) => !remoteIds.has(l.id))
-  return [...localOnly, ...remote]
+  const now = Date.now()
+  const merged = remote.map((l) => {
+    const touchedAt = dirty[l.id]
+    if (touchedAt && now - touchedAt < DIRTY_WINDOW_MS) {
+      return localById.get(l.id) ?? l
+    }
+    return l
+  })
+  return [...localOnly, ...merged]
 }
