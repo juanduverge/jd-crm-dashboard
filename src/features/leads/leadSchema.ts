@@ -20,7 +20,7 @@ export const leadSchema = z.object({
   fuente: z.string().optional(),
   responsable: z.string().optional(),
   etiquetas: z.string().optional(), // CSV en el form; se serializa a array al persistir
-  score: z.coerce.number().min(0).max(100),
+  scoreManual: z.coerce.number().min(0).max(100).optional(),
   valorEstimado: z.coerce.number().min(0).optional(),
   estado: z.enum([
     'nuevo', 'contactado', 'seguimiento', 'respondio', 'reunion',

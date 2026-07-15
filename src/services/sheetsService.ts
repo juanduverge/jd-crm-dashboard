@@ -49,6 +49,13 @@ export const sheetsService = {
       .filter((p) => !p['Eliminado'] && !pipelineByLead.get(p['ID Lead'])?.['Eliminado'])
       .map((p): Lead => {
       const pl = pipelineByLead.get(p['ID Lead']) ?? {}
+      // Puntuación IA: prioriza 'Score IA Lead' (botón manual); cae a scores heredados para no perder datos previos.
+      const scoreIARaw = p['Score IA Lead'] || p['Score Final Combinado'] || p['Score lead (0-100)']
+      const scoreIA = scoreIARaw ? num(scoreIARaw) : undefined
+      // Puntuación Manual: vive en la hoja pipeline (col 'Score Manual').
+      const scoreManual = pl['Score Manual'] ? num(pl['Score Manual']) : undefined
+      // Puntuación Total = IA + Manual, capada a 100 (derivada, no se persiste).
+      const scoreTotal = Math.min(100, (scoreIA ?? 0) + (scoreManual ?? 0))
       return {
         id: p['ID Lead'] || crypto.randomUUID(),
         fechaCaptura: p['Fecha captura'],
@@ -73,12 +80,13 @@ export const sheetsService = {
         pageSpeedDesktop: num(p['PageSpeed desktop'] || p['PageSpeed Desktop']),
         tieneSSL: /si|sí|true|1/i.test(p['Tiene SSL'] || ''),
         diagnosticoIA: p['Diagnostico IA'] || p['Diagnóstico IA'],
-        scoreIA: p['Score IA Lead'] ? num(p['Score IA Lead']) : undefined,
+        scoreIA,
+        scoreManual,
         observacionesIA: p['Observaciones IA'] || undefined,
         recomendacionesIA: p['Recomendaciones IA'] || undefined,
         oportunidadesIA: p['Oportunidades IA'] || undefined,
         erroresIA: p['Errores IA'] || undefined,
-        score: num(p['Score Final Combinado'] || p['Score lead (0-100)']),
+        score: scoreTotal,
         fuente: p['Fuente Apify'],
         notas: p['Notas'],
         etiquetas: (p['Etiquetas'] || '').split(',').map((t) => t.trim()).filter(Boolean),

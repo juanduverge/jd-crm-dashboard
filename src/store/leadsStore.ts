@@ -25,7 +25,7 @@ const persist = {
     crmApi.updatePipelineExtra({ leadId: lead.id, favorito: !!lead.favorito }).catch(() => {})
   },
   update(lead: Lead) {
-    // Campos que viven en la hoja prospects.
+    // Campos que viven en la hoja prospects. (score es derivado = IA+Manual, no se persiste)
     crmApi.updateLead({
       leadId: lead.id,
       empresa: lead.empresa, cargo: lead.cargo, nicho: lead.nicho,
@@ -33,7 +33,7 @@ const persist = {
       telefono: lead.telefono, email: lead.email, web: lead.web,
       whatsapp: lead.whatsapp, instagram: lead.instagram,
       facebook: lead.facebook, linkedin: lead.linkedin,
-      score: lead.score, fuente: lead.fuente, notas: lead.notas,
+      fuente: lead.fuente, notas: lead.notas,
       etiquetas: (lead.etiquetas ?? []).join(', '),
     }).catch(() => {})
     // Campos que viven en la hoja pipeline.
@@ -43,6 +43,8 @@ const persist = {
       canalPrincipal: lead.canalPrincipal, responsable: lead.responsable,
       proximoSeguimiento: lead.proximoSeguimiento,
     }).catch(() => {})
+    // Puntuación Manual (celda aislada en pipeline).
+    crmApi.updatePipelineExtra({ leadId: lead.id, scoreManual: lead.scoreManual ?? 0 }).catch(() => {})
   },
 }
 
@@ -77,11 +79,18 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     else set({ leads: mergeKeepLocal(get().leads, leads) })
   },
   addLead: (lead) => {
-    set({ leads: [lead, ...get().leads] })
-    persist.create(lead)
+    const withScore = { ...lead, score: Math.min(100, (lead.scoreIA ?? 0) + (lead.scoreManual ?? 0)) }
+    set({ leads: [withScore, ...get().leads] })
+    persist.create(withScore)
   },
   updateLead: (id, patch) => {
-    const leads = get().leads.map((l) => (l.id === id ? { ...l, ...patch } : l))
+    const leads = get().leads.map((l) => {
+      if (l.id !== id) return l
+      const merged = { ...l, ...patch }
+      // Total = IA + Manual (capado a 100); derivado, se recalcula al vuelo.
+      merged.score = Math.min(100, (merged.scoreIA ?? 0) + (merged.scoreManual ?? 0))
+      return merged
+    })
     set({ leads })
     const updated = leads.find((l) => l.id === id)
     if (updated) persist.update(updated)
@@ -89,7 +98,14 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
 
   /** Actualiza el estado local sin volver a persistir (usado tras acciones que ya escriben en Sheets, como el análisis IA). */
   patchLocal: (id, patch) => {
-    set({ leads: get().leads.map((l) => (l.id === id ? { ...l, ...patch } : l)) })
+    set({ leads: get().leads.map((l) => {
+      if (l.id !== id) return l
+      const merged = { ...l, ...patch }
+      if ('scoreIA' in patch || 'scoreManual' in patch) {
+        merged.score = Math.min(100, (merged.scoreIA ?? 0) + (merged.scoreManual ?? 0))
+      }
+      return merged
+    }) })
   },
   toggleFavorito: (id) => {
     const leads = get().leads.map((l) => (l.id === id ? { ...l, favorito: !l.favorito } : l))

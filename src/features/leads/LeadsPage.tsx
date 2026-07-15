@@ -28,6 +28,21 @@ function fmtShort(v?: string): string {
   return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
+/** Pestañas rápidas por estado (Todos + Favoritos + etapas del pipeline). */
+const STATE_TABS: { key: 'todos' | 'favoritos' | Lead['estado']; label: string }[] = [
+  { key: 'todos', label: 'Todos' },
+  { key: 'favoritos', label: 'Favoritos' },
+  ...PIPELINE_STAGES.map((s) => ({ key: s.id as Lead['estado'], label: s.label })),
+]
+
+/** Filtros inteligentes adicionales (aditivos, un solo activo a la vez). */
+const SMART_PILLS: { key: 'prioridad' | 'conIA' | 'sinIA' | 'sinResponsable'; label: string }[] = [
+  { key: 'prioridad', label: 'Alta prioridad' },
+  { key: 'conIA', label: 'Con puntuación IA' },
+  { key: 'sinIA', label: 'Sin puntuación IA' },
+  { key: 'sinResponsable', label: 'Sin responsable' },
+]
+
 export function LeadsPage() {
   const { isLoading, isError, refetch, isFetching } = useLeads()
   const leads = useLeadsStore((s) => s.leads)
@@ -35,10 +50,10 @@ export function LeadsPage() {
 
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
-  const [fEstado, setFEstado] = useState('')
   const [fNicho, setFNicho] = useState('')
   const [fScoreMin, setFScoreMin] = useState(0)
-  const [fFavoritos, setFFavoritos] = useState(false)
+  const [tab, setTab] = useState<'todos' | 'favoritos' | Lead['estado']>('todos')
+  const [smart, setSmart] = useState<'' | 'prioridad' | 'conIA' | 'sinIA' | 'sinResponsable'>('')
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'score', dir: 'desc' })
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Lead | null>(null)
@@ -49,13 +64,35 @@ export function LeadsPage() {
   const deleteLead = useDeleteLead()
   const deletePipeline = useDeletePipeline()
 
-  const filtered = useMemo(() => {
-    let res = leads.filter((l) =>
+  // Base: aplica búsqueda + filtros avanzados (nicho/score), sin la pestaña ni pills.
+  const base = useMemo(() =>
+    leads.filter((l) =>
       fuzzyMatch(`${l.empresa} ${l.email} ${l.ciudad} ${l.web}`, search) &&
-      (!fEstado || l.estado === fEstado) &&
       (!fNicho || l.nicho === fNicho) &&
-      (l.score >= fScoreMin) &&
-      (!fFavoritos || l.favorito),
+      (l.score >= fScoreMin),
+    ), [leads, search, fNicho, fScoreMin])
+
+  // Conteos por pestaña, calculados sobre la base (respetan búsqueda/filtros).
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { todos: base.length, favoritos: base.filter((l) => l.favorito).length }
+    for (const s of PIPELINE_STAGES) c[s.id] = base.filter((l) => l.estado === s.id).length
+    return c
+  }, [base])
+
+  const smartMatch = (l: Lead) => {
+    switch (smart) {
+      case 'prioridad': return l.prioridad === 'alta'
+      case 'conIA': return l.scoreIA !== undefined
+      case 'sinIA': return l.scoreIA === undefined
+      case 'sinResponsable': return !l.responsable || l.responsable === 'JD'
+      default: return true
+    }
+  }
+
+  const filtered = useMemo(() => {
+    let res = base.filter((l) =>
+      (tab === 'todos' ? true : tab === 'favoritos' ? l.favorito : l.estado === tab) &&
+      smartMatch(l),
     )
     const sortVal = (l: Lead): string | number => {
       if (sort.key === 'favorito') return l.favorito ? 1 : 0
@@ -70,7 +107,8 @@ export function LeadsPage() {
       return sort.dir === 'asc' ? cmp : -cmp
     })
     return res
-  }, [leads, search, fEstado, fNicho, fScoreMin, fFavoritos, sort])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, tab, smart, sort])
 
   const allSelected = filtered.length > 0 && filtered.every((l) => selectedIds.has(l.id))
 
@@ -142,25 +180,57 @@ export function LeadsPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <Input className="pl-9" placeholder="Buscar empresa, email, ciudad…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-          <button
-            onClick={() => setFFavoritos((v) => !v)}
-            className={cn(
-              'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-              fFavoritos ? 'border-amber-400 bg-amber-400/10 text-amber-500' : 'border-border text-muted hover:text-fg',
-            )}
-            title="Mostrar solo favoritos"
-          >
-            <Star className={cn('h-3.5 w-3.5', fFavoritos && 'fill-amber-400')} /> Solo favoritos
-          </button>
         </div>
+
+        {/* Pestañas rápidas por estado (un clic cambia la vista, estilo Pipeline) */}
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+          {STATE_TABS.map((t) => {
+            const active = tab === t.key
+            const isFav = t.key === 'favoritos'
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                  active
+                    ? isFav
+                      ? 'border-amber-400 bg-amber-400/10 text-amber-500'
+                      : 'border-primary-400 bg-primary-400/10 text-primary-600 dark:text-primary-300'
+                    : 'border-border text-muted hover:text-fg',
+                )}
+              >
+                {isFav && <Star className={cn('h-3.5 w-3.5', active && 'fill-amber-400')} />}
+                {t.label}
+                <span className={cn('rounded-full px-1.5 text-[10px] tabular-nums', active ? 'bg-white/50 text-fg dark:bg-black/25' : 'bg-surface-2 text-muted')}>
+                  {counts[t.key] ?? 0}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Filtros inteligentes */}
+        <div className="flex flex-wrap gap-1.5">
+          {SMART_PILLS.map((p) => {
+            const active = smart === p.key
+            return (
+              <button
+                key={p.key}
+                onClick={() => setSmart((v) => (v === p.key ? '' : p.key))}
+                className={cn(
+                  'inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
+                  active ? 'border-primary-400 bg-primary-400/10 text-primary-600 dark:text-primary-300' : 'border-border text-muted hover:text-fg',
+                )}
+              >
+                {p.label}
+              </button>
+            )
+          })}
+        </div>
+
         {showFilters && (
           <div className="card flex flex-wrap items-end gap-3 p-3">
-            <label className="text-xs text-muted">Estado
-              <Select className="mt-1 w-44" value={fEstado} onChange={(e) => setFEstado(e.target.value)}>
-                <option value="">Todos</option>
-                {PIPELINE_STAGES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-              </Select>
-            </label>
             <label className="text-xs text-muted">Nicho
               <Select className="mt-1 w-44" value={fNicho} onChange={(e) => setFNicho(e.target.value)}>
                 <option value="">Todos</option>
@@ -170,7 +240,7 @@ export function LeadsPage() {
             <label className="text-xs text-muted">Score mínimo: {fScoreMin}
               <input type="range" min={0} max={100} value={fScoreMin} onChange={(e) => setFScoreMin(+e.target.value)} className="mt-2 block w-44 accent-primary-400" />
             </label>
-            <Button variant="ghost" size="sm" onClick={() => { setFEstado(''); setFNicho(''); setFScoreMin(0) }}>
+            <Button variant="ghost" size="sm" onClick={() => { setFNicho(''); setFScoreMin(0) }}>
               <X className="h-4 w-4" /> Limpiar
             </Button>
           </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star, Calendar, Clock } from 'lucide-react'
+import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star, Calendar, Clock, Gauge } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge, Skeleton } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn, htmlToText } from '@/lib/utils'
@@ -44,6 +44,7 @@ export function LeadDrawer({
   const [tab, setTab] = useState<(typeof TABS)[number]>('Detalles')
   const [selectedEmail, setSelectedEmail] = useState<string | undefined>(undefined)
   const [analizando, setAnalizando] = useState(false)
+  const [puntuando, setPuntuando] = useState(false)
   const [composeOpen, setComposeOpen] = useState(false)
   const patchLocal = useLeadsStore((s) => s.patchLocal)
   const toggleFavorito = useLeadsStore((s) => s.toggleFavorito)
@@ -62,7 +63,7 @@ export function LeadDrawer({
         ratingGoogle: lead.ratingGoogle, numResenas: lead.numResenas, diagnosticoIA: lead.diagnosticoIA, notas: lead.notas,
       })
       patchLocal(lead.id, {
-        scoreIA: r.scoreIA, observacionesIA: r.observaciones, recomendacionesIA: r.recomendaciones,
+        observacionesIA: r.observaciones, recomendacionesIA: r.recomendaciones,
         oportunidadesIA: r.oportunidades, erroresIA: r.errores,
       })
       toast.success('Análisis IA completado')
@@ -70,6 +71,23 @@ export function LeadDrawer({
       toast.error('No se pudo analizar el lead')
     } finally {
       setAnalizando(false)
+    }
+  }
+
+  const puntuarIA = async () => {
+    setPuntuando(true)
+    try {
+      const r = await crmApi.puntuarLead({
+        leadId: lead.id, empresa: lead.empresa, nicho: lead.nicho, web: lead.web,
+        pageSpeedMovil: lead.pageSpeedMovil, pageSpeedDesktop: lead.pageSpeedDesktop, tieneSSL: lead.tieneSSL,
+        ratingGoogle: lead.ratingGoogle, numResenas: lead.numResenas,
+      })
+      patchLocal(lead.id, { scoreIA: r.scoreIA })
+      toast.success(`Puntuación IA: ${r.scoreIA}/100`)
+    } catch {
+      toast.error('No se pudo calcular la puntuación IA')
+    } finally {
+      setPuntuando(false)
     }
   }
 
@@ -97,16 +115,22 @@ export function LeadDrawer({
             <button onClick={onClose} className="btn-ghost"><X className="h-4 w-4" /></button>
           </div>
         </div>
-        <div className="mt-3 flex items-center gap-2">
-          <Badge className={cn(sc.bg, sc.text)}>Score {lead.score}</Badge>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Badge className={cn(sc.bg, sc.text)}>Total {lead.score}</Badge>
+          <Badge className="bg-surface-2 text-muted">IA {lead.scoreIA ?? '—'}</Badge>
+          {lead.scoreManual ? <Badge className="bg-surface-2 text-muted">Manual {lead.scoreManual}</Badge> : null}
           <Badge>{PIPELINE_STAGES.find((s) => s.id === lead.estado)?.label}</Badge>
           {lead.valorEstimado ? <Badge className="bg-primary-50 text-primary-600 dark:bg-primary-400/15 dark:text-primary-300">{formatCurrency(lead.valorEstimado)}</Badge> : null}
         </div>
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" onClick={() => onEdit(lead)}><Edit3 className="h-3.5 w-3.5" /> Editar</Button>
-          <Button size="sm" variant="outline" onClick={analizarConIA} disabled={analizando}>
+          <Button size="sm" variant="outline" onClick={puntuarIA} disabled={puntuando} title="Calcula solo la puntuación IA (llamada liviana)">
+            {puntuando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gauge className="h-3.5 w-3.5" />}
+            {puntuando ? 'Puntuando…' : 'Puntuación IA'}
+          </Button>
+          <Button size="sm" variant="outline" onClick={analizarConIA} disabled={analizando} title="Diagnóstico completo con IA (observaciones, recomendaciones)">
             {analizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            {analizando ? 'Analizando…' : lead.scoreIA !== undefined ? 'Reanalizar con IA' : 'Analizar con IA'}
+            {analizando ? 'Analizando…' : 'Análisis IA'}
           </Button>
           {activeEmail && <Button size="sm" variant="outline" onClick={() => setComposeOpen(true)}><Mail className="h-3.5 w-3.5" /> Email</Button>}
           {lead.whatsapp && <a className="btn btn-outline h-8 px-3 text-xs" target="_blank" href={`https://wa.me/${lead.whatsapp.replace(/\D/g, '')}`}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</a>}

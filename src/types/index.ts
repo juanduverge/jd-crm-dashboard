@@ -45,7 +45,8 @@ export interface Lead {
   pageSpeedDesktop?: number
   tieneSSL?: boolean
   diagnosticoIA?: string
-  scoreIA?: number             // Score IA Lead (0-100), análisis bajo demanda
+  scoreIA?: number             // Puntuación IA (0-100), botón manual "Puntuación IA"
+  scoreManual?: number         // Puntuación Manual (0-100); col 'Score Manual' en pipeline
   observacionesIA?: string
   recomendacionesIA?: string
   oportunidadesIA?: string

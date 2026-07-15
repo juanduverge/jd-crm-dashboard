@@ -202,8 +202,18 @@ export const crmApi = {
   },
 
   /** Escribe SOLO Probabilidad y Fecha cierre estimada (celdas aisladas, no toca el resto de la fila). */
-  async updatePipelineExtra(payload: { leadId: string; probabilidad?: number; fechaCierreEstimada?: string; favorito?: boolean }) {
+  async updatePipelineExtra(payload: { leadId: string; probabilidad?: number; fechaCierreEstimada?: string; favorito?: boolean; scoreManual?: number }) {
     const { data } = await http.post('/crm-sheets-write', { action: 'pipeline_extra', ...payload })
+    return data
+  },
+
+  /** Puntuación IA bajo demanda: Claude califica la oportunidad de venta (0-100) y la guarda. Independiente del análisis. */
+  async puntuarLead(payload: {
+    leadId: string; empresa?: string; nicho?: string; web?: string
+    pageSpeedMovil?: number; pageSpeedDesktop?: number; tieneSSL?: boolean
+    ratingGoogle?: number; numResenas?: number
+  }): Promise<{ ok: boolean; scoreIA: number }> {
+    const { data } = await http.post('/crm-sheets-write', { action: 'puntuar_lead', ...payload }, { timeout: 60000 })
     return data
   },
 

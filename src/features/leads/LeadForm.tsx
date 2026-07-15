@@ -26,7 +26,7 @@ function buildDefaults(initial?: Lead | null): LeadFormValues {
     fuente: initial?.fuente ?? '',
     responsable: initial?.responsable ?? '',
     etiquetas: (initial?.etiquetas ?? []).join(', '),
-    score: initial?.score ?? 50,
+    scoreManual: initial?.scoreManual ?? 0,
     valorEstimado: initial?.valorEstimado ?? 0,
     estado: initial?.estado ?? 'nuevo',
     prioridad: initial?.prioridad ?? 'media',
@@ -57,11 +57,15 @@ export function LeadForm({
   initial?: Lead | null
 }) {
   const {
-    register, handleSubmit, reset, formState: { errors },
+    register, handleSubmit, reset, watch, formState: { errors },
   } = useForm<LeadFormValues>({
     resolver: zodResolver(leadSchema),
     defaultValues: buildDefaults(initial),
   })
+
+  const scoreIA = initial?.scoreIA
+  const scoreManualWatch = Number(watch('scoreManual') ?? 0) || 0
+  const scoreTotal = Math.min(100, (scoreIA ?? 0) + scoreManualWatch)
 
   // Re-poblar el form cada vez que se abre o cambia el lead seleccionado.
   useEffect(() => {
@@ -125,11 +129,31 @@ export function LeadForm({
         </Field>
         <Field label="Fuente"><Input {...register('fuente')} placeholder="Google Maps, Referido…" /></Field>
         <Field label="Responsable"><Input {...register('responsable')} placeholder="JD" /></Field>
-        <Field label="Score (0-100)" error={errors.score?.message}><Input type="number" {...register('score')} /></Field>
         <Field label="Valor estimado (USD)"><Input type="number" {...register('valorEstimado')} /></Field>
         <Field label="Etiquetas (separadas por coma)" className="sm:col-span-2">
           <Input {...register('etiquetas')} placeholder="vip, e-commerce, urgente" />
         </Field>
+
+        <SectionTitle>Puntuación</SectionTitle>
+        <div className="sm:col-span-2 grid grid-cols-3 gap-3">
+          <div>
+            <span className="mb-1 block text-xs font-medium text-muted">Puntuación IA</span>
+            <div className="flex h-10 items-center rounded-lg border border-border bg-surface-2 px-3 text-sm font-semibold text-fg">
+              {scoreIA ?? '—'}
+            </div>
+            <span className="mt-1 block text-[10px] text-muted">Botón "Puntuación IA" en el lead</span>
+          </div>
+          <Field label="Puntuación Manual" error={errors.scoreManual?.message}>
+            <Input type="number" min={0} max={100} {...register('scoreManual')} />
+          </Field>
+          <div>
+            <span className="mb-1 block text-xs font-medium text-muted">Puntuación Total</span>
+            <div className="flex h-10 items-center rounded-lg border border-primary-400/40 bg-primary-400/10 px-3 text-sm font-bold text-primary-600 dark:text-primary-300">
+              {scoreTotal}
+            </div>
+            <span className="mt-1 block text-[10px] text-muted">IA + Manual (máx. 100)</span>
+          </div>
+        </div>
 
         <SectionTitle>Notas</SectionTitle>
         <div className="sm:col-span-2">
