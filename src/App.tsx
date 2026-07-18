@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { useAuthStore } from './store/authStore'
@@ -13,13 +13,14 @@ const InboxPage = lazy(() => import('./features/inbox/InboxPage').then((m) => ({
 const WebLeadsPage = lazy(() => import('./features/webleads/WebLeadsPage').then((m) => ({ default: m.WebLeadsPage })))
 const TareasPage = lazy(() => import('./features/tareas/TareasPage').then((m) => ({ default: m.TareasPage })))
 const MessagesPage = lazy(() => import('./features/messages/MessagesPage').then((m) => ({ default: m.MessagesPage })))
-const AutomationsPage = lazy(() => import('./features/automations/AutomationsPage').then((m) => ({ default: m.AutomationsPage })))
 const AnalyticsPage = lazy(() => import('./features/analytics/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })))
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const TrashPage = lazy(() => import('./features/trash/TrashPage').then((m) => ({ default: m.TrashPage })))
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const isAuth = useAuthStore((s) => s.isAuthenticated)
+  const initializing = useAuthStore((s) => s.initializing)
+  if (initializing) return <RouteFallback />
   return isAuth ? children : <Navigate to="/login" replace />
 }
 
@@ -32,6 +33,11 @@ function RouteFallback() {
 }
 
 export default function App() {
+  const init = useAuthStore((s) => s.init)
+  useEffect(() => {
+    init()
+  }, [init])
+
   return (
     <>
       <Routes>
@@ -52,7 +58,6 @@ export default function App() {
           <Route path="web-leads" element={<Suspense fallback={<RouteFallback />}><WebLeadsPage /></Suspense>} />
           <Route path="tareas" element={<Suspense fallback={<RouteFallback />}><TareasPage /></Suspense>} />
           <Route path="messages" element={<Suspense fallback={<RouteFallback />}><MessagesPage /></Suspense>} />
-          <Route path="automations" element={<Suspense fallback={<RouteFallback />}><AutomationsPage /></Suspense>} />
           <Route path="analytics" element={<Suspense fallback={<RouteFallback />}><AnalyticsPage /></Suspense>} />
           <Route path="settings" element={<Suspense fallback={<RouteFallback />}><SettingsPage /></Suspense>} />
           <Route path="papelera" element={<Suspense fallback={<RouteFallback />}><TrashPage /></Suspense>} />

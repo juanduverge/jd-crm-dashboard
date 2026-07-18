@@ -3,7 +3,6 @@
 interface ImportMetaEnv {
   readonly VITE_APP_PASSWORD: string
   readonly VITE_N8N_URL: string
-  readonly VITE_N8N_API_KEY: string
   readonly VITE_GOOGLE_SHEETS_ID: string
   readonly VITE_GOOGLE_API_KEY: string
   readonly VITE_CLAUDE_VIA_N8N: string

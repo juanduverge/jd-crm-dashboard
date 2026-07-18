@@ -2,7 +2,8 @@
 # JD Developer CRM — nginx de producción (dashboard SPA + proxy n8n)
 # Fuente de verdad versionada. La imagen nginx:alpine procesa este
 # archivo con envsubst (/etc/nginx/templates/*.template) y sustituye
-# ${N8N_INTERNAL_URL}, ${N8N_API_KEY} y ${CRM_HOOK_TOKEN} en arranque.
+# ${N8N_INTERNAL_URL}, ${N8N_API_KEY}, ${CRM_HOOK_TOKEN} y ${SUPABASE_URL}
+# en arranque.
 #
 # CLAVE DE SEGURIDAD: la API key de n8n y el token del CRM se inyectan
 # AQUÍ (server-side), nunca en el bundle del cliente. El frontend llama a
@@ -26,8 +27,9 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
     add_header Cross-Origin-Opener-Policy "same-origin" always;
-    # connect-src 'self' porque ahora todo va por proxy de mismo origen.
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    # connect-src incluye 'self' (proxy n8n de mismo origen) + el proyecto
+    # Supabase (REST/Auth/Realtime van directo al navegador con la anon key).
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ${SUPABASE_URL}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
     # --- SPA ---
     location / {

@@ -3,9 +3,14 @@ import { config } from '@/lib/config'
 import type { WorkflowInfo } from '@/types'
 
 /** Cliente axios para la API pública de n8n. */
+/**
+ * La API key de n8n NUNCA viaja en este cliente: nginx la inyecta server-side
+ * en el proxy /n8n-api/ (ver deploy/nginx.conf.template). El bundle público
+ * no debe conocer el secreto.
+ */
 const n8n = axios.create({
   baseURL: config.n8n.base,
-  headers: { 'X-N8N-API-KEY': config.n8n.apiKey, 'Content-Type': 'application/json' },
+  headers: { 'Content-Type': 'application/json' },
   timeout: 12000,
 })
 
