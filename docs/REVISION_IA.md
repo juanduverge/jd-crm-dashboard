@@ -32,15 +32,12 @@ El prompt es sólido: rol de consultor de ventas B2B, datos del lead
 
 ## 2. Problemas encontrados (revisar en el n8n en vivo)
 
-### 🔴 P1 — La acción `puntuar_lead` no tiene ruta
-El botón **"Puntuación IA manual"** (`LeadDrawer.tsx:80`) llama
-`crmApi.puntuarLead` → `POST /crm-sheets-write { action: "puntuar_lead" }`.
-Pero el nodo **Route** de este workflow enruta 23 acciones y **`puntuar_lead`
-NO está entre ellas** (solo `analizar_lead`).
-
-**Consecuencia:** con este workflow, la puntuación manual cae sin ruta →
-falla o no hace nada. **Verificar en vivo**: o el workflow real tiene esa rama
-(y este export está viejo), o el botón está roto en producción.
+### ✅ P1 — RESUELTO: `puntuar_lead` sí existe en vivo
+El export del repo (87 nodos) no tenía la rama `puntuar_lead`, pero la
+**verificación contra el n8n en vivo** (2026-07-18, workflow `Hh7TjtJm32hVVk30`,
+94 nodos) confirma que la ruta `puntuar_lead` **sí está presente**. El botón
+"Puntuación IA manual" **funciona**. El problema era que el JSON del repo estaba
+desactualizado (ver `docs/AUDITORIA_N8N.md`).
 
 ### 🟠 P2 — Doble escritura del resultado IA
 El resultado se escribe **dos veces**: n8n lo mete en Sheets (`prospects!AK–AO`)
@@ -56,15 +53,12 @@ migración a Supabase), `Build Analizar Prompt` lanza `Lead no encontrado` y
 **Consecuencia probable:** los leads nuevos (post-migración) no se pueden
 analizar con IA. Es el bug de mayor impacto funcional de esta revisión.
 
-### 🟡 P4 — Modelo de Claude posiblemente inválido/desactualizado
-El nodo construye el body con `model: "claude-sonnet-4-6"`, que **no coincide
-con los IDs vigentes de Anthropic**. IDs válidos actuales: `claude-sonnet-5`,
-`claude-opus-4-8`, `claude-haiku-4-5`. Si el ID es inválido, la API responde
-error y el análisis falla.
-
-**Recomendación:** actualizar a `claude-sonnet-5` (buen balance) o
-`claude-opus-4-8` (análisis más profundo). Header `anthropic-version: 2023-06-01`
-está OK.
+### 🟡 P4 — Modelo de Claude a confirmar
+El modelo `claude-sonnet-4-6` se usa de forma **consistente en los 7 workflows
+de IA** (verificado en vivo). Como las funciones de IA operan en producción, el
+ID es válido para tu instancia. Recomendación: confirmar que es el modelo que
+querés mantener y, si Anthropic saca una versión superior de Sonnet, actualizarlo
+en un solo lugar centralizado. Header `anthropic-version: 2023-06-01` está OK.
 
 ---
 
