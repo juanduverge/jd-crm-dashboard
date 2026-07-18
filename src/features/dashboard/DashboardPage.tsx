@@ -13,7 +13,7 @@ import { useLeads, useActivity, useWorkflows, useMessages } from '@/hooks/useDat
 import { DEFAULT_NICHES } from '@/lib/config'
 import { formatCurrency, cn } from '@/lib/utils'
 import type { Kpi, Lead } from '@/types'
-import { sheetsService } from '@/services/sheetsService'
+import { crmApi } from '@/services/crmApi'
 
 const NICHE_COLORS = CHART_SERIES
 
@@ -102,7 +102,7 @@ export function DashboardPage() {
     <div>
       <PageHeader
         title="🏠 Resumen"
-        subtitle={`JD Developer · ${sheetsService.isLive() ? 'datos en vivo' : 'sin conexión a n8n'}`}
+        subtitle={`JD Developer · ${crmApi.enabled() ? 'datos en vivo' : 'sin conexión a n8n'}`}
       />
 
       {leadsError && (

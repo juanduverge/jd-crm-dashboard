@@ -50,9 +50,9 @@ const persist = {
 }
 
 /**
- * Store local de leads. Se hidrata desde React Query (sheetsService) y mantiene
- * las mutaciones optimistas de v1 (agregar/editar/mover de etapa/eliminar).
- * En iteraciones siguientes estas mutaciones se sincronizan a Sheets vía n8n.
+ * Store local de leads. Se hidrata desde React Query (leadsService/Supabase) y
+ * mantiene las mutaciones optimistas de la UI (agregar/editar/mover de
+ * etapa/eliminar) antes de que se confirme la escritura en Supabase.
  */
 /** Ventana durante la cual un lead recién editado localmente no se pisa con datos remotos (evita que un refetch en curso revierta un cambio que aún no propagó en Sheets). */
 const DIRTY_WINDOW_MS = 15_000

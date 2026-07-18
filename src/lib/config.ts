@@ -19,11 +19,6 @@ export const config = {
     hookBase: import.meta.env.DEV ? '/n8n-hook' : `${import.meta.env.VITE_N8N_URL || 'http://localhost:5678'}/webhook`,
     hookToken: import.meta.env.VITE_N8N_HOOK_TOKEN || '',
   },
-  sheets: {
-    id: import.meta.env.VITE_GOOGLE_SHEETS_ID || '',
-    apiKey: import.meta.env.VITE_GOOGLE_API_KEY || '',
-    tabs: ['prospects', 'outreach', 'pipeline', 'messages', 'config'] as const,
-  },
   workflows: {
     envioEmails: import.meta.env.VITE_WF_ENVIO_EMAILS || 'ITdsEWd94R8ptUlb',
     seguimientoEmail: import.meta.env.VITE_WF_SEGUIMIENTO_EMAIL || 'ZMQkvDXtD2tdMuYN',
