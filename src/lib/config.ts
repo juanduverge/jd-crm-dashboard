@@ -20,9 +20,10 @@ export const config = {
     hookToken: import.meta.env.VITE_N8N_HOOK_TOKEN || '',
   },
   workflows: {
+    // Único workflow que la app dispara por ID: envío de emails al crear campaña.
+    // El seguimiento por email (Fase 4) se retiró: Juan lo apagó en n8n por coste
+    // de tokens. El de WhatsApp no se dispara desde la app.
     envioEmails: import.meta.env.VITE_WF_ENVIO_EMAILS || 'ITdsEWd94R8ptUlb',
-    seguimientoEmail: import.meta.env.VITE_WF_SEGUIMIENTO_EMAIL || 'ZMQkvDXtD2tdMuYN',
-    whatsappSeguimiento: import.meta.env.VITE_WF_WHATSAPP_SEGUIMIENTO || 'JM3bEVBWajjmcCvV',
   },
   business: {
     name: 'JD Developer',

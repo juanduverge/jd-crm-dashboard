@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
-  Megaphone, Plus, Pause, Play, Copy, Send, X, Mail, Users, TrendingUp, DollarSign, Trash2,
+  Megaphone, Plus, Pause, Play, Copy, X, Mail, Users, TrendingUp, DollarSign, Trash2,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, Button, Badge, EmptyState, Skeleton, Input, Textarea } from '@/components/ui'
@@ -85,11 +85,6 @@ export function CampaignsPage() {
     }
   }
 
-  const sendFollowUp = (c: Campaign) => {
-    if (config.workflows.seguimientoEmail) n8nService.run(config.workflows.seguimientoEmail).catch(() => {})
-    toast.success('Seguimiento enviado')
-  }
-
   return (
     <div>
       <PageHeader
@@ -159,7 +154,6 @@ export function CampaignsPage() {
         onClose={() => setDetail(null)}
         onTogglePause={() => detail && togglePause(detail)}
         onDuplicate={() => detail && duplicate(detail)}
-        onFollowUp={() => detail && sendFollowUp(detail)}
         onDelete={() => detail && setDeleteTarget(detail)}
       />
 
@@ -237,14 +231,13 @@ function CampaignCard({
 }
 
 function CampaignDetail({
-  campaign, leads, onClose, onTogglePause, onDuplicate, onFollowUp, onDelete,
+  campaign, leads, onClose, onTogglePause, onDuplicate, onDelete,
 }: {
   campaign: Campaign | null
   leads: ReturnType<typeof useLeads>['leads']
   onClose: () => void
   onTogglePause: () => void
   onDuplicate: () => void
-  onFollowUp: () => void
   onDelete: () => void
 }) {
   const campaignLeads = useMemo(
@@ -280,7 +273,6 @@ function CampaignDetail({
                 </Button>
               )}
               <Button size="sm" variant="outline" onClick={onDuplicate}><Copy className="h-3.5 w-3.5" /> Duplicar</Button>
-              <Button size="sm" variant="outline" onClick={onFollowUp}><Send className="h-3.5 w-3.5" /> Enviar seguimiento</Button>
             </div>
 
             {campaign.createdAt && (

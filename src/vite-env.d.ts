@@ -8,10 +8,8 @@ interface ImportMetaEnv {
   // la inyecta nginx server-side en /n8n-api. Ver deploy/nginx.conf.template.
   readonly VITE_N8N_URL: string
   readonly VITE_N8N_HOOK_TOKEN: string
-  // IDs de workflows n8n.
+  // ID del workflow n8n de envío de emails (único que la app dispara por ID).
   readonly VITE_WF_ENVIO_EMAILS: string
-  readonly VITE_WF_SEGUIMIENTO_EMAIL: string
-  readonly VITE_WF_WHATSAPP_SEGUIMIENTO: string
   // Datos de negocio.
   readonly VITE_BUSINESS_EMAIL_MAIN: string
   readonly VITE_BUSINESS_EMAIL_OUTREACH: string
