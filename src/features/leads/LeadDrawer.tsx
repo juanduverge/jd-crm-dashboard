@@ -4,7 +4,7 @@ import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge, Skeleton } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn, htmlToText } from '@/lib/utils'
 import { PIPELINE_STAGES } from '@/lib/config'
-import { crmApi } from '@/services/crmApi'
+import { leadsService } from '@/services/leadsService'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useNotes, useCreateNote, useUpdateNote, useDeleteNote, useMessages } from '@/hooks/useData'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
@@ -57,7 +57,7 @@ export function LeadDrawer({
   const analizarConIA = async () => {
     setAnalizando(true)
     try {
-      const r = await crmApi.analizarLead({
+      const r = await leadsService.analizarLead({
         leadId: lead.id, empresa: lead.empresa, nicho: lead.nicho, web: lead.web, score: lead.score,
         pageSpeedMovil: lead.pageSpeedMovil, pageSpeedDesktop: lead.pageSpeedDesktop, tieneSSL: lead.tieneSSL,
         ratingGoogle: lead.ratingGoogle, numResenas: lead.numResenas, diagnosticoIA: lead.diagnosticoIA, notas: lead.notas,
@@ -77,7 +77,7 @@ export function LeadDrawer({
   const puntuarIA = async () => {
     setPuntuando(true)
     try {
-      const r = await crmApi.puntuarLead({
+      const r = await leadsService.puntuarLead({
         leadId: lead.id, empresa: lead.empresa, nicho: lead.nicho, web: lead.web,
         pageSpeedMovil: lead.pageSpeedMovil, pageSpeedDesktop: lead.pageSpeedDesktop, tieneSSL: lead.tieneSSL,
         ratingGoogle: lead.ratingGoogle, numResenas: lead.numResenas,

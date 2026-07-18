@@ -238,7 +238,7 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
                 {etiquetas.map((t) => (
                   <span key={t} className="flex items-center gap-1 rounded-full bg-border/50 px-2 py-0.5 text-xs text-fg">
                     <Tag className="h-3 w-3" />{t}
-                    <button onClick={() => patch({ id: lead.id, etiquetas: etiquetas.filter((x) => x !== t).join(',') })} className="text-muted hover:text-red-500">×</button>
+                    <button onClick={() => patch({ id: lead.id, etiquetas: etiquetas.filter((x) => x !== t) })} className="text-muted hover:text-red-500">×</button>
                   </span>
                 ))}
                 <input
@@ -246,7 +246,7 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
                   onChange={(e) => setNuevaEtiqueta(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && nuevaEtiqueta.trim()) {
-                      patch({ id: lead.id, etiquetas: [...etiquetas, nuevaEtiqueta.trim()].join(',') })
+                      patch({ id: lead.id, etiquetas: [...etiquetas, nuevaEtiqueta.trim()] })
                       setNuevaEtiqueta('')
                     }
                   }}
@@ -282,7 +282,7 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
                   onClick={() => {
                     const fecha = new Date(Date.now() + 2 * 864e5).toISOString().slice(0, 10)
                     crearTarea.mutate(
-                      { titulo: `Seguir a ${lead.nombre}`, tipo: 'seguimiento', leadNombre: lead.nombre, fechaVencimiento: fecha, prioridad: lead.prioridad, notas: lead.asunto || '' },
+                      { titulo: `Seguir a ${lead.nombre}`, tipo: 'seguimiento', fechaVencimiento: fecha, prioridad: lead.prioridad, notas: lead.asunto || '' },
                       { onSuccess: () => toast.success('📅 Seguimiento creado (en 2 días) — mira Tareas'), onError: () => toast.error('No se pudo crear la tarea') },
                     )
                   }}

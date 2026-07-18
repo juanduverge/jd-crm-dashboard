@@ -6,6 +6,7 @@ import { Button, Input, Skeleton, EmptyState, Badge, Textarea } from '@/componen
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { useMessages, useLeads } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
+import { messagesService } from '@/services/messagesService'
 import { cn, fuzzyMatch, initials, stringToColor, fileToBase64, htmlToText } from '@/lib/utils'
 import { NewMessageModal } from './NewMessageModal'
 import type { Channel, Message } from '@/types'
@@ -83,6 +84,7 @@ export function MessagesPage() {
         leadId: selected.idLead,
         ...(att ? { attachmentName: attachment!.name, attachmentBase64: att, attachmentMimeType: attachment!.type } : {}),
       })
+      await messagesService.logSentMessage({ leadId: selected.idLead, asunto: `Mensaje de JD Developer${selected.lead?.empresa ? ` · ${selected.lead.empresa}` : ''}`, cuerpo: compose.trim() })
       toast.success('Mensaje enviado')
       setCompose('')
       setAttachment(null)

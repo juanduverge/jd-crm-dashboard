@@ -11,7 +11,7 @@ import { LeadForm } from './LeadForm'
 import { LeadDrawer } from './LeadDrawer'
 import { LeadSearchModal } from './LeadSearchModal'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
-import { useLeads, useDeleteLead, useDeletePipeline } from '@/hooks/useData'
+import { useLeads, useDeleteLead } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
 import { DEFAULT_NICHES, PIPELINE_STAGES } from '@/lib/config'
 import { scoreColor, fuzzyMatch, formatCurrency, downloadCSV, cn } from '@/lib/utils'
@@ -63,7 +63,6 @@ export function LeadsPage() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const deleteLead = useDeleteLead()
-  const deletePipeline = useDeletePipeline()
 
   // Base: aplica búsqueda + filtros avanzados (nicho/score), sin la pestaña ni pills.
   const base = useMemo(() =>
@@ -116,17 +115,21 @@ export function LeadsPage() {
   const toggleSort = (key: SortKey) =>
     setSort((s) => ({ key, dir: s.key === key && s.dir === 'desc' ? 'asc' : 'desc' }))
 
-  const handleSubmit = (values: LeadFormValues) => {
+  const handleSubmit = async (values: LeadFormValues) => {
     const patch = formToLeadPatch(values)
-    if (editing) {
-      updateLead(editing.id, patch)
-      toast.success('Lead actualizado')
-    } else {
-      addLead({ ...patch, id: `L-${Date.now()}`, fechaCaptura: new Date().toISOString().slice(0, 10) } as Lead)
-      toast.success('Lead agregado')
+    try {
+      if (editing) {
+        updateLead(editing.id, patch)
+        toast.success('Lead actualizado')
+      } else {
+        await addLead(patch)
+        toast.success('Lead agregado')
+      }
+      setFormOpen(false)
+      setEditing(null)
+    } catch {
+      toast.error('No se pudo guardar el lead')
     }
-    setFormOpen(false)
-    setEditing(null)
   }
 
   const handleDelete = () => {
@@ -137,12 +140,7 @@ export function LeadsPage() {
   const confirmDelete = async () => {
     const ids = [...selectedIds]
     if (!ids.length) return
-    await Promise.all(
-      ids.flatMap((id) => [
-        deleteLead.mutateAsync({ leadId: id }),
-        deletePipeline.mutateAsync({ leadId: id }),
-      ]),
-    )
+    await Promise.all(ids.map((id) => deleteLead.mutateAsync({ leadId: id })))
     removeLeads(ids)
     clearSelection()
     toast.success(`${ids.length} lead(s) eliminado(s)`)

@@ -89,7 +89,7 @@ export function TareasPage() {
 
       {isError && !isLoading && (
         <EmptyState icon={<CheckSquare className="h-8 w-8" />} title="No se pudieron cargar las tareas"
-          description='Verifica que "CRM API - Tareas" esté activo y la hoja tareas en el whitelist.'
+          description="Verifica la conexión con Supabase y los permisos de la tabla tasks."
           action={<Button onClick={() => refetch()}>Reintentar</Button>} />
       )}
 

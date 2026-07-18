@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>JD Developer CRM — Documentación técnica completa</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b; font-size: 12px; line-height: 1.6; margin: 0;
+  }
+  h1, h2, h3 { color: #0f172a; line-height: 1.25; }
+  h1 { font-size: 30px; margin: 0 0 4px; }
+  h2 {
+    font-size: 19px; margin: 30px 0 10px; padding-bottom: 6px;
+    border-bottom: 3px solid #ff7448; page-break-after: avoid;
+  }
+  h3 { font-size: 14px; margin: 18px 0 6px; color: #ea580c; page-break-after: avoid; }
+  p { margin: 6px 0; }
+  code {
+    background: #f1f5f9; padding: 1px 5px; border-radius: 4px;
+    font-family: "Consolas", "SF Mono", monospace; font-size: 11px; color: #be123c;
+  }
+  pre {
+    background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 8px;
+    font-family: "Consolas", "SF Mono", monospace; font-size: 10.5px; line-height: 1.5;
+    overflow-x: auto; white-space: pre; page-break-inside: avoid;
+  }
+  pre code { background: none; color: inherit; padding: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 11px; page-break-inside: avoid; }
+  th { background: #ff7448; color: #fff; text-align: left; padding: 7px 9px; }
+  td { padding: 6px 9px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  tr:nth-child(even) td { background: #fafafa; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  li { margin: 3px 0; }
+  .cover {
+    text-align: center; padding: 70px 20px 40px; border-bottom: 4px solid #ff7448; margin-bottom: 10px;
+  }
+  .cover .badge {
+    display: inline-block; background: #ff7448; color: #fff; font-weight: 700;
+    padding: 5px 16px; border-radius: 20px; font-size: 12px; letter-spacing: 1px; margin-bottom: 18px;
+  }
+  .cover .sub { color: #64748b; font-size: 14px; margin-top: 8px; }
+  .cover .meta { color: #94a3b8; font-size: 11px; margin-top: 26px; }
+  .callout {
+    background: #fff7ed; border-left: 4px solid #ff7448; padding: 10px 14px;
+    border-radius: 0 8px 8px 0; margin: 12px 0; page-break-inside: avoid;
+  }
+  .callout.warn { background: #fef2f2; border-left-color: #ef4444; }
+  .callout.info { background: #eff6ff; border-left-color: #3b82f6; }
+  .diagram {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px;
+    font-family: "Consolas", monospace; font-size: 10px; line-height: 1.4; white-space: pre;
+    overflow-x: auto; page-break-inside: avoid; color: #334155;
+  }
+  .toc a { color: #0f172a; text-decoration: none; }
+  .toc li { margin: 5px 0; }
+  .pill { display:inline-block; background:#e2e8f0; color:#334155; border-radius:12px; padding:1px 9px; font-size:10px; }
+  .page-break { page-break-before: always; }
+  footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e2e8f0; color: #94a3b8; font-size: 10px; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="badge">DOCUMENTACIÓN TÉCNICA</div>
+  <h1>JD Developer CRM</h1>
+  <div class="sub">Centro de control para agencia de desarrollo web, IA y automatización</div>
+  <div class="sub">Arquitectura · Stack · Conexiones · Flujos · Seguridad</div>
+  <div class="meta">Versión 1.0.0 &nbsp;·&nbsp; Generado el 17 de julio de 2026</div>
+</div>
+
+<h2>Índice</h2>
+<ol class="toc">
+  <li><a href="#s1">Qué es el proyecto</a></li>
+  <li><a href="#s2">Lenguaje y stack tecnológico</a></li>
+  <li><a href="#s3">Arquitectura de conexiones</a></li>
+  <li><a href="#s4">Google Sheets como base de datos</a></li>
+  <li><a href="#s5">Los workflows de n8n (el "backend")</a></li>
+  <li><a href="#s6">Cómo fluye una acción (paso a paso)</a></li>
+  <li><a href="#s7">Organización del código</a></li>
+  <li><a href="#s8">Módulos funcionales del CRM</a></li>
+  <li><a href="#s9">Gestión de estado y datos</a></li>
+  <li><a href="#s10">Autenticación</a></li>
+  <li><a href="#s11">Desarrollo vs. Producción</a></li>
+  <li><a href="#s12">Integraciones externas</a></li>
+  <li><a href="#s13">Seguridad y hoja de ruta</a></li>
+  <li><a href="#s14">Resumen ejecutivo</a></li>
+</ol>
+
+<div class="page-break"></div>
+
+<h2 id="s1">1. Qué es el proyecto</h2>
+<p>El <strong>JD Developer CRM</strong> es el centro de control de la agencia. En una sola aplicación web permite:</p>
+<ul>
+  <li><strong>Captar leads</strong> automáticamente (scraping de Google Maps, web, redes) y desde el formulario de la web pública.</li>
+  <li><strong>Gestionar el pipeline de ventas</strong> con un tablero Kanban de arrastrar y soltar.</li>
+  <li><strong>Enviar outreach y responder correos</strong> (SMTP/IMAP) con redacción asistida por IA.</li>
+  <li><strong>Organizar campañas, tareas y seguimientos.</strong></li>
+  <li><strong>Analizar métricas</strong> (embudo de conversión, forecast por probabilidad).</li>
+  <li><strong>Puntuar oportunidades con IA</strong> (Claude asigna un score 0–100).</li>
+  <li>Todo con <strong>borrado suave</strong> y papelera de recuperación.</li>
+</ul>
+<div class="callout info">
+  <strong>Idea clave:</strong> no tiene un backend propio programado a mano. El "servidor" es <strong>n8n</strong>, que hace de proxy seguro contra <strong>Google Sheets</strong>, la base de datos real del sistema.
+</div>
+
+<h2 id="s2">2. Lenguaje y stack tecnológico</h2>
+<p>Es una <strong>SPA (Single Page Application) 100% frontend</strong> escrita en <strong>TypeScript + React 18</strong>, empaquetada con Vite.</p>
+<table>
+  <tr><th>Capa</th><th>Tecnología</th><th>Para qué</th></tr>
+  <tr><td>Lenguaje</td><td>TypeScript 5.7</td><td>Tipado estático en todo el código</td></tr>
+  <tr><td>UI</td><td>React 18 + JSX</td><td>Componentes de interfaz</td></tr>
+  <tr><td>Build / dev</td><td>Vite 6</td><td>Servidor de desarrollo y empaquetado</td></tr>
+  <tr><td>Estilos</td><td>Tailwind CSS 3 + PostCSS</td><td>Diseño con utilidades CSS</td></tr>
+  <tr><td>Enrutado</td><td>React Router DOM 6</td><td>Navegación entre páginas</td></tr>
+  <tr><td>Estado servidor</td><td>TanStack React Query 5</td><td>Caché, refetch automático (30s)</td></tr>
+  <tr><td>Estado local</td><td>Zustand 5</td><td>Estado global + persistencia localStorage</td></tr>
+  <tr><td>HTTP</td><td>Axios</td><td>Llamadas a los webhooks de n8n</td></tr>
+  <tr><td>Formularios</td><td>React Hook Form + Zod</td><td>Formularios y validación tipada</td></tr>
+  <tr><td>Gráficos</td><td>Recharts</td><td>Analítica y embudos</td></tr>
+  <tr><td>Drag &amp; drop</td><td>@dnd-kit</td><td>Kanban del pipeline</td></tr>
+  <tr><td>Animación</td><td>Framer Motion</td><td>Transiciones de UI</td></tr>
+  <tr><td>Notificaciones</td><td>react-hot-toast</td><td>Avisos tipo toast</td></tr>
+  <tr><td>Internacionalización</td><td>i18next / react-i18next</td><td>Multiidioma (es / en)</td></tr>
+  <tr><td>Iconos</td><td>lucide-react</td><td>Iconografía</td></tr>
+</table>
+
+<h2 id="s3">3. Arquitectura de conexiones</h2>
+<p>El corazón del diseño. El dashboard <strong>nunca</strong> habla directamente con Google Sheets; siempre pasa por webhooks REST de n8n:</p>
+<div class="diagram">┌─────────────────┐     HTTP / Axios     ┌──────────────┐    OAuth2     ┌────────────────┐
+│  Dashboard CRM  │ ───────────────────► │     n8n      │ ────────────► │  Google Sheets │
+│ (React / Vite)  │   webhooks REST      │  workflows   │  credencial   │ (base de datos)│
+│   navegador     │ ◄─────────────────── │ = "backend"  │ ◄──────────── │  pestañas/tabs │
+└─────────────────┘   { rows: [...] }    └──────┬───────┘               └────────────────┘
+                                                │
+                        ┌───────────────────────┼───────────────────────┐
+                        ▼                        ▼                       ▼
+                  Claude (IA)              Apify (scraping)        SMTP / IMAP
+              redacción + scoring        captación de leads      envío/recepción correo</div>
+
+<h3>Endpoints principales</h3>
+<ul>
+  <li><strong>Lectura:</strong> <code>GET /webhook/crm-sheets-read?sheet=:tab</code></li>
+  <li><strong>Escritura:</strong> <code>POST /webhook/crm-sheets-write</code> con cuerpo <code>{ action, leadId, ... }</code></li>
+</ul>
+<p>Cada operación de negocio (crear lead, mover etapa, puntuar con IA, enviar correo) es un <code>action</code> distinto que llega al mismo webhook de escritura.</p>
+<div class="callout">
+  <strong>¿Por qué así?</strong> Para <strong>no incrustar una Google API key en el bundle del frontend</strong>. n8n guarda la credencial OAuth2 de Google de forma segura y el navegador solo llama a webhooks. Esto separa las credenciales sensibles del código que se descarga al cliente.
+</div>
+
+<h2 id="s4">4. Google Sheets como base de datos</h2>
+<p>Cada "tabla" es una <strong>pestaña (tab)</strong> de un Google Sheet. Las pestañas usadas:</p>
+<table>
+  <tr><th>Pestaña</th><th>Contenido</th></tr>
+  <tr><td><code>prospects</code></td><td>Leads captados (empresa, contacto, métricas web, score)</td></tr>
+  <tr><td><code>pipeline</code></td><td>Estado de cada lead en el embudo de ventas</td></tr>
+  <tr><td><code>outreach</code></td><td>Correos de captación (asunto, cuerpo, estado de envío)</td></tr>
+  <tr><td><code>messages</code></td><td>Historial de mensajes / actividad</td></tr>
+  <tr><td><code>inbox</code></td><td>Correos recibidos vía IMAP</td></tr>
+  <tr><td><code>campaigns</code></td><td>Campañas de outreach</td></tr>
+  <tr><td><code>web_leads</code></td><td>Solicitudes del formulario de la web pública</td></tr>
+  <tr><td><code>tareas</code></td><td>Tareas y seguimientos manuales</td></tr>
+  <tr><td><code>contactos</code></td><td>Contactos por lead (varios por empresa)</td></tr>
+  <tr><td><code>notas</code></td><td>Historial de notas por lead</td></tr>
+  <tr><td><code>config</code></td><td>Configuración clave/valor (p. ej. alias de correo)</td></tr>
+  <tr><td><code>search_log</code></td><td>Historial de búsquedas de leads disparadas</td></tr>
+</table>
+<div class="callout warn">
+  <strong>Borrado suave (soft-delete):</strong> nada se borra físicamente. Se marcan columnas <code>Eliminado</code> / <code>Purgado</code>. Por eso existe la <strong>Papelera</strong>, que permite restaurar o purgar definitivamente (purga lógica, sin borrar la fila).
+</div>
+
+<h2 id="s5">5. Los workflows de n8n (el "backend")</h2>
+<p>Los flujos viven como JSON en la carpeta <code>n8n/</code> y se importan a n8n. Cada uno expone webhooks:</p>
+<table>
+  <tr><th>Workflow</th><th>Función</th></tr>
+  <tr><td><code>CRM_API_Leer_Sheets</code></td><td>Lee cualquier pestaña como JSON <code>{ rows: [...] }</code></td></tr>
+  <tr><td><code>CRM_API_Escribir_Sheets</code></td><td>CRUD por <code>action</code>: crear/editar/eliminar leads, pipeline, campañas, contactos, notas, config</td></tr>
+  <tr><td><code>CRM_API_Web_Lead</code></td><td>Gestiona solicitudes del formulario web</td></tr>
+  <tr><td><code>CRM_API_Tareas</code></td><td>CRUD de tareas y seguimientos</td></tr>
+  <tr><td>Endpoints IA</td><td><code>/crm-generate-ai</code>, <code>action: analizar_lead</code>, <code>puntuar_lead</code> → llaman a Claude</td></tr>
+  <tr><td>Correo</td><td><code>/crm-send-reply</code> → envío SMTP con adjuntos (base64)</td></tr>
+  <tr><td>Captación</td><td><code>/crm-buscar-leads</code> → dispara scraping con Apify</td></tr>
+</table>
+<p>El cliente TypeScript que consume todo esto es <code>src/services/crmApi.ts</code>: un objeto con un método por cada acción, todos apoyados en una instancia de Axios con <code>baseURL</code> y un header opcional <code>X-CRM-TOKEN</code>.</p>
+
+<h2 id="s6">6. Cómo fluye una acción (paso a paso)</h2>
+<p>Ejemplo real: <strong>convertir una solicitud web en lead</strong> (hook <code>useConvertWebLead</code>):</p>
+<ol>
+  <li>Un componente React invoca el hook (una <em>mutation</em> de React Query).</li>
+  <li>El hook llama a <code>crmApi.createLead()</code> + <code>updatePipeline()</code> + <code>updateWebLead()</code> (POST vía Axios a los webhooks).</li>
+  <li>n8n recibe cada petición y escribe en Google Sheets usando su credencial OAuth2.</li>
+  <li>Al terminar, React Query <strong>invalida</strong> las queries <code>['leads']</code> y <code>['web_leads']</code>.</li>
+  <li>La UI se re-hidrata automáticamente con los datos nuevos.</li>
+</ol>
+<pre><code>// Escritura optimista + persistencia
+await crmApi.createLead({ leadId, empresa, emailContacto, ... })
+await crmApi.updatePipeline({ leadId, estado: 'contactado', ... })
+await crmApi.updateWebLead({ id, estado: 'cerrado', etiquetas })
+// onSuccess → queryClient.invalidateQueries(['leads'])</code></pre>
+
+<h2 id="s7">7. Organización del código (<code>src/</code>)</h2>
+<table>
+  <tr><th>Carpeta</th><th>Rol</th></tr>
+  <tr><td><code>features/</code></td><td>Un módulo por carpeta: dashboard, leads, pipeline, campaigns, inbox, webleads, tareas, messages, automations, analytics, settings, trash, auth. Cargadas con <em>lazy loading</em>.</td></tr>
+  <tr><td><code>services/</code></td><td>Capa de red: <code>crmApi.ts</code> (webhooks), <code>n8nService.ts</code> (API de n8n), <code>sheetsService.ts</code> (normaliza filas → objetos tipados)</td></tr>
+  <tr><td><code>hooks/useData.ts</code></td><td>Todos los hooks de datos con React Query centralizados</td></tr>
+  <tr><td><code>store/</code></td><td>Estado global Zustand: authStore, leadsStore, campaignsStore, uiStore</td></tr>
+  <tr><td><code>lib/config.ts</code></td><td>Config central desde variables de entorno <code>VITE_*</code> + etapas del pipeline</td></tr>
+  <tr><td><code>components/</code></td><td>Layout (Sidebar, Topbar, CommandPalette) y UI reutilizable</td></tr>
+  <tr><td><code>types/index.ts</code></td><td>Todos los tipos TypeScript del dominio</td></tr>
+</table>
+
+<h2 id="s8">8. Módulos funcionales del CRM</h2>
+<table>
+  <tr><th>Módulo</th><th>Qué hace</th></tr>
+  <tr><td>Dashboard</td><td>KPIs y actividad reciente</td></tr>
+  <tr><td>Leads</td><td>Tabla de prospectos, drawer de detalle, favoritos, score IA manual y filtros</td></tr>
+  <tr><td>Pipeline</td><td>Kanban drag &amp; drop por etapas, con forecast por probabilidad</td></tr>
+  <tr><td>Campañas</td><td>Asistente de creación (wizard) con plantillas de arranque</td></tr>
+  <tr><td>Inbox</td><td>Correos entrantes (IMAP), conversión a lead en un clic</td></tr>
+  <tr><td>Web Leads</td><td>Solicitudes del formulario público con estado/prioridad/etiquetas</td></tr>
+  <tr><td>Tareas</td><td>Seguimientos con vencimiento, prioridad y responsable</td></tr>
+  <tr><td>Mensajes</td><td>Redacción y envío de correos (SMTP)</td></tr>
+  <tr><td>Automatizaciones</td><td>Vista de workflows y ejecuciones de n8n</td></tr>
+  <tr><td>Analítica</td><td>Embudo de conversión y métricas (Recharts)</td></tr>
+  <tr><td>Configuración</td><td>Ajustes clave/valor, alias de correo</td></tr>
+  <tr><td>Papelera</td><td>Restaurar o purgar registros con soft-delete</td></tr>
+</table>
+
+<h3>Etapas del pipeline (con probabilidad para forecast)</h3>
+<p><span class="pill">Nuevo 5%</span> <span class="pill">Contactado 10%</span> <span class="pill">Seguimiento 20%</span> <span class="pill">Respondió 40%</span> <span class="pill">Reunión 60%</span> <span class="pill">Propuesta 75%</span> <span class="pill">Negociación 90%</span> <span class="pill">Ganado 100%</span> <span class="pill">Perdido 0%</span></p>
+
+<h2 id="s9">9. Gestión de estado y datos</h2>
+<p>Dos capas complementarias:</p>
+<ul>
+  <li><strong>React Query</strong> — estado del <em>servidor</em>: cachea las respuestas de Sheets/n8n, refresca cada 30 segundos (<code>refetchInterval</code>), y tras cada escritura invalida las queries afectadas para mantener la UI sincronizada.</li>
+  <li><strong>Zustand</strong> — estado <em>local/global</em>: sesión de usuario, leads hidratados, campañas, estado de UI. La sesión se persiste en <code>localStorage</code>.</li>
+</ul>
+<div class="callout info">
+  Las escrituras son <strong>optimistas</strong> en el store local: la UI reacciona al instante y, cuando el webhook responde, quedan además persistidas en Sheets.
+</div>
+
+<h2 id="s10">10. Autenticación</h2>
+<p>Versión actual (v1): <strong>contraseña única</strong> validada en el cliente y persistida en <code>localStorage</code>. La estructura ya contempla multiusuario con roles (<code>admin</code> / <code>vendedor</code> / <code>viewer</code>) y 2FA a futuro.</p>
+<div class="callout warn">
+  <strong>Punto crítico de seguridad:</strong> al validarse en el frontend, el login es falsificable. La Fase 2 prevé mover la protección a <strong>Cloudflare Access</strong> para el equipo interno (gratuito), dejando Supabase para un futuro portal de clientes.
+</div>
+
+<h2 id="s11">11. Desarrollo vs. Producción</h2>
+<h3>En desarrollo</h3>
+<p>Vite proxya las rutas <code>/n8n-api</code> y <code>/n8n-hook</code> hacia n8n para <strong>evitar CORS</strong> y no exponer la API key al navegador:</p>
+<pre><code>server.proxy = {
+  '/n8n-api':  → n8n /api/v1   // API pública de n8n
+  '/n8n-hook': → n8n /webhook  // webhooks del CRM API
+}</code></pre>
+<h3>En producción</h3>
+<ul>
+  <li>Se compila estático (<code>tsc -b &amp;&amp; vite build</code>) con <code>base: './'</code> para vivir en <code>jddeveloper.com/crm</code>.</li>
+  <li>Se sirve detrás de <strong>nginx</strong> (ver <code>deploy/</code>), que inyecta <code>X-N8N-API-KEY</code> del lado servidor — así la key sale del bundle.</li>
+  <li><strong>CI/CD</strong> con GitHub Actions (<code>.github/workflows/</code>) y contenedor Docker (<code>deploy/Dockerfile</code>).</li>
+</ul>
+
+<h2 id="s12">12. Integraciones externas</h2>
+<table>
+  <tr><th>Servicio</th><th>Uso en el CRM</th></tr>
+  <tr><td>Google Sheets</td><td>Base de datos (vía OAuth2 en n8n)</td></tr>
+  <tr><td>n8n</td><td>Backend / orquestador de workflows y webhooks</td></tr>
+  <tr><td>Claude (IA)</td><td>Redacción de outreach, análisis y scoring de leads (0–100)</td></tr>
+  <tr><td>Apify</td><td>Scraping de prospectos (Google Maps, web, redes)</td></tr>
+  <tr><td>SMTP / IMAP (Hostinger)</td><td>Envío y recepción de correo</td></tr>
+  <tr><td>Cloudflare (Fase 2)</td><td>Access / protección del backoffice</td></tr>
+</table>
+
+<h2 id="s13">13. Seguridad y hoja de ruta</h2>
+<p>Puntos identificados en la auditoría técnica:</p>
+<ul>
+  <li><span class="pill">Crítico</span> Login falsificable (validación en cliente).</li>
+  <li><span class="pill">Crítico</span> API key de n8n en el bundle → se resuelve con proxy nginx server-side.</li>
+  <li><span class="pill">Crítico</span> Webhooks sin autenticación → mitigable con <code>X-CRM-TOKEN</code>.</li>
+</ul>
+<p><strong>Fase 2 (planeada):</strong> Cloudflare Access para el equipo interno; migración futura de Sheets → Supabase solo cuando se solicite explícitamente; portal de clientes con Supabase Auth.</p>
+
+<h2 id="s14">14. Resumen ejecutivo</h2>
+<div class="callout">
+  Es una <strong>SPA React + TypeScript</strong> (Vite / Tailwind) que usa <strong>React Query + Zustand</strong> para el estado y que, en lugar de un backend propio, se comunica por <strong>webhooks de n8n</strong>. n8n hace de proxy seguro contra <strong>Google Sheets</strong> (la base de datos) e integra <strong>Claude (IA)</strong>, <strong>Apify (scraping)</strong> y <strong>SMTP/IMAP (correo)</strong> — todo para automatizar la captación y la gestión de clientes de la agencia.
+</div>
+
+<footer>
+  JD Developer CRM · Documentación técnica · v1.0.0 · Confidencial — uso interno
+</footer>
+
+</body>
+</html>

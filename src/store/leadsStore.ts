@@ -1,50 +1,51 @@
 import { create } from 'zustand'
 import type { Lead } from '@/types'
-import { crmApi } from '@/services/crmApi'
+import { leadsService } from '@/services/leadsService'
+import { pipelineService } from '@/services/pipelineService'
 
-/** Persistencia best-effort a Sheets vía n8n; nunca bloquea la UI optimista. */
+/**
+ * Persistencia best-effort; nunca bloquea la UI optimista.
+ * Los campos "propios" del lead y los de Pipeline (estado/valor/prioridad/
+ * canal/responsable/próximo seguimiento/probabilidad/fecha cierre/score
+ * manual) viven en la misma fila de Supabase (`leads`, ver migración 0008):
+ * un lead y su oportunidad de pipeline son la misma entidad.
+ */
 const persist = {
   move(lead: Lead) {
-    crmApi.updatePipeline({
-      leadId: lead.id, empresa: lead.empresa, estado: lead.estado, valorEstimado: lead.valorEstimado,
+    pipelineService.updatePipeline(lead.id, {
+      estado: lead.estado, valorEstimado: lead.valorEstimado,
       prioridad: lead.prioridad, canalPrincipal: lead.canalPrincipal, responsable: lead.responsable,
       proximoSeguimiento: lead.proximoSeguimiento,
     }).catch(() => {})
   },
-  create(lead: Lead) {
-    crmApi.createLead({
-      leadId: lead.id, empresa: lead.empresa, email: lead.email, telefono: lead.telefono,
-      ciudad: lead.ciudad, nicho: lead.nicho, web: lead.web, score: lead.score,
-    }).catch(() => {})
-    crmApi.updatePipeline({
-      leadId: lead.id, empresa: lead.empresa, estado: lead.estado, valorEstimado: lead.valorEstimado,
-      prioridad: lead.prioridad, canalPrincipal: lead.canalPrincipal, responsable: lead.responsable,
-    }).catch(() => {})
+  create(_lead: Lead) {
+    // El lead (incluidos sus campos de pipeline) ya se creó en Supabase
+    // vía leadsService.createLead antes de llegar aquí; nada más que hacer.
   },
   favorito(lead: Lead) {
-    crmApi.updatePipelineExtra({ leadId: lead.id, favorito: !!lead.favorito }).catch(() => {})
+    leadsService.toggleFavorito(lead.id, !!lead.favorito).catch(() => {})
   },
-  update(lead: Lead) {
-    // Campos que viven en la hoja prospects. (score es derivado = IA+Manual, no se persiste)
-    crmApi.updateLead({
-      leadId: lead.id,
+  update(lead: Lead, prevEstado?: Lead['estado']) {
+    // Campos propios del lead -> Supabase.
+    leadsService.updateLead(lead.id, {
       empresa: lead.empresa, cargo: lead.cargo, nicho: lead.nicho,
       ciudad: lead.ciudad, pais: lead.pais, direccion: lead.direccion,
       telefono: lead.telefono, email: lead.email, web: lead.web,
       whatsapp: lead.whatsapp, instagram: lead.instagram,
       facebook: lead.facebook, linkedin: lead.linkedin,
       fuente: lead.fuente, notas: lead.notas,
-      etiquetas: (lead.etiquetas ?? []).join(', '),
+      etiquetas: lead.etiquetas ?? [],
     }).catch(() => {})
-    // Campos que viven en la hoja pipeline.
-    crmApi.updatePipeline({
-      leadId: lead.id, empresa: lead.empresa, estado: lead.estado,
+    // Campos de pipeline -> Supabase (misma fila `leads`). Solo se envía `estado`
+    // (y por lo tanto se inserta un evento en pipeline_events) si de verdad cambió;
+    // así una edición normal del lead no genera ruido en el historial de etapas.
+    pipelineService.updatePipeline(lead.id, {
+      ...(prevEstado !== undefined && lead.estado !== prevEstado ? { estado: lead.estado } : {}),
       valorEstimado: lead.valorEstimado, prioridad: lead.prioridad,
       canalPrincipal: lead.canalPrincipal, responsable: lead.responsable,
-      proximoSeguimiento: lead.proximoSeguimiento,
+      proximoSeguimiento: lead.proximoSeguimiento, probabilidad: lead.probabilidad,
+      fechaCierreEstimada: lead.fechaCierreEstimada, scoreManual: lead.scoreManual ?? 0,
     }).catch(() => {})
-    // Puntuación Manual (celda aislada en pipeline).
-    crmApi.updatePipelineExtra({ leadId: lead.id, scoreManual: lead.scoreManual ?? 0 }).catch(() => {})
   },
 }
 
@@ -62,7 +63,7 @@ interface LeadsState {
   hydrated: boolean
   dirty: Record<string, number>
   setLeads: (leads: Lead[]) => void
-  addLead: (lead: Lead) => void
+  addLead: (patch: Partial<Lead>) => Promise<Lead>
   updateLead: (id: string, patch: Partial<Lead>) => void
   patchLocal: (id: string, patch: Partial<Lead>) => void
   toggleFavorito: (id: string) => void
@@ -83,12 +84,24 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     if (!get().hydrated) set({ leads, hydrated: true })
     else set({ leads: mergeKeepLocal(get().leads, leads, get().dirty) })
   },
-  addLead: (lead) => {
-    const withScore = { ...lead, score: Math.min(100, (lead.scoreIA ?? 0) + (lead.scoreManual ?? 0)) }
+  addLead: async (patch) => {
+    // Crea el lead en Supabase primero (necesitamos el id real generado por la BD).
+    const created = await leadsService.createLead(patch)
+    const withScore: Lead = {
+      ...created,
+      estado: patch.estado ?? created.estado,
+      prioridad: patch.prioridad ?? created.prioridad,
+      canalPrincipal: patch.canalPrincipal ?? created.canalPrincipal,
+      valorEstimado: patch.valorEstimado ?? created.valorEstimado,
+      responsable: patch.responsable ?? created.responsable,
+      score: Math.min(100, (created.scoreIA ?? 0) + (patch.scoreManual ?? created.scoreManual ?? 0)),
+    }
     set({ leads: [withScore, ...get().leads] })
     persist.create(withScore)
+    return withScore
   },
   updateLead: (id, patch) => {
+    const prevEstado = get().leads.find((l) => l.id === id)?.estado
     const leads = get().leads.map((l) => {
       if (l.id !== id) return l
       const merged = { ...l, ...patch }
@@ -98,7 +111,7 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     })
     set({ leads, dirty: { ...get().dirty, [id]: Date.now() } })
     const updated = leads.find((l) => l.id === id)
-    if (updated) persist.update(updated)
+    if (updated) persist.update(updated, prevEstado)
   },
 
   /** Actualiza el estado local sin volver a persistir (usado tras acciones que ya escriben en Sheets, como el análisis IA). */

@@ -4,21 +4,11 @@ import { Search, Mail, MailOpen, RefreshCw, User, Send, Loader2 } from 'lucide-r
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Textarea, Skeleton, EmptyState, Badge } from '@/components/ui'
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
-import { useInbox, useLeads, useEmailAliases } from '@/hooks/useData'
+import { useInbox, useLeads, useEmailAliases, useMarkInboxRead } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
+import { messagesService } from '@/services/messagesService'
 import { cn, fuzzyMatch, initials, stringToColor, fileToBase64, htmlToText } from '@/lib/utils'
 import type { InboxMessage } from '@/types'
-
-const READ_STORAGE_KEY = 'jd-crm-inbox-read-ids'
-
-function loadReadIds(): Set<string> {
-  try {
-    const raw = localStorage.getItem(READ_STORAGE_KEY)
-    return new Set(raw ? (JSON.parse(raw) as string[]) : [])
-  } catch {
-    return new Set()
-  }
-}
 
 function formatFecha(fecha: string) {
   const d = new Date(fecha.replace(' ', 'T'))
@@ -30,10 +20,10 @@ export function InboxPage() {
   const { data: emails, isLoading, isError, refetch, isFetching } = useInbox()
   const { leads } = useLeads()
   const aliases = useEmailAliases()
+  const markInboxRead = useMarkInboxRead()
   const [query, setQuery] = useState('')
   const [onlyUnread, setOnlyUnread] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [readIds, setReadIds] = useState<Set<string>>(() => loadReadIds())
   const [replyOpen, setReplyOpen] = useState(false)
   const [replyFrom, setReplyFrom] = useState<string>(aliases[0].email)
   const [replyText, setReplyText] = useState('')
@@ -45,7 +35,7 @@ export function InboxPage() {
   const filtered = useMemo(() => {
     const list = emails ?? []
     return list
-      .filter((e) => (onlyUnread ? !readIds.has(e.id) && !e.leido : true))
+      .filter((e) => (onlyUnread ? !e.leido : true))
       .filter((e) =>
         !query ||
         fuzzyMatch(e.asunto, query) ||
@@ -53,16 +43,13 @@ export function InboxPage() {
         fuzzyMatch(e.deNombre ?? '', query) ||
         fuzzyMatch(leadById.get(e.idLead ?? '')?.empresa ?? '', query),
       )
-  }, [emails, onlyUnread, readIds, query, leadById])
+  }, [emails, onlyUnread, query, leadById])
 
   const selected = filtered.find((e) => e.id === selectedId) ?? filtered[0] ?? null
 
   useEffect(() => {
-    if (selected && !readIds.has(selected.id) && !selected.leido) {
-      const next = new Set(readIds)
-      next.add(selected.id)
-      setReadIds(next)
-      localStorage.setItem(READ_STORAGE_KEY, JSON.stringify([...next]))
+    if (selected && !selected.leido) {
+      markInboxRead.mutate(selected.id)
     }
     setReplyOpen(false)
     setReplyText('')
@@ -71,7 +58,7 @@ export function InboxPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
 
-  const isRead = (e: InboxMessage) => e.leido || readIds.has(e.id)
+  const isRead = (e: InboxMessage) => e.leido
   const unreadCount = (emails ?? []).filter((e) => !isRead(e)).length
 
   const sendReply = async () => {
@@ -87,6 +74,7 @@ export function InboxPage() {
         leadId: selected.idLead,
         ...(att ? { attachmentName: replyAttachment!.name, attachmentBase64: att, attachmentMimeType: replyAttachment!.type } : {}),
       })
+      await messagesService.logSentMessage({ leadId: selected.idLead, asunto: selected.asunto || '(sin asunto)', cuerpo: replyText.trim() })
       toast.success('Respuesta enviada')
       setReplyOpen(false)
       setReplyText('')

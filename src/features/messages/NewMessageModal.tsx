@@ -6,6 +6,7 @@ import { Button, Input, Textarea } from '@/components/ui'
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { useLeads, useEmailAliases } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
+import { messagesService } from '@/services/messagesService'
 import { fileToBase64 } from '@/lib/utils'
 
 /** Composer libre: escribe a cualquier email, exista o no como lead en el CRM. */
@@ -63,6 +64,9 @@ export function NewMessageModal({
         leadId: leadId ?? matchedLead?.id,
         ...(att ? { attachmentName: attachment!.name, attachmentBase64: att, attachmentMimeType: attachment!.type } : {}),
       })
+      const effectiveLeadId = leadId ?? matchedLead?.id
+      const effectiveSubject = subject.trim() || 'Mensaje de JD Developer'
+      await messagesService.logSentMessage({ leadId: effectiveLeadId, asunto: effectiveSubject, cuerpo: body.trim() })
       toast.success('Mensaje enviado')
       reset()
       onSent?.()

@@ -1,10 +1,10 @@
 /** Configuración central leída de variables de entorno (Vite). */
 
 export const config = {
-  appPassword: import.meta.env.VITE_APP_PASSWORD || 'JDDeveloper2026',
   n8n: {
     url: import.meta.env.VITE_N8N_URL || 'http://localhost:5678',
-    apiKey: import.meta.env.VITE_N8N_API_KEY || '',
+    // La API key de n8n NUNCA se lee en el cliente (no hay VITE_N8N_API_KEY
+    // aquí): la inyecta nginx server-side en el proxy /n8n-api. Ver n8nService.ts.
     // En dev usamos el proxy de vite (/n8n-api) para evitar CORS. En prod el
     // dashboard habla directo con VITE_N8N_URL (backoffice). Sacar la API key
     // del bundle vía proxy nginx queda para la fase de CI/CD — ver

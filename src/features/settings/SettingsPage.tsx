@@ -51,7 +51,7 @@ export function SettingsPage() {
       setAliases(clean)
       toast.success('Alias guardados')
     } catch {
-      toast.error('No se pudo guardar. Verifica el workflow "CRM API - Escribir Sheets".')
+      toast.error('No se pudo guardar. Verifica los permisos en la tabla "settings" de Supabase.')
     } finally {
       setSavingAliases(false)
     }
@@ -63,7 +63,7 @@ export function SettingsPage() {
       await updateConfig.mutateAsync({ clave: key, valor: value })
       toast.success('Guardado')
     } catch {
-      toast.error('No se pudo guardar. Verifica el workflow "CRM API - Escribir Sheets".')
+      toast.error('No se pudo guardar. Verifica los permisos en la tabla "settings" de Supabase.')
     } finally {
       setSavingKey(null)
     }

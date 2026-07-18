@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { Lock, ArrowRight } from 'lucide-react'
+import { Lock, Mail, ArrowRight } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { config } from '@/lib/config'
 import { Button, Input } from '@/components/ui'
@@ -10,21 +10,21 @@ import { Button, Input } from '@/components/ui'
 export function LoginPage() {
   const login = useAuthStore((s) => s.login)
   const navigate = useNavigate()
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => {
-      if (login(password)) {
-        toast.success('Bienvenido de nuevo 👋')
-        navigate('/')
-      } else {
-        toast.error('Contraseña incorrecta')
-        setLoading(false)
-      }
-    }, 400)
+    const { ok } = await login(email, password)
+    if (ok) {
+      toast.success('Bienvenido de nuevo 👋')
+      navigate('/')
+    } else {
+      toast.error('Credenciales incorrectas')
+      setLoading(false)
+    }
   }
 
   return (
@@ -53,10 +53,22 @@ export function LoginPage() {
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="relative">
+            <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <Input
+              type="email"
+              autoFocus
+              autoComplete="email"
+              placeholder="Email"
+              className="pl-9"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="relative">
             <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <Input
               type="password"
-              autoFocus
+              autoComplete="current-password"
               placeholder="Contraseña"
               className="pl-9"
               value={password}

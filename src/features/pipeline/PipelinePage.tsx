@@ -9,7 +9,7 @@ import { LayoutGrid, List, Filter, RefreshCw, X, TrendingUp, AlertTriangle } fro
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Select, Badge, Skeleton } from '@/components/ui'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
-import { useLeads, useDeleteLead, useDeletePipeline } from '@/hooks/useData'
+import { useLeads, useDeleteLead } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
 import { DEFAULT_NICHES, PIPELINE_STAGES } from '@/lib/config'
 import { OPEN_STAGES, STAGE_BY_ID, forecast, isStale, daysInStage } from '@/lib/pipeline'
@@ -31,7 +31,6 @@ export function PipelinePage() {
   const leads = useLeadsStore((s) => s.leads)
   const { addLead, updateLead, moveStage, removeLeads } = useLeadsStore()
   const deleteLead = useDeleteLead()
-  const deletePipeline = useDeletePipeline()
 
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
   const [showFilters, setShowFilters] = useState(false)
@@ -119,10 +118,7 @@ export function PipelinePage() {
   const confirmDelete = async () => {
     if (!deleteTarget) return
     const id = deleteTarget.id
-    await Promise.all([
-      deleteLead.mutateAsync({ leadId: id }),
-      deletePipeline.mutateAsync({ leadId: id }),
-    ])
+    await deleteLead.mutateAsync({ leadId: id })
     removeLeads([id])
     toast.success(`${deleteTarget.empresa} eliminado`)
     setDeleteTarget(null)

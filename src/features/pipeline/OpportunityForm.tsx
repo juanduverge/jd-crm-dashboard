@@ -3,12 +3,11 @@ import { Modal } from '@/components/ui/Modal'
 import { Button, Input, Select, Textarea } from '@/components/ui'
 import { PIPELINE_STAGES } from '@/lib/config'
 import { formatCurrency } from '@/lib/utils'
-import { crmApi } from '@/services/crmApi'
 import type { Lead, LeadStatus, Priority, Channel } from '@/types'
 
 /**
- * Editor de oportunidad (vista pipeline de un lead). Edita los campos que viven
- * en la hoja pipeline + notas, y persiste vía el store (updateLead → n8n).
+ * Editor de oportunidad (vista pipeline de un lead). Edita los campos de
+ * pipeline + notas, y persiste vía el store (updateLead → Supabase).
  */
 export function OpportunityForm({
   lead, open, onClose, onSave,
@@ -53,12 +52,6 @@ export function OpportunityForm({
       estado, valorEstimado, prioridad, canalPrincipal, responsable, proximoSeguimiento, notas,
       probabilidad: probabilidad === '' ? undefined : probabilidad, fechaCierreEstimada,
     })
-    // Probabilidad y fecha de cierre viven en columnas aisladas → acción dedicada.
-    crmApi.updatePipelineExtra({
-      leadId: lead.id,
-      probabilidad: probabilidad === '' ? undefined : probabilidad,
-      fechaCierreEstimada,
-    }).catch(() => {})
     onClose()
   }
 
