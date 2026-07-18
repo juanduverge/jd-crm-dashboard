@@ -20,3 +20,6 @@ credentials.json
 
 # Salida de herramientas auxiliares
 graphify-out/
+
+# Artefacto incremental de TypeScript
+tsconfig.tsbuildinfo
