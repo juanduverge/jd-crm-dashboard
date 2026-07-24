@@ -49,15 +49,18 @@ jobs:
           chmod 600 ~/.ssh/id_deploy
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Subir src y reconstruir dashboard
+      - name: Sincronizar repo y reconstruir dashboard
+        # El docker-compose.yml del servidor construye crm-dashboard con
+        # context: /home/ubuntu/jd-crm-dashboard-repo (un clon git aparte,
+        # NO /home/ubuntu/jd-prod/dashboard-src). Por eso el build tiene que
+        # actualizar ESE clon con git pull -- subir un tar a dashboard-src
+        # (como se hacia antes) no llega nunca al build.
         run: |
-          tar czf src.tgz src
-          scp -i ~/.ssh/id_deploy src.tgz "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/src.tgz"
           ssh -i ~/.ssh/id_deploy "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" '
             set -e
-            cd /home/ubuntu/jd-prod/dashboard-src
-            rm -rf src.bak && cp -r src src.bak
-            rm -rf src && tar xzf /tmp/src.tgz
+            cd /home/ubuntu/jd-crm-dashboard-repo
+            git fetch origin
+            git reset --hard origin/main
             cd /home/ubuntu/jd-prod
             docker compose build crm-dashboard
             docker compose up -d crm-dashboard
