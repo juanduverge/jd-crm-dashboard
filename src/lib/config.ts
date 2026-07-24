@@ -2,21 +2,26 @@
 
 export const config = {
   n8n: {
+    // Solo para armar el link "abrir en n8n" del panel de Settings, nunca se
+    // usa para llamar a la API (esa va siempre por /n8n-api, ver abajo).
     url: import.meta.env.VITE_N8N_URL || 'http://localhost:5678',
     // La API key de n8n NUNCA se lee en el cliente (no hay VITE_N8N_API_KEY
     // aquí): la inyecta nginx server-side en el proxy /n8n-api. Ver n8nService.ts.
-    // En dev usamos el proxy de vite (/n8n-api) para evitar CORS. En prod el
-    // dashboard habla directo con VITE_N8N_URL (backoffice). Sacar la API key
-    // del bundle vía proxy nginx queda para la fase de CI/CD — ver
-    // deploy/nginx.conf.template y docs/SEGURIDAD_FASE2.md.
     // La API de n8n va SIEMPRE por ruta relativa: en dev la proxia vite, en prod
     // la proxia el nginx del dashboard (server-side, inyecta X-N8N-API-KEY y llega
     // a n8n por red interna). Así no depende de que el navegador alcance backoffice
     // (protegido por Access) y la API key sale del bundle.
     base: '/n8n-api',
-    // Los webhooks (CRM API) siguen yendo a backoffice directamente (tienen su
-    // bypass de Access y funcionan). El formulario web también postea ahí.
-    hookBase: import.meta.env.DEV ? '/n8n-hook' : `${import.meta.env.VITE_N8N_URL || 'http://localhost:5678'}/webhook`,
+    // Los webhooks (CRM API) van SIEMPRE por ruta relativa /n8n-hook: en dev
+    // los proxia vite, en prod los proxia el nginx del dashboard (server-side,
+    // inyecta X-CRM-TOKEN y llega a n8n por red interna). Antes esto pegaba
+    // directo a VITE_N8N_URL desde el navegador en prod, lo que además de
+    // depender de un build-arg que nunca se pasaba (siempre caía al fallback
+    // localhost:5678) violaba la CSP (connect-src no incluye backoffice).
+    hookBase: '/n8n-hook',
+    // Solo se envía en dev: el proxy de vite no inyecta el header, así que el
+    // cliente debe mandarlo si el webhook de n8n valida token. En prod nginx
+    // ya lo inyecta server-side vía CRM_HOOK_TOKEN, así que no hace falta.
     hookToken: import.meta.env.VITE_N8N_HOOK_TOKEN || '',
   },
   workflows: {
