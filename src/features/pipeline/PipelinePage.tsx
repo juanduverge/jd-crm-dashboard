@@ -11,7 +11,7 @@ import { Button, Select, Badge, Skeleton } from '@/components/ui'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { useLeads, useDeleteLead } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
-import { DEFAULT_NICHES, PIPELINE_STAGES } from '@/lib/config'
+import { DEFAULT_NICHES } from '@/lib/config'
 import { OPEN_STAGES, STAGE_BY_ID, forecast, isStale, daysInStage } from '@/lib/pipeline'
 import { formatCurrency, cn, scoreColor } from '@/lib/utils'
 import { LeadForm } from '../leads/LeadForm'
@@ -20,11 +20,15 @@ import { KanbanCard } from './KanbanCard'
 import { KanbanColumn } from './KanbanColumn'
 import { OpportunityForm } from './OpportunityForm'
 import { HScrollBoard } from './HScrollBoard'
+import { CerrarDropZone, CERRAR_DROP_ID } from './CerrarDropZone'
+import { CerrarLeadModal } from './CerrarLeadModal'
 import type { Lead, LeadStatus } from '@/types'
 import { formToLeadPatch, type LeadFormValues } from '../leads/leadSchema'
 
-// Columnas del tablero: 7 etapas abiertas + columna combinada de cierre (Ganado/Perdido).
-const CLOSED = PIPELINE_STAGES.filter((s) => s.id === 'ganado' || s.id === 'perdido')
+// Columnas del tablero: solo las 7 etapas abiertas. Los leads ganados/perdidos
+// ya NO se listan aquí (antes había una columna combinada que se llenaba sin
+// límite y saturaba la vista): viven en /archivo, y se cierran arrastrando a
+// la zona de cierre, que pide ganado/perdido + motivo.
 
 export function PipelinePage() {
   const { isLoading, isError, refetch, isFetching } = useLeads()
@@ -45,6 +49,7 @@ export function PipelinePage() {
   const [editing, setEditing] = useState<Lead | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null)
   const [editOpp, setEditOpp] = useState<Lead | null>(null)
+  const [cerrando, setCerrando] = useState<Lead | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
@@ -61,38 +66,57 @@ export function PipelinePage() {
     [leads],
   )
 
+  // Solo leads ACTIVOS: los cerrados (ganado/perdido) se consultan en /archivo.
+  const activos = useMemo(
+    () => leads.filter((l) => l.estado !== 'ganado' && l.estado !== 'perdido'),
+    [leads],
+  )
+  const archivados = useMemo(
+    () => leads.filter((l) => l.estado === 'ganado' || l.estado === 'perdido'),
+    [leads],
+  )
+
   const filtered = useMemo(
     () =>
-      leads.filter(
+      activos.filter(
         (l) =>
           (!fNicho || l.nicho === fNicho) &&
           (!fPrioridad || l.prioridad === fPrioridad) &&
           (!fResponsable || l.responsable === fResponsable) &&
           (l.valorEstimado || 0) >= fValorMin,
       ),
-    [leads, fNicho, fPrioridad, fResponsable, fValorMin],
+    [activos, fNicho, fPrioridad, fResponsable, fValorMin],
   )
 
   const fc = useMemo(() => forecast(filtered), [filtered])
+  // `filtered` ya solo contiene abiertos, así que el total es directo.
   const totalOpen = useMemo(
-    () => filtered.filter((l) => l.estado !== 'ganado' && l.estado !== 'perdido')
-      .reduce((s, l) => s + (l.valorEstimado || 0), 0),
+    () => filtered.reduce((s, l) => s + (l.valorEstimado || 0), 0),
     [filtered],
   )
+  // El ganado sale del archivo, no del tablero: ahí ya no hay leads cerrados.
   const ganado = useMemo(
-    () => filtered.filter((l) => l.estado === 'ganado').reduce((s, l) => s + (l.valorEstimado || 0), 0),
-    [filtered],
+    () => archivados.filter((l) => l.estado === 'ganado').reduce((s, l) => s + (l.valorEstimado || 0), 0),
+    [archivados],
   )
   const staleCount = useMemo(() => filtered.filter(isStale).length, [filtered])
 
   const onDragStart = (e: DragStartEvent) => setActiveLead((e.active.data.current?.lead as Lead) ?? null)
   const onDragEnd = (e: DragEndEvent) => {
     setActiveLead(null)
-    const overId = e.over?.id as LeadStatus | undefined
+    const overId = e.over?.id as string | undefined
     const lead = e.active.data.current?.lead as Lead | undefined
-    if (!overId || !lead || lead.estado === overId) return
-    moveStage(lead.id, overId)
-    toast.success(`${lead.empresa} → ${STAGE_BY_ID[overId].label}`)
+    if (!overId || !lead) return
+    // Soltar en la zona de cierre no mueve de etapa: abre el diálogo que pide
+    // ganado/perdido + motivo, y de ahí el lead se va al archivo.
+    if (overId === CERRAR_DROP_ID) {
+      setCerrando(lead)
+      return
+    }
+    const destino = overId as LeadStatus
+    if (lead.estado === destino) return
+    moveStage(lead.id, destino)
+    toast.success(`${lead.empresa} → ${STAGE_BY_ID[destino].label}`)
   }
 
   const handleSubmit = (values: LeadFormValues) => {
@@ -205,12 +229,8 @@ export function PipelinePage() {
               {OPEN_STAGES.map((stage) => (
                 <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={(l) => setDrawerLeadId(l.id)} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} />
               ))}
-              {/* Columna combinada de cierre */}
-              <div className="flex w-72 shrink-0 flex-col gap-3">
-                {CLOSED.map((stage) => (
-                  <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={(l) => setDrawerLeadId(l.id)} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} />
-                ))}
-              </div>
+              {/* Zona de cierre: reemplaza a la antigua columna Ganado/Perdido */}
+              <CerrarDropZone archivados={archivados.length} />
             </div>
           </HScrollBoard>
           <DragOverlay>{activeLead ? <div className="w-64"><KanbanCard lead={activeLead} onOpen={() => {}} /></div> : null}</DragOverlay>
@@ -245,6 +265,7 @@ export function PipelinePage() {
         onClose={() => setEditOpp(null)}
         onSave={(id, patch) => { updateLead(id, patch); toast.success('Oportunidad actualizada') }}
       />
+      <CerrarLeadModal lead={cerrando} onClose={() => setCerrando(null)} />
     </div>
   )
 }

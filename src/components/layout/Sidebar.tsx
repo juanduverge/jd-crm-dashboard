@@ -4,11 +4,22 @@ import { ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { config } from '@/lib/config'
 import { useUiStore } from '@/store/uiStore'
+import { useFollowUpsAgenda } from '@/hooks/useData'
+import { agruparAgenda } from '@/lib/followUps'
 import { navItems } from './navItems'
 
 export function Sidebar() {
   const collapsed = useUiStore((s) => s.sidebarCollapsed)
   const toggle = useUiStore((s) => s.toggleSidebar)
+
+  // Contador de seguimientos que requieren acción hoy (vencidos + de hoy).
+  // Visible incluso con el sidebar colapsado: es el punto de todo el módulo.
+  const { data: agenda } = useFollowUpsAgenda()
+  const pendientesHoy = (() => {
+    if (!agenda) return 0
+    const g = agruparAgenda(agenda)
+    return g.vencidos.length + g.hoy.length
+  })()
 
   return (
     <motion.aside
@@ -44,8 +55,20 @@ export function Sidebar() {
             }
             title={collapsed ? item.label : undefined}
           >
-            <item.icon className="h-[18px] w-[18px] shrink-0" />
+            <span className="relative shrink-0">
+              <item.icon className="h-[18px] w-[18px]" />
+              {/* Con el sidebar colapsado no hay sitio para el número: un punto
+                  basta para saber que hay algo que atender. */}
+              {item.to === '/seguimientos' && pendientesHoy > 0 && collapsed && (
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-surface" />
+              )}
+            </span>
             {!collapsed && <span className="truncate">{item.label}</span>}
+            {!collapsed && item.to === '/seguimientos' && pendientesHoy > 0 && (
+              <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                {pendientesHoy}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

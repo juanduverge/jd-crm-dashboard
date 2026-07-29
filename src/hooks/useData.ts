@@ -9,6 +9,7 @@ import { messagesService } from '@/services/messagesService'
 import { inboxService } from '@/services/inboxService'
 import { campaignsService, type CampaignCreateInput, type CampaignUpdateInput } from '@/services/campaignsService'
 import { tasksService } from '@/services/tasksService'
+import { followUpsService } from '@/services/followUpsService'
 import { supabase } from '@/lib/supabaseClient'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useCampaignsStore } from '@/store/campaignsStore'
@@ -247,6 +248,97 @@ export function useConvertWebLead() {
       queryClient.invalidateQueries({ queryKey: ['web_leads'] })
       queryClient.invalidateQueries({ queryKey: ['leads'] })
     },
+  })
+}
+
+// -------------------------------------------------------------
+// SEGUIMIENTOS (follow_ups) — migración 0013
+// -------------------------------------------------------------
+// Ojo: distinto de `useTareas` (tabla `tasks`), que sigue igual que siempre.
+// Aquí viven los toques comerciales sobre un lead, con resultado y secuencia.
+
+/** Agenda de seguimientos pendientes (vencidos / hoy / próximos), sin archivados. */
+export function useFollowUpsAgenda() {
+  return useQuery({
+    queryKey: ['follow_ups_agenda'],
+    queryFn: () => followUpsService.getAgenda(),
+    refetchInterval: 60_000,
+    retry: 1,
+  })
+}
+
+/** Historial completo de seguimientos de un lead (para el timeline de su ficha). */
+export function useLeadFollowUps(leadId?: string) {
+  return useQuery({
+    queryKey: ['follow_ups', leadId],
+    queryFn: () => followUpsService.getByLead(leadId as string),
+    enabled: !!leadId,
+    retry: 1,
+  })
+}
+
+/**
+ * Invalida todo lo que un cambio de seguimiento puede afectar: la agenda, el
+ * historial del lead, y `leads` — porque el trigger de la BD actualiza
+ * `leads.proximo_seguimiento` por detrás y el kanban lo muestra.
+ */
+function useInvalidateFollowUps() {
+  const qc = useQueryClient()
+  return () => {
+    qc.invalidateQueries({ queryKey: ['follow_ups_agenda'] })
+    qc.invalidateQueries({ queryKey: ['follow_ups'] })
+    qc.invalidateQueries({ queryKey: ['leads'] })
+  }
+}
+
+export function useProgramarFollowUp() {
+  const invalidate = useInvalidateFollowUps()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof followUpsService.programar>[0]) => followUpsService.programar(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function useCompletarFollowUp() {
+  const invalidate = useInvalidateFollowUps()
+  return useMutation({
+    mutationFn: ({ id, resultado, nota }: {
+      id: string
+      resultado: Parameters<typeof followUpsService.completar>[1]
+      nota?: string
+    }) => followUpsService.completar(id, resultado, nota),
+    onSuccess: invalidate,
+  })
+}
+
+export function useReprogramarFollowUp() {
+  const invalidate = useInvalidateFollowUps()
+  return useMutation({
+    mutationFn: ({ id, fecha }: { id: string; fecha: string }) =>
+      followUpsService.reprogramar(id, fecha),
+    onSuccess: invalidate,
+  })
+}
+
+/** Cierra un lead (ganado/perdido): lo archiva y cancela su seguimiento pendiente. */
+export function useCerrarLead() {
+  const invalidate = useInvalidateFollowUps()
+  return useMutation({
+    mutationFn: ({ leadId, estado, motivo }: {
+      leadId: string
+      estado: 'ganado' | 'perdido'
+      motivo?: string
+    }) => followUpsService.cerrarLead(leadId, estado, motivo),
+    onSuccess: invalidate,
+  })
+}
+
+/** Devuelve un lead archivado al pipeline, en su etapa previa. */
+export function useReactivarLead() {
+  const invalidate = useInvalidateFollowUps()
+  return useMutation({
+    mutationFn: (leadId: string) => followUpsService.reactivarLead(leadId),
+    onSuccess: invalidate,
   })
 }
 

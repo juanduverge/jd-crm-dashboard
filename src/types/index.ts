@@ -67,6 +67,12 @@ export interface Lead {
   proximoSeguimiento?: string
   fechaUltimoMovimiento?: string   // ISO; cuándo entró a la etapa actual (para "días en columna")
   favorito?: boolean          // Marcado como favorito (col Favorito en pipeline)
+  // Archivo / cierre (ver migración 0013). Un lead está archivado cuando
+  // `estado` es 'ganado' o 'perdido'; estos campos guardan el contexto del
+  // cierre y permiten reactivarlo a su etapa previa sin perder historial.
+  cerradoEn?: string          // ISO; cuándo pasó a ganado/perdido
+  motivoCierre?: string       // Por qué se cerró
+  etapaPrevia?: LeadStatus    // Etapa desde la que se cerró (destino al reactivar)
 }
 
 /** Mensaje = fila de la hoja "messages" */
@@ -197,6 +203,47 @@ export interface WebLead {
   responsable?: string
   notasInternas?: string
   actualizado?: string
+}
+
+export type FollowUpTipo = 'llamada' | 'email' | 'whatsapp' | 'reunion' | 'otro'
+export type FollowUpEstado = 'pendiente' | 'completado' | 'cancelado'
+export type FollowUpResultado = 'positivo' | 'negativo' | 'sin_respuesta'
+/** Urgencia derivada en SQL por la vista `follow_ups_agenda`. */
+export type FollowUpUrgencia = 'vencido' | 'hoy' | 'proximo'
+
+/**
+ * Seguimiento (tabla `follow_ups`, migración 0013). Entidad propia, no un
+ * campo del lead: un lead tiene VARIOS en su historial (secuencia de toques),
+ * pero solo UNO pendiente a la vez (índice único en la BD).
+ *
+ * Distinto de `Tarea`: una Tarea es un to-do suelto del equipo; un FollowUp es
+ * un toque comercial de la secuencia sobre un lead, con resultado registrado.
+ */
+export interface FollowUp {
+  id: string
+  leadId: string
+  fechaProgramada: string     // YYYY-MM-DD
+  tipo: FollowUpTipo
+  nota?: string
+  estado: FollowUpEstado
+  resultado?: FollowUpResultado  // solo si estado = 'completado'
+  orden: number               // nº de toque en la secuencia (1, 2, 3...)
+  responsable?: string
+  creadoEn?: string           // ISO
+  completadoEn?: string       // ISO; solo si estado = 'completado'
+}
+
+/** Fila de la vista `follow_ups_agenda`: follow-up pendiente + datos del lead. */
+export interface FollowUpAgendaItem extends FollowUp {
+  estado: 'pendiente'
+  leadEmpresa: string
+  leadEstado: LeadStatus
+  leadPrioridad?: Priority
+  leadTelefono?: string
+  leadEmail?: string
+  leadWhatsapp?: string
+  urgencia: FollowUpUrgencia
+  diasVencido: number         // >0 si está vencido, 0 hoy, <0 si es futuro
 }
 
 export type TareaEstado = 'pendiente' | 'en_progreso' | 'hecha'

@@ -62,6 +62,11 @@ interface LeadRow {
   probabilidad: number | null
   fecha_cierre_estimada: string | null
   score_manual: number | null
+  // Archivo / cierre (migración 0013). Solo lectura desde aquí: se escriben
+  // exclusivamente vía los RPCs cerrar_lead / reactivar_lead.
+  cerrado_en: string | null
+  motivo_cierre: string | null
+  etapa_previa: string | null
 }
 
 /** El análisis IA (observaciones/recomendaciones/oportunidades/errores) se guarda como JSON en score_reasoning. */
@@ -134,6 +139,10 @@ function rowToLead(row: LeadRow): Lead {
     proximoSeguimiento: row.proximo_seguimiento ?? undefined,
     ultimaAccion: row.updated_at,
     favorito: row.favorito,
+    // Archivo / cierre (migración 0013).
+    cerradoEn: row.cerrado_en ?? undefined,
+    motivoCierre: row.motivo_cierre ?? undefined,
+    etapaPrevia: (row.etapa_previa as Lead['etapaPrevia']) ?? undefined,
   }
 }
 

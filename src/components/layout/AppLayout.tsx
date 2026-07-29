@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { CommandPalette } from './CommandPalette'
+import { FollowUpsBanner } from './FollowUpsBanner'
 
 export function AppLayout() {
   const location = useLocation()
@@ -12,6 +13,9 @@ export function AppLayout() {
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
         <main className="flex-1 px-4 py-5 md:px-6 lg:px-8">
+          {/* Fuera de AnimatePresence: el aviso no debe re-animarse en cada
+              cambio de ruta, tiene que sentirse persistente hasta atenderlo. */}
+          <FollowUpsBanner />
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}

@@ -8,10 +8,11 @@ import { leadsService } from '@/services/leadsService'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useNotes, useCreateNote, useUpdateNote, useDeleteNote, useMessages } from '@/hooks/useData'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
+import { LeadFollowUpsTab } from '@/features/followups/LeadFollowUpsTab'
 import toast from 'react-hot-toast'
 import type { Lead, Contact, ContactType, Note, Channel } from '@/types'
 
-const TABS = ['Detalles', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
+const TABS = ['Detalles', 'Seguimientos', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
 
 /** Formatea una fecha ISO o 'YYYY-MM-DD' de forma legible; devuelve el original si no parsea. */
 function fmtFecha(v?: string): string {
@@ -235,6 +236,7 @@ export function LeadDrawer({
             )}
           </div>
         )}
+        {tab === 'Seguimientos' && <LeadFollowUpsTab leadId={lead.id} empresa={lead.empresa} />}
         {tab === 'Contactos' && <ContactsTab leadId={lead.id} />}
         {tab === 'Actividad' && <Timeline lead={lead} />}
         {tab === 'Mensajes' && <MessagesTab leadId={lead.id} />}
