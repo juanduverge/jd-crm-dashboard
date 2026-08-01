@@ -8,7 +8,7 @@ import { GoalCard } from './GoalCard'
 import { NuevaMetaModal } from './NuevaMetaModal'
 import {
   filtrarPorPeriodo, fmtMes, fmtNum, fmtRangoSemana, rangoConsulta, rangoMes, rangoSemana,
-} from './goalMeta'
+} from '../shared/goalMeta'
 import type { Goal } from '@/types'
 
 /**

@@ -4,18 +4,6 @@ import {
 import { es } from 'date-fns/locale'
 import type { Goal } from '@/types'
 
-/** Vistas del selector de la sección Tareas. El orden es el del dropdown. */
-export const VISTAS = [
-  { id: 'mes', label: 'Metas del mes' },
-  { id: 'semana', label: 'Metas de la semana' },
-  { id: 'dia', label: 'Metas del día' },
-  { id: 'horario', label: 'Horario diario' },
-  { id: 'calendario', label: 'Horario / Calendario' },
-  { id: 'sueltas', label: 'Tareas sueltas' },
-] as const
-
-export type VistaId = (typeof VISTAS)[number]['id']
-
 /** Lunes = 1 ... domingo = 7, igual que el `isodow` de Postgres. */
 export const DIAS_SEMANA: { iso: number; corto: string; label: string }[] = [
   { iso: 1, corto: 'L', label: 'Lunes' },

@@ -6,7 +6,7 @@ import { Modal } from '@/components/ui/Modal'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { cn } from '@/lib/utils'
 import { useActualizarMeta, useEliminarMeta, useRegistrarAvance } from '@/hooks/useData'
-import { fmtNum, progreso, tonoProgreso } from './goalMeta'
+import { fmtNum, progreso, tonoProgreso } from '../shared/goalMeta'
 import type { Goal } from '@/types'
 
 /**

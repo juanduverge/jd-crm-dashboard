@@ -8,7 +8,7 @@ import { useGoals, useRegistrarAvance, useTareas } from '@/hooks/useData'
 import { NuevaMetaModal } from './NuevaMetaModal'
 import {
   filtrarPorPeriodo, fmtDia, fmtNum, iso, progreso, rangoConsulta, tonoProgreso,
-} from './goalMeta'
+} from '../shared/goalMeta'
 import type { Goal } from '@/types'
 
 /**

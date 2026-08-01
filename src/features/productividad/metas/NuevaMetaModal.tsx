@@ -4,7 +4,7 @@ import { Button, Input, Select } from '@/components/ui'
 import { Modal } from '@/components/ui/Modal'
 import { cn } from '@/lib/utils'
 import { useCrearMetaMensual, useCrearMetaSuelta } from '@/hooks/useData'
-import { DIAS_SEMANA, fmtMes, fmtNum } from './goalMeta'
+import { DIAS_SEMANA, fmtMes, fmtNum } from '../shared/goalMeta'
 import type { GoalTipo } from '@/types'
 
 /**

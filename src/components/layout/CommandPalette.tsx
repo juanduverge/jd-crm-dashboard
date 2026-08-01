@@ -3,7 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { Search, CornerDownLeft } from 'lucide-react'
 import { useUiStore } from '@/store/uiStore'
 import { useLeadsStore } from '@/store/leadsStore'
-import { navItems } from './navItems'
+import { navDestinos } from './navItems'
+
+interface Resultado {
+  type: string
+  label: string
+  sub?: string
+  action: () => void
+}
 import { fuzzyMatch, cn } from '@/lib/utils'
 
 /** Búsqueda global tipo Linear/Raycast (Cmd/Ctrl+K). */
@@ -30,11 +37,11 @@ export function CommandPalette() {
     if (!open) setQ('')
   }, [open])
 
-  const results = useMemo(() => {
-    const pages = navItems
+  const results = useMemo((): Resultado[] => {
+    const pages: Resultado[] = navDestinos
       .filter((n) => fuzzyMatch(n.label, q))
       .map((n) => ({ type: 'Página', label: n.label, action: () => navigate(n.to) }))
-    const leadHits = leads
+    const leadHits: Resultado[] = leads
       .filter((l) => fuzzyMatch(`${l.empresa} ${l.email} ${l.ciudad}`, q))
       .slice(0, 6)
       .map((l) => ({

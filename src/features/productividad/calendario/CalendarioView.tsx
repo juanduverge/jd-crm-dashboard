@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Info } from 'lucide-react'
 import { Button, Skeleton } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import { useFollowUpsAgenda, useGoals, useHorarioDia, useTareas } from '@/hooks/useData'
-import { DIAS_SEMANA, diasDelRango, fmtDia, fmtMes, fmtNum, iso, isoDow, progreso, tonoProgreso } from './goalMeta'
+import { DIAS_SEMANA, diasDelRango, fmtDia, fmtMes, fmtNum, iso, isoDow, progreso, tonoProgreso } from '../shared/goalMeta'
 import type { Goal } from '@/types'
 
 /**

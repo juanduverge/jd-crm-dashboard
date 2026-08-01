@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import {
   useActualizarBloque, useCrearBloque, useEliminarBloque, useGoals, useHorarioDia, useToggleBloque,
 } from '@/hooks/useData'
-import { DIAS_SEMANA, filtrarPorPeriodo, fmtDia, fmtNum, iso, isoDow, rangoConsulta } from './goalMeta'
+import { DIAS_SEMANA, filtrarPorPeriodo, fmtDia, fmtNum, iso, isoDow, rangoConsulta } from '../shared/goalMeta'
 import type { Goal, HorarioBloque, HorarioBloqueDia } from '@/types'
 
 /**

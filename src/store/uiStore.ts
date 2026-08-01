@@ -10,12 +10,16 @@ interface UiState {
   density: Density
   lang: 'es' | 'en'
   commandOpen: boolean
+  /** Grupos del menú lateral abiertos, por id. Persiste con el resto de la UI. */
+  navGroups: Record<string, boolean>
   toggleTheme: () => void
   setTheme: (t: Theme) => void
   toggleSidebar: () => void
   setDensity: (d: Density) => void
   setLang: (l: 'es' | 'en') => void
   setCommandOpen: (v: boolean) => void
+  toggleNavGroup: (id: string) => void
+  setNavGroup: (id: string, open: boolean) => void
 }
 
 export const useUiStore = create<UiState>()(
@@ -26,6 +30,7 @@ export const useUiStore = create<UiState>()(
       density: 'comfortable',
       lang: 'es',
       commandOpen: false,
+      navGroups: { metas: true },
       toggleTheme: () => {
         const next = get().theme === 'light' ? 'dark' : 'light'
         set({ theme: next })
@@ -39,7 +44,13 @@ export const useUiStore = create<UiState>()(
       setDensity: (d) => set({ density: d }),
       setLang: (l) => set({ lang: l }),
       setCommandOpen: (v) => set({ commandOpen: v }),
+      toggleNavGroup: (id) =>
+        set({ navGroups: { ...get().navGroups, [id]: !get().navGroups[id] } }),
+      setNavGroup: (id, open) =>
+        set({ navGroups: { ...get().navGroups, [id]: open } }),
     }),
+    // `version` + `merge` no hacen falta: zustand fusiona lo persistido sobre el
+    // estado inicial, así que `navGroups` ausente en localStorage cae al default.
     { name: 'jd-crm-ui' },
   ),
 )

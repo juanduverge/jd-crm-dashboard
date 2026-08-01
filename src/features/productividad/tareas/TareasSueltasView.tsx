@@ -11,7 +11,7 @@ import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { cn } from '@/lib/utils'
 import { useCreateTarea, useDeleteTarea, useGoals, useTareas, useUpdateTarea } from '@/hooks/useData'
 import { PRIORIDADES, PRIORIDAD_ORDER } from '@/features/webleads/webLeadMeta'
-import { filtrarPorPeriodo, rangoConsulta } from './goalMeta'
+import { filtrarPorPeriodo, rangoConsulta } from '../shared/goalMeta'
 import type { Goal, Tarea, TareaSeccion, TareaTipo } from '@/types'
 
 /**
