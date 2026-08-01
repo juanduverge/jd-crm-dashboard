@@ -248,6 +248,8 @@ export interface FollowUpAgendaItem extends FollowUp {
 
 export type TareaEstado = 'pendiente' | 'en_progreso' | 'hecha'
 export type TareaTipo = 'seguimiento' | 'llamada' | 'email' | 'reunion' | 'whatsapp' | 'otro'
+/** Bloque del tablero: prioritaria / secundaria / idea (migración 0015). */
+export type TareaSeccion = 'prioritaria' | 'secundaria' | 'idea'
 
 /** Tarea / seguimiento manual (hoja "tareas"). Nunca envía nada por sí sola. */
 export interface Tarea {
@@ -259,10 +261,66 @@ export interface Tarea {
   fechaVencimiento?: string
   estado: TareaEstado
   prioridad: WebLeadPriority
+  seccion: TareaSeccion
+  /** Meta a la que alimenta esta tarea, si está ligada a una (opcional). */
+  goalId?: string
   responsable?: string
   notas?: string
   creado?: string
   actualizado?: string
+}
+
+// -------------------------------------------------------------
+// METAS / HORARIO — módulo Tareas (migración 0015)
+// -------------------------------------------------------------
+
+export type GoalPeriodo = 'mes' | 'semana' | 'dia'
+export type GoalTipo = 'contador' | 'toggle'
+
+/**
+ * Meta numérica con progreso, en cascada mes -> semana -> día.
+ *
+ * `valorActual` de una meta con hijas es SIEMPRE la suma de sus hijas (lo
+ * garantiza un trigger en la BD): el avance se registra una sola vez, en la
+ * meta diaria, y sube solo. Por eso la UI sólo ofrece +/− en metas hoja
+ * (`tieneHijas === false`).
+ */
+export interface Goal {
+  id: string
+  nombre: string
+  periodo: GoalPeriodo
+  parentId?: string
+  tipo: GoalTipo
+  target: number
+  valorActual: number
+  unidad?: string
+  fechaInicio: string   // YYYY-MM-DD
+  fechaFin: string      // YYYY-MM-DD
+  responsable?: string
+  orden: number
+  /** Derivado en el cliente: si tiene hijas, su valor no se edita a mano. */
+  tieneHijas: boolean
+  creado?: string
+  actualizado?: string
+}
+
+/** Bloque de la plantilla de horario diario. */
+export interface HorarioBloque {
+  id: string
+  titulo: string
+  horaInicio: string        // HH:MM
+  horaFin: string           // HH:MM
+  diasSemana: number[]      // ISO dow: 1 = lunes ... 7 = domingo
+  /** Meta mensual que alimenta el bloque al completarlo (opcional). */
+  goalId?: string
+  aporte: number
+  orden: number
+  activo: boolean
+}
+
+/** Bloque del horario resuelto para un día concreto, con su estado. */
+export interface HorarioBloqueDia extends HorarioBloque {
+  completado: boolean
 }
 
 export type ContactType = 'principal' | 'ventas' | 'soporte' | 'facturacion' | 'personal' | 'otro'

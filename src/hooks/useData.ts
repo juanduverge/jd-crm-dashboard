@@ -9,6 +9,7 @@ import { messagesService } from '@/services/messagesService'
 import { inboxService } from '@/services/inboxService'
 import { campaignsService, type CampaignCreateInput, type CampaignUpdateInput } from '@/services/campaignsService'
 import { tasksService } from '@/services/tasksService'
+import { goalsService } from '@/services/goalsService'
 import { followUpsService } from '@/services/followUpsService'
 import { supabase } from '@/lib/supabaseClient'
 import { useLeadsStore } from '@/store/leadsStore'
@@ -392,6 +393,150 @@ export function useUpdateTarea() {
   return useMutation({
     mutationFn: (p: Parameters<typeof tasksService.updateTarea>[0]) => tasksService.updateTarea(p),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tareas'] }),
+  })
+}
+
+// -------------------------------------------------------------
+// METAS + HORARIO (goals / horario_bloques) — migración 0015
+// -------------------------------------------------------------
+// Una sola query por rango de fechas alimenta las tres vistas de metas
+// (mes / semana / día): todas las metas del mes caen dentro del mismo rango
+// y de ahí se derivan la jerarquía y el `tieneHijas`.
+
+export function useGoals(desde: string, hasta: string) {
+  return useQuery({
+    queryKey: ['goals', desde, hasta],
+    queryFn: () => goalsService.getGoals(desde, hasta),
+    staleTime: 10_000,
+    retry: 1,
+  })
+}
+
+/**
+ * Invalida metas + horario a la vez: registrar avance cambia las metas, y la
+ * vista de horario muestra el progreso de la meta ligada a cada bloque.
+ */
+function useInvalidateGoals() {
+  const qc = useQueryClient()
+  return () => {
+    qc.invalidateQueries({ queryKey: ['goals'] })
+    qc.invalidateQueries({ queryKey: ['horario_dia'] })
+  }
+}
+
+export function useCrearMetaMensual() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof goalsService.crearMetaMensual>[0]) =>
+      goalsService.crearMetaMensual(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function useCrearMetaSuelta() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof goalsService.crearMetaSuelta>[0]) =>
+      goalsService.crearMetaSuelta(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function useActualizarMeta() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof goalsService.actualizarMeta>[0]) =>
+      goalsService.actualizarMeta(p),
+    onSuccess: invalidate,
+  })
+}
+
+/** Suma o resta avance en una meta hoja; la BD lo sube a semana y mes. */
+export function useRegistrarAvance() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: ({ id, delta }: { id: string; delta: number }) =>
+      goalsService.registrarAvance(id, delta),
+    onSuccess: invalidate,
+  })
+}
+
+export function useGenerarCascada() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: ({ id, diasLaborables }: { id: string; diasLaborables?: number[] }) =>
+      goalsService.generarCascada(id, diasLaborables),
+    onSuccess: invalidate,
+  })
+}
+
+export function useEliminarMeta() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: (id: string) => goalsService.eliminarMeta(id),
+    onSuccess: invalidate,
+  })
+}
+
+/** Plantilla de horario + qué bloques están completados en `fecha`. */
+export function useHorarioDia(fecha: string) {
+  return useQuery({
+    queryKey: ['horario_dia', fecha],
+    queryFn: async () => {
+      const [bloques, completados] = await Promise.all([
+        goalsService.getBloques(),
+        goalsService.getCompletadosDelDia(fecha),
+      ])
+      const hechos = new Set(completados)
+      return bloques.map((b) => ({ ...b, completado: hechos.has(b.id) }))
+    },
+    staleTime: 10_000,
+    retry: 1,
+  })
+}
+
+function useInvalidateHorario() {
+  const qc = useQueryClient()
+  return () => {
+    qc.invalidateQueries({ queryKey: ['horario_dia'] })
+    qc.invalidateQueries({ queryKey: ['goals'] })
+  }
+}
+
+export function useCrearBloque() {
+  const invalidate = useInvalidateHorario()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof goalsService.crearBloque>[0]) => goalsService.crearBloque(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function useActualizarBloque() {
+  const invalidate = useInvalidateHorario()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof goalsService.actualizarBloque>[0]) =>
+      goalsService.actualizarBloque(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function useEliminarBloque() {
+  const invalidate = useInvalidateHorario()
+  return useMutation({
+    mutationFn: (id: string) => goalsService.eliminarBloque(id),
+    onSuccess: invalidate,
+  })
+}
+
+/** Marca/desmarca un bloque en una fecha; el RPC ajusta la meta diaria ligada. */
+export function useToggleBloque() {
+  const invalidate = useInvalidateHorario()
+  return useMutation({
+    mutationFn: ({ id, fecha, completado }: { id: string; fecha: string; completado: boolean }) =>
+      completado
+        ? goalsService.descompletarBloque(id, fecha)
+        : goalsService.completarBloque(id, fecha),
+    onSuccess: invalidate,
   })
 }
 

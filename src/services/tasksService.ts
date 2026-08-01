@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-import type { Tarea, TareaEstado, TareaTipo, WebLeadPriority } from '@/types'
+import type { Tarea, TareaEstado, TareaSeccion, TareaTipo, WebLeadPriority } from '@/types'
 
 /**
  * tasksService — CRUD del módulo Tareas (seguimientos manuales) contra
@@ -23,6 +23,8 @@ interface TaskRow {
   tipo: string
   estado: string
   notas: string | null
+  seccion: string | null
+  goal_id: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -39,6 +41,8 @@ function rowToTarea(row: TaskRow): Tarea {
     fechaVencimiento: row.vencimiento ? row.vencimiento.slice(0, 10) : undefined,
     estado: (row.estado as TareaEstado) || 'pendiente',
     prioridad: (row.prioridad as WebLeadPriority) || 'media',
+    seccion: (row.seccion as TareaSeccion) || 'prioritaria',
+    goalId: row.goal_id ?? undefined,
     responsable: row.responsable ?? undefined,
     notas: row.notas ?? undefined,
     creado: row.created_at,
@@ -64,6 +68,8 @@ export const tasksService = {
     leadId?: string
     fechaVencimiento?: string
     prioridad?: string
+    seccion?: TareaSeccion
+    goalId?: string
     responsable?: string
     notas?: string
   }): Promise<Tarea> {
@@ -73,6 +79,8 @@ export const tasksService = {
       lead_id: payload.leadId || null,
       vencimiento: payload.fechaVencimiento || null,
       prioridad: payload.prioridad || 'media',
+      seccion: payload.seccion || 'prioritaria',
+      goal_id: payload.goalId || null,
       responsable: payload.responsable || null,
       notas: payload.notas || null,
     }
@@ -87,6 +95,8 @@ export const tasksService = {
     titulo?: string
     fechaVencimiento?: string
     prioridad?: string
+    seccion?: TareaSeccion
+    goalId?: string | null
     notas?: string
     responsable?: string
   }): Promise<void> {
@@ -95,6 +105,8 @@ export const tasksService = {
     if (payload.titulo !== undefined) row.titulo = payload.titulo
     if (payload.fechaVencimiento !== undefined) row.vencimiento = payload.fechaVencimiento || null
     if (payload.prioridad !== undefined) row.prioridad = payload.prioridad
+    if (payload.seccion !== undefined) row.seccion = payload.seccion
+    if (payload.goalId !== undefined) row.goal_id = payload.goalId || null
     if (payload.notas !== undefined) row.notas = payload.notas
     if (payload.responsable !== undefined) row.responsable = payload.responsable
     const { error } = await supabase.from('tasks').update(row).eq('id', payload.id)
