@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
-  Globe, Search, RefreshCw, Inbox as InboxIcon, Flame, Clock, CheckCircle2,
+  Globe, Search, RefreshCw, Inbox as InboxIcon, Flame, CheckCircle2,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, EmptyState, Input, Skeleton } from '@/components/ui'

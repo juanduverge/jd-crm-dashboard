@@ -76,7 +76,7 @@ export function SettingsPage() {
   })
   const n8nPing = useQuery({
     queryKey: ['integration-n8n-ping'],
-    queryFn: () => n8nService.ping(),
+    queryFn: () => n8nService.diagnosticar(),
     refetchInterval: 30_000,
   })
 
@@ -191,7 +191,12 @@ export function SettingsPage() {
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><Database className="h-4 w-4" /> Estado de integraciones</CardTitle></CardHeader>
           <div className="space-y-2">
-            <StatusRow label="n8n (API pública)" ok={n8nPing.data} loading={n8nPing.isLoading} />
+            <StatusRow
+              label="n8n (API pública)"
+              ok={n8nPing.data?.ok}
+              loading={n8nPing.isLoading}
+              detalle={n8nPing.data && !n8nPing.data.ok ? n8nPing.data.detalle : undefined}
+            />
             <StatusRow label="CRM API (webhooks Sheets)" ok={sheetsPing.data} loading={sheetsPing.isLoading} />
             <StatusRow
               label="Envío de emails"
@@ -246,17 +251,21 @@ export function SettingsPage() {
   )
 }
 
-function StatusRow({ label, ok, loading }: { label: string; ok?: boolean; loading?: boolean }) {
+/** `detalle` sólo se pinta cuando hay fallo: explica qué reconectar y cómo. */
+function StatusRow({ label, ok, loading, detalle }: { label: string; ok?: boolean; loading?: boolean; detalle?: string }) {
   return (
-    <div className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
-      <span className="min-w-0 flex-1 truncate text-sm text-fg">{label}</span>
-      {loading ? (
-        <Loader2 className="h-4 w-4 animate-spin text-muted" />
-      ) : ok ? (
-        <Badge className="gap-1 bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400"><CheckCircle2 className="h-3 w-3" /> OK</Badge>
-      ) : (
-        <Badge className="gap-1 bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400"><XCircle className="h-3 w-3" /> Sin conexión</Badge>
-      )}
+    <div className="rounded-lg border border-border px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 flex-1 truncate text-sm text-fg">{label}</span>
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted" />
+        ) : ok ? (
+          <Badge className="gap-1 bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400"><CheckCircle2 className="h-3 w-3" /> OK</Badge>
+        ) : (
+          <Badge className="gap-1 bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400"><XCircle className="h-3 w-3" /> Sin conexión</Badge>
+        )}
+      </div>
+      {!loading && !ok && detalle && <p className="mt-1.5 text-xs leading-relaxed text-muted">{detalle}</p>}
     </div>
   )
 }

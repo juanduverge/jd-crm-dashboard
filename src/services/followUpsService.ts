@@ -32,6 +32,11 @@ interface FollowUpRow {
   responsable: string | null
   created_at: string
   completed_at: string | null
+  // Migración 0020
+  hora: string | null
+  prioridad: string | null
+  resultado_esperado: string | null
+  comentarios_internos: string | null
 }
 
 interface AgendaRow extends Omit<FollowUpRow, 'resultado' | 'completed_at'> {
@@ -58,6 +63,21 @@ function rowToFollowUp(row: FollowUpRow): FollowUp {
     responsable: row.responsable ?? undefined,
     creadoEn: row.created_at,
     completadoEn: row.completed_at ?? undefined,
+    ...camposEditables(row),
+  }
+}
+
+/**
+ * Los cuatro campos de la 0020. Se extraen aparte porque la agenda y el
+ * historial los mapean igual, y `hora` llega de Postgres como 'HH:MM:SS':
+ * la UI trabaja con 'HH:MM', que es lo que acepta un input[type=time].
+ */
+function camposEditables(row: Pick<FollowUpRow, 'hora' | 'prioridad' | 'resultado_esperado' | 'comentarios_internos'>) {
+  return {
+    hora: row.hora ? row.hora.slice(0, 5) : undefined,
+    prioridad: (row.prioridad as FollowUp['prioridad']) ?? undefined,
+    resultadoEsperado: row.resultado_esperado ?? undefined,
+    comentariosInternos: row.comentarios_internos ?? undefined,
   }
 }
 
@@ -80,6 +100,7 @@ function rowToAgendaItem(row: AgendaRow): FollowUpAgendaItem {
     leadWhatsapp: row.lead_whatsapp ?? undefined,
     urgencia: row.urgencia as FollowUpAgendaItem['urgencia'],
     diasVencido: row.dias_vencido,
+    ...camposEditables(row),
   }
 }
 
@@ -117,16 +138,61 @@ export const followUpsService = {
     tipo: FollowUpTipo
     nota?: string
     responsable?: string
+    hora?: string
+    prioridad?: string
+    resultadoEsperado?: string
   }): Promise<string> {
+    // Siempre la firma de 8 argumentos (0020): mandar los cuatro nombres
+    // nuevos, aunque vayan en null, evita que PostgREST resuelva a la de 5.
     const { data, error } = await supabase.rpc('programar_follow_up', {
       p_lead_id: payload.leadId,
       p_fecha: payload.fecha,
       p_tipo: payload.tipo,
       p_nota: payload.nota ?? null,
       p_responsable: payload.responsable ?? null,
+      p_hora: payload.hora || null,
+      p_prioridad: payload.prioridad || null,
+      p_resultado_esperado: payload.resultadoEsperado || null,
     })
     if (error) throw error
     return data as string
+  },
+
+  /**
+   * Edita un seguimiento pendiente entero de una vez (migración 0020).
+   *
+   * Convención del RPC: `undefined` = no tocar; cadena vacía = borrar el texto.
+   * Por eso los campos de texto se mandan tal cual y NO con `|| null`: un `''`
+   * deliberado tiene que llegar como `''`, no convertirse en "no tocar".
+   */
+  async actualizar(payload: {
+    id: string
+    fecha?: string
+    hora?: string
+    /** true borra la hora; sin esto, `hora: ''` sería indistinguible de "no tocar". */
+    limpiarHora?: boolean
+    tipo?: FollowUpTipo
+    estado?: 'pendiente' | 'cancelado'
+    prioridad?: string
+    responsable?: string
+    nota?: string
+    resultadoEsperado?: string
+    comentariosInternos?: string
+  }): Promise<void> {
+    const { error } = await supabase.rpc('actualizar_follow_up', {
+      p_id: payload.id,
+      p_fecha: payload.fecha ?? null,
+      p_hora: payload.hora || null,
+      p_limpiar_hora: payload.limpiarHora ?? false,
+      p_tipo: payload.tipo ?? null,
+      p_estado: payload.estado ?? null,
+      p_prioridad: payload.prioridad ?? null,
+      p_responsable: payload.responsable ?? null,
+      p_nota: payload.nota ?? null,
+      p_resultado_esperado: payload.resultadoEsperado ?? null,
+      p_comentarios_internos: payload.comentariosInternos ?? null,
+    })
+    if (error) throw error
   },
 
   /** Marca un pendiente como completado con su resultado. */

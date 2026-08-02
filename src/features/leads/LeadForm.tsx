@@ -4,7 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { leadSchema, type LeadFormValues } from './leadSchema'
 import { Modal } from '@/components/ui/Modal'
 import { Button, Input, Select, Textarea } from '@/components/ui'
-import { DEFAULT_NICHES, PIPELINE_STAGES } from '@/lib/config'
+import { NichoSelect } from '@/components/ui/NichoSelect'
+import { ResponsableSelect } from '@/components/ui/ResponsableSelect'
+import { PIPELINE_STAGES } from '@/lib/config'
+import { RESPONSABLE_POR_DEFECTO } from '@/lib/equipo'
 import type { Lead } from '@/types'
 
 /** Valores del form a partir del lead (o vacíos en modo crear). */
@@ -24,7 +27,7 @@ function buildDefaults(initial?: Lead | null): LeadFormValues {
     facebook: initial?.facebook ?? '',
     linkedin: initial?.linkedin ?? '',
     fuente: initial?.fuente ?? '',
-    responsable: initial?.responsable ?? '',
+    responsable: initial?.responsable || RESPONSABLE_POR_DEFECTO,
     etiquetas: (initial?.etiquetas ?? []).join(', '),
     scoreManual: initial?.scoreManual ?? 0,
     valorEstimado: initial?.valorEstimado ?? 0,
@@ -57,7 +60,7 @@ export function LeadForm({
   initial?: Lead | null
 }) {
   const {
-    register, handleSubmit, reset, watch, formState: { errors },
+    register, handleSubmit, reset, watch, setValue, formState: { errors },
   } = useForm<LeadFormValues>({
     resolver: zodResolver(leadSchema),
     defaultValues: buildDefaults(initial),
@@ -96,9 +99,13 @@ export function LeadForm({
           <Input {...register('empresa')} placeholder="Sunset Realty Miami" />
         </Field>
         <Field label="Nicho / categoría *" error={errors.nicho?.message}>
-          <Select {...register('nicho')}>
-            {DEFAULT_NICHES.map((n) => <option key={n.id} value={n.id}>{n.emoji} {n.nombre}</option>)}
-          </Select>
+          {/* Controlado a mano en vez de `register`: NichoSelect necesita poder
+              seleccionar el nicho recién creado desde su propio modal. */}
+          <NichoSelect
+            value={watch('nicho') ?? ''}
+            onChange={(v) => setValue('nicho', v, { shouldValidate: true, shouldDirty: true })}
+            permitirVacio={false}
+          />
         </Field>
         <Field label="Sitio web" error={errors.web?.message}><Input {...register('web')} placeholder="https://…" /></Field>
         <Field label="Dirección"><Input {...register('direccion')} placeholder="Calle 123…" /></Field>
@@ -128,7 +135,12 @@ export function LeadForm({
           </Select>
         </Field>
         <Field label="Fuente"><Input {...register('fuente')} placeholder="Google Maps, Referido…" /></Field>
-        <Field label="Responsable"><Input {...register('responsable')} placeholder="JD" /></Field>
+        <Field label="Responsable">
+          <ResponsableSelect
+            value={watch('responsable') ?? ''}
+            onChange={(v) => setValue('responsable', v, { shouldDirty: true })}
+          />
+        </Field>
         <Field label="Valor estimado (USD)"><Input type="number" {...register('valorEstimado')} /></Field>
         <Field label="Etiquetas (separadas por coma)" className="sm:col-span-2">
           <Input {...register('etiquetas')} placeholder="vip, e-commerce, urgente" />

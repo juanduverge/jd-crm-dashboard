@@ -9,8 +9,8 @@ import { Card, CardHeader, CardTitle, Skeleton, Badge } from '@/components/ui'
 import { KpiCard } from './KpiCard'
 import { ConversionFunnel } from '@/components/charts/ConversionFunnel'
 import { CHART_SERIES, BrandTooltip, ChartGradients, axisTick, gridProps } from '@/components/charts/chartTheme'
-import { useLeads, useActivity, useWorkflows, useMessages } from '@/hooks/useData'
-import { DEFAULT_NICHES } from '@/lib/config'
+import { useLeads, useActivity, useWorkflows, useMessages, useNichos } from '@/hooks/useData'
+
 import { formatCurrency, cn } from '@/lib/utils'
 import type { Kpi, Lead } from '@/types'
 import { crmApi } from '@/services/crmApi'
@@ -58,6 +58,7 @@ export function DashboardPage() {
   const { data: activity, isError: activityError } = useActivity()
   const { data: messages } = useMessages()
   const { data: workflows, isError: wfError } = useWorkflows()
+  const nichos = useNichos()
 
   const kpis = useMemo(() => buildKpis(leads), [leads])
 
@@ -70,10 +71,10 @@ export function DashboardPage() {
     const counts = new Map<string, number>()
     leads.forEach((l) => counts.set(l.nicho || 'otros', (counts.get(l.nicho || 'otros') || 0) + 1))
     return [...counts.entries()].map(([k, v]) => ({
-      name: DEFAULT_NICHES.find((n) => n.id === k)?.nombre || k,
+      name: nichos.find((n) => n.id === k)?.nombre || k,
       value: v,
     }))
-  }, [leads])
+  }, [leads, nichos])
 
   const activityTrend = useMemo(() => {
     const days = Array.from({ length: 30 }, (_, i) => {

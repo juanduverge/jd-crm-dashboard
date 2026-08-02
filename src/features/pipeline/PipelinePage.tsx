@@ -9,9 +9,8 @@ import { LayoutGrid, List, Filter, RefreshCw, X, TrendingUp, AlertTriangle } fro
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Select, Badge, Skeleton } from '@/components/ui'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
-import { useLeads, useDeleteLead } from '@/hooks/useData'
+import { useLeads, useDeleteLead, useNichos } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
-import { DEFAULT_NICHES } from '@/lib/config'
 import { OPEN_STAGES, STAGE_BY_ID, forecast, isStale, daysInStage } from '@/lib/pipeline'
 import { formatCurrency, cn, scoreColor } from '@/lib/utils'
 import { LeadForm } from '../leads/LeadForm'
@@ -35,6 +34,7 @@ export function PipelinePage() {
   const leads = useLeadsStore((s) => s.leads)
   const { addLead, updateLead, moveStage, removeLeads } = useLeadsStore()
   const deleteLead = useDeleteLead()
+  const nichos = useNichos()
 
   const [view, setView] = useState<'kanban' | 'list'>('kanban')
   const [showFilters, setShowFilters] = useState(false)
@@ -191,7 +191,7 @@ export function PipelinePage() {
           <label className="text-xs text-muted">Nicho
             <Select className="mt-1 w-40" value={fNicho} onChange={(e) => setFNicho(e.target.value)}>
               <option value="">Todos</option>
-              {DEFAULT_NICHES.map((n) => <option key={n.id} value={n.id}>{n.emoji} {n.nombre}</option>)}
+              {nichos.map((n) => <option key={n.id} value={n.id}>{n.emoji} {n.nombre}</option>)}
             </Select>
           </label>
           <label className="text-xs text-muted">Prioridad

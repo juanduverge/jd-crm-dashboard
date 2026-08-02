@@ -3,10 +3,10 @@ import toast from 'react-hot-toast'
 import { Sparkles, Loader2, Check, ChevronLeft, ChevronRight, Rocket } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button, Input, Select, Textarea, Badge } from '@/components/ui'
-import { DEFAULT_NICHES } from '@/lib/config'
-import { fuzzyMatch, formatCurrency, scoreColor, cn } from '@/lib/utils'
+import { fuzzyMatch, scoreColor, cn } from '@/lib/utils'
 import { applyTemplate } from '@/lib/campaigns'
 import { crmApi } from '@/services/crmApi'
+import { useNichos } from '@/hooks/useData'
 import type { Lead, EmailTemplate } from '@/types'
 
 const STEPS = ['Info básica', 'Leads', 'Template y envío'] as const
@@ -33,7 +33,10 @@ export function CampaignWizard({
 }) {
   const [step, setStep] = useState(0)
   const [nombre, setNombre] = useState('')
-  const [nicho, setNicho] = useState(DEFAULT_NICHES[0].id)
+  const nichos = useNichos()
+  // 'real-estate' como semilla fija: `nichos` puede llegar vacío en el primer
+  // render y no puede quedar un id inventado en el estado inicial.
+  const [nicho, setNicho] = useState('real-estate')
   const [ciudad, setCiudad] = useState('')
   const [idioma, setIdioma] = useState<'es' | 'en'>('es')
 
@@ -50,7 +53,7 @@ export function CampaignWizard({
   const [scheduledAt, setScheduledAt] = useState('')
 
   const reset = () => {
-    setStep(0); setNombre(''); setNicho(DEFAULT_NICHES[0].id); setCiudad(''); setIdioma('es')
+    setStep(0); setNombre(''); setNicho('real-estate'); setCiudad(''); setIdioma('es')
     setSearch(''); setFScoreMin(0); setFEstado(''); setSelected(new Set())
     setTemplateId(''); setAsunto(''); setCuerpo(''); setScheduleNow(true); setScheduledAt('')
   }
@@ -157,7 +160,7 @@ export function CampaignWizard({
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-muted">Nicho *</span>
             <Select value={nicho} onChange={(e) => setNicho(e.target.value)}>
-              {DEFAULT_NICHES.map((n) => <option key={n.id} value={n.id}>{n.emoji} {n.nombre}</option>)}
+              {nichos.map((n) => <option key={n.id} value={n.id}>{n.emoji} {n.nombre}</option>)}
             </Select>
           </label>
           <label className="block">

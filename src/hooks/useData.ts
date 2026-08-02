@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { settingsService } from '@/services/settingsService'
 import { n8nService } from '@/services/n8nService'
 import { crmApi, REPLY_ALIASES } from '@/services/crmApi'
@@ -9,11 +9,16 @@ import { messagesService } from '@/services/messagesService'
 import { inboxService } from '@/services/inboxService'
 import { campaignsService, type CampaignCreateInput, type CampaignUpdateInput } from '@/services/campaignsService'
 import { tasksService } from '@/services/tasksService'
+import { goalsService } from '@/services/goalsService'
+import { timeService } from '@/services/timeService'
+import { eventosService, type EventoPayload } from '@/services/eventosService'
 import { followUpsService } from '@/services/followUpsService'
 import { supabase } from '@/lib/supabaseClient'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useCampaignsStore } from '@/store/campaignsStore'
 import { STARTER_TEMPLATES } from '@/lib/campaigns'
+import { CLAVE_NICHOS, DEFAULT_NICHES, type Niche } from '@/lib/config'
+import { CLAVE_RESPONSABLES, claveResponsable, componerResponsables } from '@/lib/equipo'
 
 /** Carga leads reales (Sheets vía n8n) e hidrata el store local. */
 export function useLeads() {
@@ -311,6 +316,15 @@ export function useCompletarFollowUp() {
   })
 }
 
+/** Edita un seguimiento pendiente completo (migración 0020). */
+export function useActualizarFollowUp() {
+  const invalidate = useInvalidateFollowUps()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof followUpsService.actualizar>[0]) => followUpsService.actualizar(p),
+    onSuccess: invalidate,
+  })
+}
+
 export function useReprogramarFollowUp() {
   const invalidate = useInvalidateFollowUps()
   return useMutation({
@@ -387,11 +401,294 @@ export function usePurgeTarea() {
   })
 }
 
+/**
+ * Tocar una tarea mueve medio módulo, así que se invalida medio módulo.
+ *
+ * Cambiar el estado o el vencimiento de una tarea cambia el calendario (donde
+ * se pinta el día en que vence), las métricas (que cuentan tareas cumplidas) y
+ * las metas a las que esa tarea alimenta. Invalidar sólo `['tareas']` dejaba
+ * las otras tres pantallas enseñando el estado anterior hasta el siguiente
+ * refresco automático, que es justo el "módulos aislados" que había que
+ * romper.
+ */
 export function useUpdateTarea() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (p: Parameters<typeof tasksService.updateTarea>[0]) => tasksService.updateTarea(p),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tareas'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tareas'] })
+      qc.invalidateQueries({ queryKey: ['goals'] })
+      qc.invalidateQueries({ queryKey: ['time_entries_rango'] })
+      qc.invalidateQueries({ queryKey: ['tiempo_resumen'] })
+    },
+  })
+}
+
+// -------------------------------------------------------------
+// METAS + HORARIO (goals / horario_bloques) — migración 0015
+// -------------------------------------------------------------
+// Una sola query por rango de fechas alimenta las tres vistas de metas
+// (mes / semana / día): todas las metas del mes caen dentro del mismo rango
+// y de ahí se derivan la jerarquía y el `tieneHijas`.
+
+export function useGoals(desde: string, hasta: string) {
+  return useQuery({
+    queryKey: ['goals', desde, hasta],
+    queryFn: () => goalsService.getGoals(desde, hasta),
+    staleTime: 10_000,
+    retry: 1,
+  })
+}
+
+/**
+ * Invalida metas + horario a la vez: registrar avance cambia las metas, y la
+ * vista de horario muestra el progreso de la meta ligada a cada bloque.
+ */
+function useInvalidateGoals() {
+  const qc = useQueryClient()
+  return () => {
+    qc.invalidateQueries({ queryKey: ['goals'] })
+    qc.invalidateQueries({ queryKey: ['horario_dia'] })
+  }
+}
+
+export function useCrearMetaMensual() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof goalsService.crearMetaMensual>[0]) =>
+      goalsService.crearMetaMensual(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function useCrearMetaSuelta() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof goalsService.crearMetaSuelta>[0]) =>
+      goalsService.crearMetaSuelta(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function useActualizarMeta() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof goalsService.actualizarMeta>[0]) =>
+      goalsService.actualizarMeta(p),
+    onSuccess: invalidate,
+  })
+}
+
+/** Suma o resta avance en una meta hoja; la BD lo sube a semana y mes. */
+export function useRegistrarAvance() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: ({ id, delta }: { id: string; delta: number }) =>
+      goalsService.registrarAvance(id, delta),
+    onSuccess: invalidate,
+  })
+}
+
+export function useGenerarCascada() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: ({ id, diasLaborables }: { id: string; diasLaborables?: number[] }) =>
+      goalsService.generarCascada(id, diasLaborables),
+    onSuccess: invalidate,
+  })
+}
+
+export function useEliminarMeta() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: (id: string) => goalsService.eliminarMeta(id),
+    onSuccess: invalidate,
+  })
+}
+
+/** Plantilla de horario + qué bloques están completados en `fecha`. */
+export function useHorarioDia(fecha: string) {
+  return useQuery({
+    queryKey: ['horario_dia', fecha],
+    queryFn: async () => {
+      const [bloques, completados] = await Promise.all([
+        goalsService.getBloques(),
+        goalsService.getCompletadosDelDia(fecha),
+      ])
+      const hechos = new Set(completados)
+      return bloques.map((b) => ({ ...b, completado: hechos.has(b.id) }))
+    },
+    staleTime: 10_000,
+    retry: 1,
+  })
+}
+
+/**
+ * La plantilla de horario y lo que se marcó como hecho en un rango. Es el
+ * «plan» con el que Métricas compara la realidad: los bloques dicen lo que
+ * se pensaba hacer cada día de la semana, las completions lo que se hizo.
+ */
+export function usePlanDelRango(desde: string, hasta: string) {
+  return useQuery({
+    queryKey: ['horario_rango', desde, hasta],
+    queryFn: async () => {
+      const [bloques, completados] = await Promise.all([
+        goalsService.getBloques(),
+        goalsService.getCompletadosDelRango(desde, hasta),
+      ])
+      return { bloques, completados }
+    },
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+function useInvalidateHorario() {
+  const qc = useQueryClient()
+  return () => {
+    qc.invalidateQueries({ queryKey: ['horario_dia'] })
+    // Métricas compara el plan con la realidad: marcar un bloque lo mueve.
+    qc.invalidateQueries({ queryKey: ['horario_rango'] })
+    qc.invalidateQueries({ queryKey: ['goals'] })
+  }
+}
+
+export function useCrearBloque() {
+  const invalidate = useInvalidateHorario()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof goalsService.crearBloque>[0]) => goalsService.crearBloque(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function useActualizarBloque() {
+  const invalidate = useInvalidateHorario()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof goalsService.actualizarBloque>[0]) =>
+      goalsService.actualizarBloque(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function useEliminarBloque() {
+  const invalidate = useInvalidateHorario()
+  return useMutation({
+    mutationFn: (id: string) => goalsService.eliminarBloque(id),
+    onSuccess: invalidate,
+  })
+}
+
+/** Marca/desmarca un bloque en una fecha; el RPC ajusta la meta diaria ligada. */
+export function useToggleBloque() {
+  const invalidate = useInvalidateHorario()
+  return useMutation({
+    mutationFn: ({ id, fecha, completado }: { id: string; fecha: string; completado: boolean }) =>
+      completado
+        ? goalsService.descompletarBloque(id, fecha)
+        : goalsService.completarBloque(id, fecha),
+    onSuccess: invalidate,
+  })
+}
+
+// -------------------------------------------------------------
+// REGISTRO DE TIEMPO (time_entries) — migración 0016
+// -------------------------------------------------------------
+// El tiempo mide, no puntúa: ninguna de estas mutaciones invalida ['goals'],
+// porque parar un cronómetro no mueve ningún contador de metas.
+
+export function useEntradasDelDia(fecha: string) {
+  return useQuery({
+    queryKey: ['time_entries', fecha],
+    queryFn: () => timeService.getEntradasDelDia(fecha),
+    staleTime: 10_000,
+    retry: 1,
+  })
+}
+
+/**
+ * El cronómetro que corre ahora. Se refresca solo cada minuto porque puede
+ * haberse arrancado (o cerrado, al arrancar otro) desde otra pestaña.
+ */
+export function useEntradaAbierta(responsable?: string) {
+  return useQuery({
+    queryKey: ['time_entry_abierta', responsable ?? ''],
+    queryFn: () => timeService.getEntradaAbierta(responsable),
+    staleTime: 10_000,
+    refetchInterval: 60_000,
+    retry: 1,
+  })
+}
+
+/** Tiempo agregado por día y meta, para las Métricas. */
+export function useResumenTiempo(desde: string, hasta: string) {
+  return useQuery({
+    queryKey: ['tiempo_resumen', desde, hasta],
+    queryFn: () => timeService.getResumenDiario(desde, hasta),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+/** Tramos cerrados de un rango, para el detalle por actividad de Métricas. */
+export function useEntradasDelRango(desde: string, hasta: string) {
+  return useQuery({
+    queryKey: ['time_entries_rango', desde, hasta],
+    queryFn: () => timeService.getEntradasDelRango(desde, hasta),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+function useInvalidateTiempo() {
+  const qc = useQueryClient()
+  return () => {
+    qc.invalidateQueries({ queryKey: ['time_entries'] })
+    qc.invalidateQueries({ queryKey: ['time_entry_abierta'] })
+    // Métricas lee agregados del mismo dato: parar un cronómetro los mueve.
+    qc.invalidateQueries({ queryKey: ['time_entries_rango'] })
+    qc.invalidateQueries({ queryKey: ['tiempo_resumen'] })
+  }
+}
+
+export function useIniciarTiempo() {
+  const invalidate = useInvalidateTiempo()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof timeService.iniciar>[0]) => timeService.iniciar(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function usePararTiempo() {
+  const invalidate = useInvalidateTiempo()
+  return useMutation({
+    mutationFn: ({ id, responsable }: { id?: string; responsable?: string } = {}) =>
+      timeService.parar(id, responsable),
+    onSuccess: invalidate,
+  })
+}
+
+export function useRegistrarTiempoManual() {
+  const invalidate = useInvalidateTiempo()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof timeService.registrarManual>[0]) =>
+      timeService.registrarManual(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function useActualizarEntradaTiempo() {
+  const invalidate = useInvalidateTiempo()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof timeService.actualizar>[0]) => timeService.actualizar(p),
+    onSuccess: invalidate,
+  })
+}
+
+export function useEliminarEntradaTiempo() {
+  const invalidate = useInvalidateTiempo()
+  return useMutation({
+    mutationFn: (id: string) => timeService.eliminar(id),
+    onSuccess: invalidate,
   })
 }
 
@@ -544,6 +841,129 @@ export function useEmailAliases(): { email: string; label: string }[] {
   return [...REPLY_ALIASES]
 }
 
+/**
+ * Responsables del equipo. Mismo patrón que `useEmailAliases`: la lista vive en
+ * `settings` (clave `responsables`, JSON de strings) y siempre incluye el valor
+ * por defecto, así que nunca puede quedar vacía.
+ *
+ * `actual` es el responsable que ya tiene la ficha que se está editando: se
+ * añade aunque no esté dado de alta, para que el desplegable no lo borre en
+ * silencio al guardar un registro antiguo.
+ */
+export function useResponsables(actual?: string): string[] {
+  const { data: cfg } = useConfig()
+  const raw = cfg?.[CLAVE_RESPONSABLES]
+  let guardados: string[] = []
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) guardados = parsed.filter((n): n is string => typeof n === 'string')
+    } catch {
+      // JSON inválido: se ignora y queda el valor por defecto.
+    }
+  }
+  return componerResponsables(guardados, actual)
+}
+
+/** Da de alta un responsable nuevo. Si ya existe (ignorando acentos), no duplica. */
+export function useAgregarResponsable() {
+  const { data: cfg } = useConfig()
+  const update = useUpdateConfig()
+  return useMutation({
+    mutationFn: async (nombre: string) => {
+      const limpio = nombre.trim()
+      if (!limpio) throw new Error('El nombre no puede estar vacío')
+
+      const actuales = (() => {
+        try {
+          const p = JSON.parse(cfg?.[CLAVE_RESPONSABLES] ?? '[]')
+          return Array.isArray(p) ? (p as string[]) : []
+        } catch { return [] }
+      })()
+
+      // Se compara contra la lista compuesta, no sólo contra la guardada: así
+      // "Juan Duvergé" no se puede dar de alta por segunda vez.
+      const yaEsta = componerResponsables(actuales).some(
+        (n) => claveResponsable(n) === claveResponsable(limpio),
+      )
+      if (!yaEsta) {
+        await update.mutateAsync({ clave: CLAVE_RESPONSABLES, valor: JSON.stringify([...actuales, limpio]) })
+      }
+      return limpio
+    },
+  })
+}
+
+/**
+ * Nichos disponibles = los de fábrica + los que ha creado el usuario. Los
+ * personalizados se guardan en `settings` (clave `nichos_personalizados`) como
+ * JSON de `Niche`, no como texto suelto, para que lleven emoji y color y se
+ * pinten igual que los de fábrica en el resto del CRM.
+ */
+export function useNichos(): Niche[] {
+  const { data: cfg } = useConfig()
+  const raw = cfg?.[CLAVE_NICHOS]
+  return useMemo(() => {
+    let extra: Niche[] = []
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) extra = parsed.filter((n) => n?.id && n?.nombre)
+      } catch { /* JSON inválido: sólo los de fábrica */ }
+    }
+    const conocidos = new Set(DEFAULT_NICHES.map((n) => n.id))
+    const propios = extra.filter((n) => !conocidos.has(n.id))
+    // "Otros" se saca y se vuelve a poner al final: es el cajón de sastre y
+    // debe quedar después de los nichos que el usuario acaba de crear.
+    const base = DEFAULT_NICHES.filter((n) => n.id !== 'otros')
+    const otros = DEFAULT_NICHES.filter((n) => n.id === 'otros')
+    return [...base, ...propios, ...otros]
+  }, [raw])
+}
+
+/** Convierte un nombre libre en un id estable y seguro para la BD. */
+export function idDeNicho(nombre: string): string {
+  return nombre
+    .normalize('NFD')
+    .replace(new RegExp('[̀-ͯ]', 'g'), '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+/** Crea un nicho nuevo y lo deja disponible para siempre. Devuelve su id. */
+export function useAgregarNicho() {
+  const { data: cfg } = useConfig()
+  const update = useUpdateConfig()
+  return useMutation({
+    mutationFn: async (p: { nombre: string; emoji?: string; color?: string }) => {
+      const nombre = p.nombre.trim()
+      const id = idDeNicho(nombre)
+      if (!id) throw new Error('El nombre del nicho no es válido')
+
+      const actuales = (() => {
+        try {
+          const parsed = JSON.parse(cfg?.[CLAVE_NICHOS] ?? '[]')
+          return Array.isArray(parsed) ? (parsed as Niche[]) : []
+        } catch { return [] }
+      })()
+
+      const existe = DEFAULT_NICHES.some((n) => n.id === id) || actuales.some((n) => n.id === id)
+      if (!existe) {
+        const nuevo: Niche = {
+          id, nombre,
+          emoji: p.emoji?.trim() || '🏷️',
+          color: p.color || '#94a3b8',
+          grupo: 'Mis categorías',
+        }
+        await update.mutateAsync({ clave: CLAVE_NICHOS, valor: JSON.stringify([...actuales, nuevo]) })
+      }
+      return id
+    },
+  })
+}
+
 /** Contactos de un lead (hoja "contactos", varios por lead). */
 export function useContacts(leadId?: string) {
   return useQuery({
@@ -618,5 +1038,73 @@ export function useActivity() {
     queryKey: ['activity'],
     queryFn: () => settingsService.getActivity(),
     refetchInterval: 30_000,
+  })
+}
+
+// -----------------------------------------------------------
+// CALENDARIO (eventos) — migración 0018
+// -----------------------------------------------------------
+
+/**
+ * Eventos que se solapan con un rango. La clave lleva el rango porque el
+ * calendario cambia de mes constantemente y cada rango es una caché distinta.
+ */
+export function useEventos(desdeIso: string, hastaIso: string) {
+  return useQuery({
+    queryKey: ['eventos', desdeIso, hastaIso],
+    queryFn: () => eventosService.getDelRango(desdeIso, hastaIso),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+function useInvalidateEventos() {
+  const qc = useQueryClient()
+  return () => {
+    qc.invalidateQueries({ queryKey: ['eventos'] })
+  }
+}
+
+export function useCrearEvento() {
+  const invalidar = useInvalidateEventos()
+  return useMutation({
+    mutationFn: (p: EventoPayload) => eventosService.crear(p),
+    onSuccess: invalidar,
+  })
+}
+
+export function useActualizarEvento() {
+  const invalidar = useInvalidateEventos()
+  return useMutation({
+    mutationFn: ({ id, ...p }: Partial<EventoPayload> & { id: string }) =>
+      eventosService.actualizar(id, p),
+    onSuccess: invalidar,
+  })
+}
+
+/** Arrastrar o estirar en la rejilla. Sin `fin` conserva la duración. */
+export function useMoverEvento() {
+  const invalidar = useInvalidateEventos()
+  return useMutation({
+    mutationFn: ({ id, inicio, fin }: { id: string; inicio: string; fin?: string }) =>
+      eventosService.mover(id, inicio, fin),
+    onSuccess: invalidar,
+  })
+}
+
+export function useDuplicarEvento() {
+  const invalidar = useInvalidateEventos()
+  return useMutation({
+    mutationFn: ({ id, inicio }: { id: string; inicio?: string }) =>
+      eventosService.duplicar(id, inicio),
+    onSuccess: invalidar,
+  })
+}
+
+export function useEliminarEvento() {
+  const invalidar = useInvalidateEventos()
+  return useMutation({
+    mutationFn: (id: string) => eventosService.eliminar(id),
+    onSuccess: invalidar,
   })
 }
