@@ -9,8 +9,8 @@ import { Card, CardHeader, CardTitle, Skeleton, Badge, EmptyState } from '@/comp
 import { KpiCard } from '@/features/dashboard/KpiCard'
 import { ConversionFunnel } from '@/components/charts/ConversionFunnel'
 import { CHART_SERIES, CHANNEL_COLORS, BrandTooltip, ChartGradients, axisTick, gridProps } from '@/components/charts/chartTheme'
-import { useLeads, useMessages, useCampaigns } from '@/hooks/useData'
-import { DEFAULT_NICHES } from '@/lib/config'
+import { useLeads, useMessages, useCampaigns, useNichos } from '@/hooks/useData'
+
 import { formatCurrency, scoreColor, cn } from '@/lib/utils'
 import type { Kpi, Lead, Message } from '@/types'
 
@@ -47,6 +47,8 @@ export function AnalyticsPage() {
   const { leads, isLoading: leadsLoading, isError: leadsError } = useLeads()
   const { data: messages, isLoading: msgsLoading } = useMessages()
   const { campaigns } = useCampaigns()
+  // Incluye los nichos que ha creado el usuario, no sólo los de fábrica.
+  const nichos = useNichos()
 
   const msgs = messages ?? []
   const isLoading = leadsLoading || msgsLoading
@@ -68,9 +70,9 @@ export function AnalyticsPage() {
     const counts = new Map<string, number>()
     leads.forEach((l) => counts.set(l.nicho || 'otros', (counts.get(l.nicho || 'otros') || 0) + 1))
     return [...counts.entries()]
-      .map(([k, v]) => ({ name: DEFAULT_NICHES.find((n) => n.id === k)?.nombre || k, value: v }))
+      .map(([k, v]) => ({ name: nichos.find((n) => n.id === k)?.nombre || k, value: v }))
       .sort((a, b) => b.value - a.value)
-  }, [leads])
+  }, [leads, nichos])
 
   const activityTrend = useMemo(() => {
     const days = Array.from({ length: 30 }, (_, i) => {
@@ -217,7 +219,7 @@ export function AnalyticsPage() {
                   {topLeads.map((l) => {
                     const sc = scoreColor(l.score)
                     const Icon = l.canalPrincipal ? CHANNEL_ICON[l.canalPrincipal] : undefined
-                    const niche = DEFAULT_NICHES.find((n) => n.id === l.nicho)
+                    const niche = nichos.find((n) => n.id === l.nicho)
                     return (
                       <tr key={l.id} className="border-b border-border last:border-0">
                         <td className="max-w-[180px] truncate px-2 py-2 font-medium text-fg" title={l.empresa}>{l.empresa}</td>

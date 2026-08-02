@@ -1,217 +1,228 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
-  addMonths, endOfMonth, endOfWeek, format, isSameMonth, isToday, startOfMonth, startOfWeek,
+  addDays, addMonths, addYears, endOfMonth, endOfWeek, endOfYear, format, getYear,
+  startOfMonth, startOfWeek, startOfYear,
 } from 'date-fns'
-import { ChevronLeft, ChevronRight, Info } from 'lucide-react'
-import { Button, Skeleton } from '@/components/ui'
-import { cn } from '@/lib/utils'
-import { useFollowUpsAgenda, useGoals, useHorarioDia, useTareas } from '@/hooks/useData'
-import { DIAS_SEMANA, diasDelRango, fmtDia, fmtMes, fmtNum, iso, isoDow, progreso, tonoProgreso } from '../shared/goalMeta'
-import type { Goal } from '@/types'
+import toast from 'react-hot-toast'
+import { Info } from 'lucide-react'
+import { Skeleton } from '@/components/ui'
+import { useMoverEvento } from '@/hooks/useData'
+import { fmtDia, fmtMes, fmtRangoSemana, iso } from '../shared/goalMeta'
+import { CabeceraCalendario, type VistaCalendario } from './CabeceraCalendario'
+import { ItemModal } from './ItemModal'
+import { RejillaHoras } from './RejillaHoras'
+import { VistaAnio } from './VistaAnio'
+import { VistaMes } from './VistaMes'
+import { ETIQUETA_FUENTE, type ItemCalendario } from './itemCalendario'
+import { useCalendario } from './useCalendario'
 
 /**
- * Vista de calendario del mes: superpone lo que ya vive en el CRM sobre la
- * rejilla — metas diarias con su progreso, cierres de metas semanales y
- * mensuales, tareas con vencimiento y seguimientos programados.
+ * EL CALENDARIO
  *
- * Google Calendar todavía NO está conectado a este CRM: cuando lo esté, sus
- * eventos se leerán en vivo y se pintarán aquí junto a lo demás, sin duplicar
- * nada en la base de datos.
+ * Este componente sólo orquesta: decide qué rango de días se está mirando y se
+ * lo pasa a `useCalendario`; el resto lo hacen las piezas. Cuatro vistas, una
+ * cabecera y un modal, todas alimentadas por el mismo `ItemCalendario`.
+ *
+ * Cómo se reparte el trabajo:
+ *   - `itemCalendario.ts` normaliza las cinco fuentes y calcula la geometría.
+ *   - `useCalendario.ts` es el único que sabe qué tablas hay que leer.
+ *   - `RejillaHoras` pinta día y semana; `VistaMes` y `VistaAnio`, lo suyo.
+ *   - `ItemModal` crea y edita, mandando cada tipo a SU tabla.
+ *
+ * Qué se puede editar desde aquí: sólo los eventos. Una meta, una tarea, un
+ * bloque o un seguimiento se pintan y, al pulsarlos, llevan a su módulo. No es
+ * una limitación técnica: mover una meta "a las 11:00" sería inventarle una
+ * hora que su tabla no tiene, y arrastrar un bloque del horario cambiaría la
+ * plantilla de TODAS las semanas, no la de ese día.
  */
+
+/** A dónde lleva cada fuente cuando se pulsa algo que no es un evento. */
+const DESTINO: Record<ItemCalendario['fuente'], string> = {
+  evento: '/productividad/calendario',
+  meta: '/productividad/metas/dia',
+  bloque: '/productividad/horario',
+  tarea: '/productividad/tareas',
+  seguimiento: '/seguimientos',
+}
+
 export function CalendarioView() {
-  const [ref, setRef] = useState(() => new Date())
-  const [sel, setSel] = useState<string | null>(() => iso(new Date()))
+  const navegar = useNavigate()
+  const moverEvento = useMoverEvento()
+  const [vista, setVista] = useState<VistaCalendario>('semana')
+  const [refFecha, setRefFecha] = useState(() => new Date())
 
-  const gridDesde = iso(startOfWeek(startOfMonth(ref), { weekStartsOn: 1 }))
-  const gridHasta = iso(endOfWeek(endOfMonth(ref), { weekStartsOn: 1 }))
+  const [modal, setModal] = useState<{ fecha: string; hora?: string; evento?: ItemCalendario['evento'] } | null>(null)
 
-  const { data: goals, isLoading } = useGoals(gridDesde, gridHasta)
-  const { data: tareas } = useTareas()
-  const { data: agenda } = useFollowUpsAgenda()
-  const { data: bloques } = useHorarioDia(sel ?? iso(new Date()))
-
-  const dias = useMemo(() => diasDelRango(gridDesde, gridHasta), [gridDesde, gridHasta])
-
-  /** Índice por fecha: metas del día, cierres de periodo, tareas y seguimientos. */
-  const porFecha = useMemo(() => {
-    const map = new Map<string, {
-      metasDia: Goal[]
-      cierres: Goal[]
-      tareas: number
-      seguimientos: number
-    }>()
-
-    const get = (f: string) => {
-      let e = map.get(f)
-      if (!e) { e = { metasDia: [], cierres: [], tareas: 0, seguimientos: 0 }; map.set(f, e) }
-      return e
+  /** El rango que hay que pedir depende de la vista, y de nada más. */
+  const { desde, hasta, titulo } = useMemo(() => {
+    switch (vista) {
+      case 'dia':
+        return { desde: iso(refFecha), hasta: iso(refFecha), titulo: fmtDia(refFecha) }
+      case 'semana': {
+        const a = startOfWeek(refFecha, { weekStartsOn: 1 })
+        const b = endOfWeek(refFecha, { weekStartsOn: 1 })
+        return { desde: iso(a), hasta: iso(b), titulo: fmtRangoSemana(iso(a), iso(b)) }
+      }
+      case 'anio': {
+        // La rejilla de cada mes se extiende a semanas completas, así que el
+        // año necesita un poco de diciembre anterior y de enero siguiente.
+        const a = startOfWeek(startOfYear(refFecha), { weekStartsOn: 1 })
+        const b = endOfWeek(endOfYear(refFecha), { weekStartsOn: 1 })
+        return { desde: iso(a), hasta: iso(b), titulo: String(getYear(refFecha)) }
+      }
+      default: {
+        const a = startOfWeek(startOfMonth(refFecha), { weekStartsOn: 1 })
+        const b = endOfWeek(endOfMonth(refFecha), { weekStartsOn: 1 })
+        return { desde: iso(a), hasta: iso(b), titulo: fmtMes(refFecha) }
+      }
     }
+  }, [vista, refFecha])
 
-    for (const g of goals ?? []) {
-      if (g.periodo === 'dia') get(g.fechaInicio).metasDia.push(g)
-      else get(g.fechaFin).cierres.push(g)
+  const { dias, porFecha, cargando } = useCalendario(desde, hasta)
+
+  /** Adelante/atrás salta lo que dura la vista. */
+  const paso = useCallback((dir: -1 | 1) => {
+    setRefFecha((d) => {
+      switch (vista) {
+        case 'dia': return addDays(d, dir)
+        case 'semana': return addDays(d, 7 * dir)
+        case 'anio': return addYears(d, dir)
+        default: return addMonths(d, dir)
+      }
+    })
+  }, [vista])
+
+  /**
+   * Atajos de teclado, como en Google Calendar. Se ignoran mientras se escribe
+   * en un campo: la `d` de "desayuno" no debe cambiar de vista.
+   */
+  useEffect(() => {
+    const onTecla = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))) return
+      const k = e.key.toLowerCase()
+      if (k === 'd') setVista('dia')
+      else if (k === 's') setVista('semana')
+      else if (k === 'm') setVista('mes')
+      else if (k === 'a') setVista('anio')
+      else if (k === 't' || k === 'h') setRefFecha(new Date())
+      else if (k === 'arrowleft') paso(-1)
+      else if (k === 'arrowright') paso(1)
     }
-    for (const t of tareas ?? []) {
-      if (t.estado !== 'hecha' && t.fechaVencimiento) get(t.fechaVencimiento).tareas += 1
+    window.addEventListener('keydown', onTecla)
+    return () => window.removeEventListener('keydown', onTecla)
+  }, [paso])
+
+  /**
+   * Soltar tras arrastrar. Va por `mover_evento` (RPC), no por un update
+   * suelto: inicio y fin tienen que cambiar a la vez o la fila queda un
+   * instante con el fin antes del inicio. Si falla, no hay nada que revertir
+   * a mano — la vista se repinta con lo que diga la tabla.
+   */
+  const mover = useCallback((item: ItemCalendario, inicio: Date, fin: Date) => {
+    if (!item.evento) return
+    moverEvento.mutate(
+      { id: item.id, inicio: inicio.toISOString(), fin: fin.toISOString() },
+      {
+        onSuccess: () => toast.success('Evento movido'),
+        onError: (e) => toast.error(e instanceof Error ? e.message : 'No se pudo mover el evento'),
+      },
+    )
+  }, [moverEvento])
+
+  const abrirItem = useCallback((item: ItemCalendario) => {
+    if (item.fuente === 'evento' && item.evento) {
+      setModal({ fecha: item.fecha, evento: item.evento })
+      return
     }
-    for (const f of agenda ?? []) get(f.fechaProgramada).seguimientos += 1
+    navegar(DESTINO[item.fuente])
+  }, [navegar])
 
-    return map
-  }, [goals, tareas, agenda])
+  const irADia = useCallback((fecha: string) => {
+    setRefFecha(new Date(`${fecha}T00:00:00`))
+    setVista('dia')
+  }, [])
 
-  const detalleSel = sel ? porFecha.get(sel) : undefined
-  const bloquesSel = useMemo(() => {
-    if (!sel) return []
-    const dow = isoDow(new Date(`${sel}T00:00:00`))
-    return (bloques ?? []).filter((b) => b.activo && b.diasSemana.includes(dow))
-  }, [bloques, sel])
+  const irAMes = useCallback((fecha: string) => {
+    setRefFecha(new Date(`${fecha}T00:00:00`))
+    setVista('mes')
+  }, [])
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
-          <button onClick={() => setRef((d) => addMonths(d, -1))} className="btn-ghost h-8 w-8 rounded-lg border border-border p-0">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button onClick={() => setRef((d) => addMonths(d, 1))} className="btn-ghost h-8 w-8 rounded-lg border border-border p-0">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-        <p className="text-sm font-semibold capitalize text-fg">{fmtMes(ref)}</p>
-        {!isSameMonth(ref, new Date()) && (
-          <Button size="sm" variant="ghost" onClick={() => { setRef(new Date()); setSel(iso(new Date())) }}>Hoy</Button>
-        )}
-      </div>
+      <CabeceraCalendario
+        fecha={refFecha}
+        vista={vista}
+        titulo={titulo}
+        onFecha={setRefFecha}
+        onPaso={paso}
+        onVista={setVista}
+        onHoy={() => setRefFecha(new Date())}
+        onNuevo={() => setModal({ fecha: iso(refFecha), hora: format(new Date(), 'HH:00') })}
+      />
 
-      {isLoading ? (
-        <Skeleton className="h-96 w-full" />
+      {cargando ? (
+        <Skeleton className="h-[60vh] w-full" />
+      ) : vista === 'anio' ? (
+        <VistaAnio anio={refFecha} porFecha={porFecha} onDia={irADia} onMes={irAMes} />
+      ) : vista === 'mes' ? (
+        <VistaMes
+          mes={refFecha}
+          dias={dias}
+          porFecha={porFecha}
+          onDia={irADia}
+          onHueco={(fecha) => setModal({ fecha })}
+          onItem={abrirItem}
+        />
       ) : (
-        <div className="card overflow-hidden p-0">
-          <div className="grid grid-cols-7 border-b border-border">
-            {DIAS_SEMANA.map((d) => (
-              <div key={d.iso} className="px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-muted">
-                {d.label.slice(0, 3)}
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-7">
-            {dias.map((d) => {
-              const f = iso(d)
-              const e = porFecha.get(f)
-              const delMes = isSameMonth(d, ref)
-              const pct = e?.metasDia.length
-                ? Math.round(e.metasDia.reduce((a, g) => a + progreso(g), 0) / e.metasDia.length)
-                : null
-
-              return (
-                <button
-                  key={f}
-                  onClick={() => setSel(f)}
-                  className={cn(
-                    'min-h-[84px] border-b border-r border-border p-1.5 text-left align-top transition hover:bg-surface',
-                    !delMes && 'opacity-40',
-                    sel === f && 'bg-primary-500/5 ring-1 ring-inset ring-primary-500/40',
-                  )}
-                >
-                  <span className={cn(
-                    'inline-flex h-6 w-6 items-center justify-center rounded-full text-xs',
-                    isToday(d) ? 'bg-primary-500 font-semibold text-white' : 'text-fg',
-                  )}>
-                    {format(d, 'd')}
-                  </span>
-
-                  {pct !== null && (
-                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
-                      <div className={cn('h-full rounded-full', tonoProgreso(pct))} style={{ width: `${pct}%` }} />
-                    </div>
-                  )}
-
-                  <div className="mt-1 space-y-0.5">
-                    {e?.cierres.slice(0, 2).map((g) => (
-                      <p key={g.id} className="truncate text-[10px] text-amber-600 dark:text-amber-400" title={`Cierra: ${g.nombre}`}>
-                        ● {g.nombre}
-                      </p>
-                    ))}
-                    {!!e?.seguimientos && (
-                      <p className="truncate text-[10px] text-primary-600 dark:text-primary-300">
-                        {e.seguimientos} seguimiento{e.seguimientos > 1 ? 's' : ''}
-                      </p>
-                    )}
-                    {!!e?.tareas && (
-                      <p className="truncate text-[10px] text-muted">
-                        {e.tareas} tarea{e.tareas > 1 ? 's' : ''}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        </div>
+        <RejillaHoras
+          dias={dias}
+          porFecha={porFecha}
+          conCabecera={vista === 'semana'}
+          onHueco={(fecha, hora) => setModal({ fecha, hora })}
+          onItem={abrirItem}
+          onMover={mover}
+        />
       )}
 
-      {sel && (
-        <div className="card space-y-3 p-4">
-          <p className="text-sm font-semibold capitalize text-fg">{fmtDia(new Date(`${sel}T00:00:00`))}</p>
-
-          {detalleSel?.metasDia.length ? (
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Metas del día</p>
-              <ul className="space-y-1">
-                {detalleSel.metasDia.map((g) => (
-                  <li key={g.id} className="flex items-center gap-2 text-sm text-fg">
-                    <span className="truncate">{g.nombre}</span>
-                    <span className="ml-auto shrink-0 text-xs text-muted">
-                      {fmtNum(g.valorActual)} / {fmtNum(g.target)}{g.unidad ? ` ${g.unidad}` : ''}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {detalleSel?.cierres.length ? (
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Cierres de periodo</p>
-              <ul className="space-y-1">
-                {detalleSel.cierres.map((g) => (
-                  <li key={g.id} className="text-sm text-fg">
-                    {g.nombre} <span className="text-xs text-muted">— fin de la meta {g.periodo === 'mes' ? 'mensual' : 'semanal'}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {bloquesSel.length > 0 && (
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Horario de ese día</p>
-              <ul className="space-y-1">
-                {bloquesSel.map((b) => (
-                  <li key={b.id} className="flex gap-2 text-sm text-fg">
-                    <span className="w-24 shrink-0 tabular-nums text-xs text-muted">{b.horaInicio}–{b.horaFin}</span>
-                    <span className="truncate">{b.titulo}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {!detalleSel?.metasDia.length && !detalleSel?.cierres.length && !bloquesSel.length && (
-            <p className="text-sm text-muted">Sin metas ni bloques para este día.</p>
-          )}
-        </div>
-      )}
+      {/* Leyenda: sin ella los colores son decoración. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted">
+        {(Object.keys(ETIQUETA_FUENTE) as ItemCalendario['fuente'][]).map((f) => (
+          <span key={f} className="inline-flex items-center gap-1.5">
+            <span className={`h-2 w-2 rounded-full ${
+              f === 'evento' ? 'bg-primary-500'
+                : f === 'meta' ? 'bg-violet-500'
+                  : f === 'bloque' ? 'bg-sky-500'
+                    : f === 'tarea' ? 'bg-slate-500' : 'bg-amber-500'
+            }`} />
+            {ETIQUETA_FUENTE[f]}
+          </span>
+        ))}
+        <span className="ml-auto hidden sm:inline">D · S · M · A cambian de vista · T vuelve a hoy</span>
+      </div>
 
       <p className="flex items-start gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-xs text-muted">
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
-          Google Calendar aún no está conectado al CRM: aquí se ven las metas, el horario, las tareas y
-          los seguimientos que ya viven en Supabase. La sincronización con Calendar es el último paso del
-          módulo y necesita conectar la cuenta desde Configuración.
+          Metas, bloques del horario, tareas y seguimientos se pintan aquí leyéndolos de su módulo:
+          al pulsarlos se abren allí, que es donde se editan. Los eventos y reuniones sí se crean y
+          se editan desde el propio calendario: en las vistas de día y semana se arrastran para
+          cambiarlos de hora o de día, y se estiran por el borde de abajo para cambiar lo que duran.
+          La sincronización con Google Calendar es el paso que queda.
         </span>
       </p>
+
+      {modal && (
+        <ItemModal
+          open
+          onClose={() => setModal(null)}
+          fecha={modal.fecha}
+          hora={modal.hora}
+          evento={modal.evento}
+        />
+      )}
     </div>
   )
 }

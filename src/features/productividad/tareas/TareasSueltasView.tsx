@@ -3,11 +3,15 @@ import { format, isPast, isToday } from 'date-fns'
 import toast from 'react-hot-toast'
 import {
   CheckSquare, Plus, RefreshCw, Phone, Mail, Users, MessageCircle, CalendarClock, Check, Circle,
-  Target, Trash2,
+  Target, Trash2, Pencil,
 } from 'lucide-react'
 import { Button, EmptyState, Input, Select, Skeleton } from '@/components/ui'
+import { AutoTextarea } from '@/components/ui/AutoTextarea'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
+import { EditarTareaModal } from './EditarTareaModal'
+import { ResponsableSelect } from '@/components/ui/ResponsableSelect'
+import { RESPONSABLE_POR_DEFECTO } from '@/lib/equipo'
 import { cn } from '@/lib/utils'
 import { useCreateTarea, useDeleteTarea, useGoals, useTareas, useUpdateTarea } from '@/hooks/useData'
 import { PRIORIDADES, PRIORIDAD_ORDER } from '@/features/webleads/webLeadMeta'
@@ -53,6 +57,7 @@ export function TareasSueltasView() {
   const [filtro, setFiltro] = useState<'pendientes' | 'todas' | 'hechas'>('pendientes')
   const [nueva, setNueva] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Tarea | null>(null)
+  const [editando, setEditando] = useState<Tarea | null>(null)
 
   const consulta = rangoConsulta(new Date())
   const { data: goals } = useGoals(consulta.desde, consulta.hasta)
@@ -147,6 +152,17 @@ export function TareasSueltasView() {
                       <p className={cn('truncate text-sm', done ? 'text-muted line-through' : 'font-medium text-fg')} title={t.titulo}>
                         {t.titulo}
                       </p>
+                      {t.descripcion && (
+                        <p
+                          className={cn(
+                            'line-clamp-2 whitespace-pre-line text-xs leading-relaxed',
+                            done ? 'text-muted/70' : 'text-muted',
+                          )}
+                          title={t.descripcion}
+                        >
+                          {t.descripcion}
+                        </p>
+                      )}
                       <p className="flex items-center gap-1 truncate text-xs text-muted">
                         {meta && <Target className="h-3 w-3 shrink-0" />}
                         {meta ? `${meta.nombre} · ` : ''}
@@ -157,6 +173,13 @@ export function TareasSueltasView() {
                     <span className={cn('hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium sm:inline', pri.badge)}>
                       {pri.label}
                     </span>
+                    <button
+                      onClick={() => setEditando(t)}
+                      className="btn-ghost h-7 w-7 shrink-0 p-0 text-muted hover:text-fg"
+                      title="Editar tarea"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
                     <button
                       onClick={() => setDeleteTarget(t)}
                       className="btn-ghost h-7 w-7 shrink-0 p-0 text-red-500 hover:bg-red-500/10"
@@ -173,6 +196,12 @@ export function TareasSueltasView() {
       })}
 
       <NuevaTareaModal open={nueva} onClose={() => setNueva(false)} />
+      <EditarTareaModal
+        tarea={editando}
+        onClose={() => setEditando(null)}
+        secciones={SECCIONES}
+        tipos={TIPOS}
+      />
       <ConfirmDeleteModal
         open={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
@@ -211,7 +240,8 @@ function NuevaTareaModal({ open, onClose }: { open: boolean; onClose: () => void
   const [prioridad, setPrioridad] = useState('media')
   const [seccion, setSeccion] = useState<TareaSeccion>('prioritaria')
   const [goalId, setGoalId] = useState('')
-  const [notas, setNotas] = useState('')
+  const [descripcion, setDescripcion] = useState('')
+  const [responsable, setResponsable] = useState(RESPONSABLE_POR_DEFECTO)
 
   const consulta = rangoConsulta(new Date())
   const { data: goals } = useGoals(consulta.desde, consulta.hasta)
@@ -223,13 +253,18 @@ function NuevaTareaModal({ open, onClose }: { open: boolean; onClose: () => void
   const guardar = () => {
     if (!titulo.trim()) { toast.error('Escribe un título'); return }
     create.mutate(
-      { titulo, tipo, fechaVencimiento: fecha, prioridad, seccion, goalId: goalId || undefined, notas },
+      {
+        titulo, tipo, fechaVencimiento: fecha, prioridad, seccion, responsable,
+        goalId: goalId || undefined,
+        descripcion: descripcion.trim() || undefined,
+      },
       {
         onSuccess: () => {
           toast.success('Tarea creada')
           onClose()
-          setTitulo(''); setFecha(''); setNotas(''); setTipo('seguimiento')
+          setTitulo(''); setFecha(''); setDescripcion(''); setTipo('seguimiento')
           setPrioridad('media'); setSeccion('prioritaria'); setGoalId('')
+          setResponsable(RESPONSABLE_POR_DEFECTO)
         },
         onError: () => toast.error('No se pudo crear la tarea'),
       },
@@ -237,43 +272,69 @@ function NuevaTareaModal({ open, onClose }: { open: boolean; onClose: () => void
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Nueva tarea">
-      <div className="space-y-3">
-        <Input placeholder="¿Qué hay que hacer?" value={titulo} onChange={(e) => setTitulo(e.target.value)} autoFocus />
-        <div className="grid grid-cols-2 gap-3">
-          <Select value={tipo} onChange={(e) => setTipo(e.target.value as TareaTipo)}>
-            {Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </Select>
-          <Select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
-            {PRIORIDAD_ORDER.map((p) => <option key={p} value={p}>{PRIORIDADES[p].label}</option>)}
-          </Select>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs text-muted">Bloque</label>
-            <Select value={seccion} onChange={(e) => setSeccion(e.target.value as TareaSeccion)}>
-              {SECCIONES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </Select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Fecha de vencimiento</label>
-            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
-          </div>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-muted">Meta a la que alimenta (opcional)</label>
-          <Select value={goalId} onChange={(e) => setGoalId(e.target.value)}>
-            <option value="">Ninguna</option>
-            {metasMes.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
-          </Select>
-        </div>
-        <Input placeholder="Notas (opcional)" value={notas} onChange={(e) => setNotas(e.target.value)} />
-        <div className="flex justify-end gap-2 pt-2">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Nueva tarea"
+      footer={
+        <>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button onClick={guardar} disabled={create.isPending}>
             {create.isPending ? 'Creando…' : 'Crear tarea'}
           </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">Título</span>
+          <Input placeholder="¿Qué hay que hacer?" value={titulo} onChange={(e) => setTitulo(e.target.value)} autoFocus />
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Tipo</span>
+            <Select value={tipo} onChange={(e) => setTipo(e.target.value as TareaTipo)}>
+              {Object.entries(TIPOS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </Select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Prioridad</span>
+            <Select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}>
+              {PRIORIDAD_ORDER.map((p) => <option key={p} value={p}>{PRIORIDADES[p].label}</option>)}
+            </Select>
+          </label>
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Bloque</span>
+            <Select value={seccion} onChange={(e) => setSeccion(e.target.value as TareaSeccion)}>
+              {SECCIONES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </Select>
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-muted">Fecha de vencimiento</span>
+            <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+          </label>
+        </div>
+        <div>
+          <span className="mb-1 block text-xs font-medium text-muted">Responsable</span>
+          <ResponsableSelect value={responsable} onChange={setResponsable} />
+        </div>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">Meta a la que alimenta (opcional)</span>
+          <Select value={goalId} onChange={(e) => setGoalId(e.target.value)}>
+            <option value="">Ninguna</option>
+            {metasMes.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+          </Select>
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs font-medium text-muted">Descripción (opcional)</span>
+          <AutoTextarea
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            placeholder="El detalle que no cabe en el título: qué hay que hacer y cuándo se da por hecha"
+          />
+        </label>
       </div>
     </Modal>
   )

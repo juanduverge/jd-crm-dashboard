@@ -8,11 +8,14 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Badge, Input, Select, Skeleton, EmptyState } from '@/components/ui'
 import { Modal } from '@/components/ui/Modal'
 import {
-  useFollowUpsAgenda, useReprogramarFollowUp,
+  useFollowUpsAgenda, useActualizarFollowUp,
 } from '@/hooks/useData'
 import {
   agruparAgenda, textoVencimiento, TIPO_META, addDays, today,
+  ATAJOS_REPROGRAMAR, FOLLOW_UP_TIPOS, fechaDeAtajo,
 } from '@/lib/followUps'
+import { ResponsableSelect } from '@/components/ui/ResponsableSelect'
+import type { FollowUpTipo } from '@/types'
 import { PRIORITY_META } from '@/lib/pipeline'
 import { cn } from '@/lib/utils'
 import { CompletarFollowUpModal } from './CompletarFollowUpModal'
@@ -31,12 +34,17 @@ import type { FollowUpAgendaItem } from '@/types'
  */
 export function FollowUpsPage() {
   const { data, isLoading, isError, refetch, isFetching } = useFollowUpsAgenda()
-  const reprogramar = useReprogramarFollowUp()
+  // `actualizar` en vez de `reprogramar`: reprogramar sólo movía el día, y
+  // aquí se puede cambiar además la hora, el medio y el responsable.
+  const actualizar = useActualizarFollowUp()
 
   const [fResponsable, setFResponsable] = useState('')
   const [completando, setCompletando] = useState<FollowUpAgendaItem | null>(null)
   const [reprogramando, setReprogramando] = useState<FollowUpAgendaItem | null>(null)
   const [nuevaFecha, setNuevaFecha] = useState('')
+  const [nuevaHora, setNuevaHora] = useState('')
+  const [nuevoTipo, setNuevoTipo] = useState<FollowUpTipo>('llamada')
+  const [nuevoResponsable, setNuevoResponsable] = useState('')
 
   const items = useMemo(
     () => (data ?? []).filter((f) => !fResponsable || f.responsable === fResponsable),
@@ -52,6 +60,9 @@ export function FollowUpsPage() {
     setReprogramando(f)
     // Sugerencia por defecto: mañana. Para un vencido, es el rescate más rápido.
     setNuevaFecha(addDays(1))
+    setNuevaHora(f.hora ?? '')
+    setNuevoTipo(f.tipo)
+    setNuevoResponsable(f.responsable ?? '')
   }
 
   const confirmarReprogramar = async () => {
@@ -61,7 +72,14 @@ export function FollowUpsPage() {
       return
     }
     try {
-      await reprogramar.mutateAsync({ id: reprogramando.id, fecha: nuevaFecha })
+      await actualizar.mutateAsync({
+        id: reprogramando.id,
+        fecha: nuevaFecha,
+        hora: nuevaHora || undefined,
+        limpiarHora: !nuevaHora && !!reprogramando.hora,
+        tipo: nuevoTipo,
+        responsable: nuevoResponsable || undefined,
+      })
       toast.success(`${reprogramando.leadEmpresa} reprogramado`)
       setReprogramando(null)
     } catch (e) {
@@ -187,41 +205,57 @@ export function FollowUpsPage() {
         footer={
           <>
             <Button variant="outline" onClick={() => setReprogramando(null)}>Cancelar</Button>
-            <Button onClick={confirmarReprogramar} disabled={reprogramar.isPending}>
-              {reprogramar.isPending ? 'Guardando…' : 'Reprogramar'}
+            <Button onClick={confirmarReprogramar} disabled={actualizar.isPending}>
+              {actualizar.isPending ? 'Guardando…' : 'Reprogramar'}
             </Button>
           </>
         }
       >
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
-            {[
-              { label: 'Mañana', dias: 1 },
-              { label: 'En 3 días', dias: 3 },
-              { label: 'En 1 semana', dias: 7 },
-              { label: 'En 2 semanas', dias: 14 },
-            ].map((o) => (
-              <button
-                key={o.dias}
-                type="button"
-                onClick={() => setNuevaFecha(addDays(o.dias))}
-                className={cn(
-                  'rounded-full px-3 py-1.5 text-xs font-medium transition',
-                  nuevaFecha === addDays(o.dias)
-                    ? 'bg-primary-400 text-white'
-                    : 'bg-surface-2 text-muted hover:opacity-80',
-                )}
-              >
-                {o.label}
-              </button>
-            ))}
+            {ATAJOS_REPROGRAMAR.map((o) => {
+              const destino = fechaDeAtajo(o)
+              return (
+                <button
+                  key={o.label}
+                  type="button"
+                  onClick={() => setNuevaFecha(destino)}
+                  className={cn(
+                    'rounded-full px-3 py-1.5 text-xs font-medium transition',
+                    nuevaFecha === destino
+                      ? 'bg-primary-400 text-white'
+                      : 'bg-surface-2 text-muted hover:opacity-80',
+                  )}
+                >
+                  {o.label}
+                </button>
+              )
+            })}
           </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-muted">Nueva fecha</label>
-            <Input type="date" min={today()} value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-muted">Nueva fecha</span>
+              <Input type="date" min={today()} value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-muted">
+                Hora <span className="text-muted/70">· opcional</span>
+              </span>
+              <Input type="time" value={nuevaHora} onChange={(e) => setNuevaHora(e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-muted">Medio de contacto</span>
+              <Select value={nuevoTipo} onChange={(e) => setNuevoTipo(e.target.value as FollowUpTipo)}>
+                {FOLLOW_UP_TIPOS.map((t) => <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>)}
+              </Select>
+            </label>
+            <div className="block">
+              <span className="mb-1.5 block text-xs font-medium text-muted">Responsable</span>
+              <ResponsableSelect value={nuevoResponsable} onChange={setNuevoResponsable} />
+            </div>
           </div>
           <p className="text-xs text-muted">
-            Se mantiene el mismo toque (nº {reprogramando?.orden}); solo cambia la fecha.
+            Se mantiene el mismo toque (nº {reprogramando?.orden}) y el historial intacto.
           </p>
         </div>
       </Modal>

@@ -2,15 +2,18 @@ import { useMemo, useState } from 'react'
 import { addDays, isToday } from 'date-fns'
 import toast from 'react-hot-toast'
 import {
-  Check, ChevronLeft, ChevronRight, Circle, Clock, Pencil, Plus, Target, Trash2,
+  Check, ChevronLeft, ChevronRight, Circle, Clock, Pencil, Play, Plus, Target, Trash2,
 } from 'lucide-react'
 import { Button, EmptyState, Input, Select, Skeleton } from '@/components/ui'
+import { AutoTextarea } from '@/components/ui/AutoTextarea'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { cn } from '@/lib/utils'
 import {
-  useActualizarBloque, useCrearBloque, useEliminarBloque, useGoals, useHorarioDia, useToggleBloque,
+  useActualizarBloque, useCrearBloque, useEliminarBloque, useGoals, useHorarioDia,
+  useIniciarTiempo, useToggleBloque,
 } from '@/hooks/useData'
+import { useAuthStore } from '@/store/authStore'
 import { DIAS_SEMANA, filtrarPorPeriodo, fmtDia, fmtNum, iso, isoDow, rangoConsulta } from '../shared/goalMeta'
 import type { Goal, HorarioBloque, HorarioBloqueDia } from '@/types'
 
@@ -171,6 +174,22 @@ function FilaBloque({
   onEliminar: () => void
 }) {
   const toggle = useToggleBloque()
+  const iniciarTiempo = useIniciarTiempo()
+  const responsable = useAuthStore((s) => s.user?.name)
+
+  /**
+   * Cronometrar el bloque es otra cosa que marcarlo: esto mide el rato que le
+   * dedicas, marcarlo es lo que suma a la meta. Se guarda el enlace al bloque
+   * y a su meta para que las Métricas puedan cruzar plan contra realidad.
+   */
+  const cronometrar = () =>
+    iniciarTiempo.mutate(
+      { descripcion: bloque.titulo, fecha, bloqueId: bloque.id, goalId: bloque.goalId, responsable },
+      {
+        onSuccess: () => toast.success(`Cronómetro en marcha: ${bloque.titulo}`),
+        onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'No se pudo arrancar el cronómetro'),
+      },
+    )
 
   const marcar = () =>
     toggle.mutate(
@@ -199,6 +218,14 @@ function FilaBloque({
         <p className={cn('truncate text-sm', bloque.completado ? 'text-muted line-through' : 'font-medium text-fg')}>
           {bloque.titulo}
         </p>
+        {bloque.descripcion && (
+          <p
+            className="line-clamp-2 whitespace-pre-line text-xs leading-relaxed text-muted"
+            title={bloque.descripcion}
+          >
+            {bloque.descripcion}
+          </p>
+        )}
         {meta && (
           <p className="flex items-center gap-1 truncate text-xs text-muted">
             <Target className="h-3 w-3 shrink-0" />
@@ -207,6 +234,14 @@ function FilaBloque({
         )}
       </div>
 
+      <button
+        onClick={cronometrar}
+        disabled={iniciarTiempo.isPending}
+        className="btn-ghost h-7 w-7 shrink-0 p-0 text-muted hover:text-primary-500"
+        title="Cronometrar este bloque"
+      >
+        <Play className="h-3.5 w-3.5" />
+      </button>
       <button onClick={onEditar} className="btn-ghost h-7 w-7 shrink-0 p-0 text-muted hover:text-fg" title="Editar">
         <Pencil className="h-3.5 w-3.5" />
       </button>
@@ -229,6 +264,7 @@ function BloqueModal({
   const actualizar = useActualizarBloque()
 
   const [titulo, setTitulo] = useState(bloque?.titulo ?? '')
+  const [descripcion, setDescripcion] = useState(bloque?.descripcion ?? '')
   const [inicio, setInicio] = useState(bloque?.horaInicio ?? '08:00')
   const [fin, setFin] = useState(bloque?.horaFin ?? '09:00')
   const [dias, setDias] = useState<number[]>(bloque?.diasSemana ?? [1, 2, 3, 4, 5])
@@ -243,6 +279,7 @@ function BloqueModal({
   if (open && clave !== claveActual) {
     setClave(claveActual)
     setTitulo(bloque?.titulo ?? '')
+    setDescripcion(bloque?.descripcion ?? '')
     setInicio(bloque?.horaInicio ?? '08:00')
     setFin(bloque?.horaFin ?? '09:00')
     setDias(bloque?.diasSemana ?? [1, 2, 3, 4, 5])
@@ -267,6 +304,7 @@ function BloqueModal({
         {
           id: bloque.id,
           titulo: titulo.trim(),
+          descripcion,
           horaInicio: inicio,
           horaFin: fin,
           diasSemana: dias,
@@ -280,6 +318,7 @@ function BloqueModal({
       crear.mutate(
         {
           titulo: titulo.trim(),
+          descripcion: descripcion.trim() || undefined,
           horaInicio: inicio,
           horaFin: fin,
           diasSemana: dias,
@@ -297,6 +336,15 @@ function BloqueModal({
         <div>
           <label className="mb-1 block text-xs text-muted">Nombre del bloque</label>
           <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Prospección" autoFocus />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs text-muted">Descripción (opcional)</label>
+          <AutoTextarea
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            placeholder="Qué se hace exactamente en este rato: listas, guion, herramienta…"
+          />
         </div>
 
         <div className="grid grid-cols-2 gap-3">

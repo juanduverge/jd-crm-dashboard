@@ -1,7 +1,7 @@
 import {
   Home, Users, Target, KanbanSquare, Inbox, MessageSquare,
   BarChart3, Settings, Globe, CheckSquare, Trash2, CalendarClock, Archive,
-  Clock, CalendarDays, Gauge, Flag,
+  Clock, CalendarDays, Gauge, Flag, Timer, Rocket,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -32,7 +32,19 @@ export interface NavGroupItem {
   icon: LucideIcon
   /** Ruta base: se usa para saber si el grupo está activo y para abrirlo solo. */
   base: string
-  children: { to: string; label: string }[]
+  /**
+   * El icono del hijo sólo se usa con el sidebar colapsado, donde el acordeón
+   * no cabe y los hijos se despliegan como iconos sueltos. Sin él, el grupo
+   * colapsado se comporta como un enlace a su primer hijo.
+   */
+  children: {
+    to: string
+    label: string
+    icon?: LucideIcon
+    /** Prefijo que marca el hijo como activo cuando `to` no basta (Metas tiene
+     *  tres periodos bajo la misma entrada de menú). */
+    match?: string
+  }[]
 }
 
 export interface NavSectionItem {
@@ -48,23 +60,24 @@ export const navItems: NavItem[] = [
   { kind: 'link', to: '/web-leads', label: 'Inbox de Leads', icon: Globe },
   { kind: 'link', to: '/seguimientos', label: 'Seguimientos', icon: CalendarClock },
 
-  { kind: 'section', label: 'Productividad' },
+  // Productividad es UN módulo con seis pantallas, no seis módulos sueltos: por
+  // eso es un grupo y no un rótulo. El día/semana/mes de Metas baja a la propia
+  // página (es una forma de mirar lo mismo), que es la regla de arriba.
   {
     kind: 'group',
-    id: 'metas',
-    label: 'Metas',
-    icon: Flag,
-    base: '/productividad/metas',
+    id: 'productividad',
+    label: 'Productividad',
+    icon: Rocket,
+    base: '/productividad',
     children: [
-      { to: '/productividad/metas/dia', label: 'Del día' },
-      { to: '/productividad/metas/semana', label: 'De la semana' },
-      { to: '/productividad/metas/mes', label: 'Del mes' },
+      { to: '/productividad/metas/dia', label: 'Metas', icon: Flag, match: '/productividad/metas' },
+      { to: '/productividad/horario', label: 'Horario del día', icon: Clock },
+      { to: '/productividad/calendario', label: 'Calendario', icon: CalendarDays },
+      { to: '/productividad/tareas', label: 'Tareas', icon: CheckSquare },
+      { to: '/productividad/tiempo', label: 'Registro de tiempo', icon: Timer },
+      { to: '/productividad/metricas', label: 'Métricas y rendimiento', icon: Gauge },
     ],
   },
-  { kind: 'link', to: '/productividad/horario', label: 'Horario', icon: Clock },
-  { kind: 'link', to: '/productividad/calendario', label: 'Calendario', icon: CalendarDays },
-  { kind: 'link', to: '/productividad/tareas', label: 'Tareas', icon: CheckSquare },
-  { kind: 'link', to: '/productividad/metricas', label: 'Métricas', icon: Gauge },
 
   { kind: 'section', label: 'Negocio' },
   { kind: 'link', to: '/campaigns', label: 'Campañas', icon: Target },

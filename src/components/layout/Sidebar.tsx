@@ -128,22 +128,42 @@ function Enlace({
 
 function Grupo({ grupo, collapsed }: { grupo: NavGroupItem; collapsed: boolean }) {
   const { pathname } = useLocation()
-  const abierto = useUiStore((s) => s.navGroups[grupo.id] ?? false)
+  const guardado = useUiStore((s) => s.navGroups[grupo.id])
   const toggleGrupo = useUiStore((s) => s.toggleNavGroup)
 
   const dentro = pathname.startsWith(grupo.base)
+  // Estando dentro del grupo se abre solo: llegar por un enlace o por la URL y
+  // encontrarse el menú cerrado sobre la pantalla en la que estás no ayuda.
+  const abierto = guardado ?? dentro
 
-  // Colapsado el acordeón no cabe: el grupo se comporta como un enlace directo
-  // a su primer hijo, que es lo que el usuario espera al pulsar el icono.
   if (collapsed) {
+    // Sin rótulos el acordeón no aporta nada, así que los hijos con icono se
+    // despliegan sueltos: seis iconos siguen siendo navegables de un clic.
+    // Si el grupo no los tiene, se comporta como enlace a su primer hijo.
+    const conIcono = grupo.children.filter((c) => c.icon)
+    if (conIcono.length === 0) {
+      return (
+        <NavLink to={grupo.children[0].to} className={() => claseEnlace(dentro)} title={grupo.label}>
+          <grupo.icon className="h-[18px] w-[18px] shrink-0" />
+        </NavLink>
+      )
+    }
     return (
-      <NavLink
-        to={grupo.children[0].to}
-        className={() => claseEnlace(dentro)}
-        title={grupo.label}
-      >
-        <grupo.icon className="h-[18px] w-[18px] shrink-0" />
-      </NavLink>
+      <div className="space-y-1 border-y border-border py-1">
+        {conIcono.map((hijo) => {
+          const Icono = hijo.icon!
+          return (
+            <NavLink
+              key={hijo.to}
+              to={hijo.to}
+              className={({ isActive }) => claseEnlace(isActive)}
+              title={`${grupo.label} · ${hijo.label}`}
+            >
+              <Icono className="h-[18px] w-[18px] shrink-0" />
+            </NavLink>
+          )
+        })}
+      </div>
     )
   }
 
@@ -177,23 +197,28 @@ function Grupo({ grupo, collapsed }: { grupo: NavGroupItem; collapsed: boolean }
             className="overflow-hidden"
           >
             {/* La guía vertical hace evidente que estos elementos cuelgan del grupo. */}
-            <div className="ml-[26px] mt-1 space-y-0.5 border-l border-border pl-3">
-              {grupo.children.map((hijo) => (
-                <NavLink
-                  key={hijo.to}
-                  to={hijo.to}
-                  className={({ isActive }) =>
-                    cn(
-                      'block rounded-lg px-3 py-1.5 text-[13px] transition-colors',
-                      isActive
+            <div className="ml-[26px] mt-1 space-y-0.5 border-l border-border pl-2">
+              {grupo.children.map((hijo) => {
+                const Icono = hijo.icon
+                const activo = hijo.match
+                  ? pathname.startsWith(hijo.match)
+                  : pathname === hijo.to || pathname.startsWith(`${hijo.to}/`)
+                return (
+                  <NavLink
+                    key={hijo.to}
+                    to={hijo.to}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] transition-colors',
+                      activo
                         ? 'bg-primary-50 font-medium text-primary-600 dark:bg-primary-400/15 dark:text-primary-300'
                         : 'text-muted hover:bg-surface-2 hover:text-fg',
-                    )
-                  }
-                >
-                  {hijo.label}
-                </NavLink>
-              ))}
+                    )}
+                  >
+                    {Icono && <Icono className="h-4 w-4 shrink-0" />}
+                    <span className="truncate">{hijo.label}</span>
+                  </NavLink>
+                )
+              })}
             </div>
           </motion.div>
         )}

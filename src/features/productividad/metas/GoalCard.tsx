@@ -2,6 +2,7 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { Check, Minus, Pencil, Plus, Trash2, Layers } from 'lucide-react'
 import { Button, Input } from '@/components/ui'
+import { AutoTextarea } from '@/components/ui/AutoTextarea'
 import { Modal } from '@/components/ui/Modal'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { cn } from '@/lib/utils'
@@ -76,6 +77,17 @@ export function GoalCard({
           )}
         </div>
       </div>
+
+      {/* La descripción se recorta a tres líneas para que la rejilla de
+          tarjetas no baile; el texto completo queda en el tooltip. */}
+      {goal.descripcion && (
+        <p
+          className="-mt-1 line-clamp-3 whitespace-pre-line text-xs leading-relaxed text-muted"
+          title={goal.descripcion}
+        >
+          {goal.descripcion}
+        </p>
+      )}
 
       {esToggle ? (
         <button
@@ -186,6 +198,7 @@ function AvanceLibre({ onSumar, disabled }: { onSumar: (n: number) => void; disa
 function EditarMetaModal({ goal, open, onClose }: { goal: Goal; open: boolean; onClose: () => void }) {
   const actualizar = useActualizarMeta()
   const [nombre, setNombre] = useState(goal.nombre)
+  const [descripcion, setDescripcion] = useState(goal.descripcion ?? '')
   const [target, setTarget] = useState(String(goal.target))
   const [unidad, setUnidad] = useState(goal.unidad ?? '')
 
@@ -200,6 +213,7 @@ function EditarMetaModal({ goal, open, onClose }: { goal: Goal; open: boolean; o
       {
         id: goal.id,
         nombre: nombre.trim(),
+        descripcion,
         target: goal.tipo === 'toggle' ? 1 : t,
         unidad,
         // Al cambiar el objetivo de una meta con hijas, se reparte de nuevo
@@ -222,6 +236,20 @@ function EditarMetaModal({ goal, open, onClose }: { goal: Goal; open: boolean; o
         <div>
           <label className="mb-1 block text-xs text-muted">Nombre</label>
           <Input value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs text-muted">Descripción</label>
+          <AutoTextarea
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            placeholder="Qué cuenta como avance, cómo se consigue, con quién…"
+          />
+          {goal.tieneHijas && (
+            <p className="mt-1 text-[11px] text-muted">
+              Se copia también a sus metas
+              {goal.periodo === 'mes' ? ' semanales y diarias' : ' diarias'}.
+            </p>
+          )}
         </div>
         {goal.tipo === 'contador' && (
           <div className="grid grid-cols-2 gap-3">

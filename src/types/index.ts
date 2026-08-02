@@ -205,7 +205,15 @@ export interface WebLead {
   actualizado?: string
 }
 
-export type FollowUpTipo = 'llamada' | 'email' | 'whatsapp' | 'reunion' | 'otro'
+/**
+ * Medio de contacto del toque. `reunion` es la presencial; la remota es
+ * `videollamada`. Los cinco primeros son los originales de la 0013 y no se
+ * renombran: hay filas históricas con esos valores. Los cuatro últimos llegan
+ * con la 0020.
+ */
+export type FollowUpTipo =
+  | 'llamada' | 'email' | 'whatsapp' | 'reunion' | 'otro'
+  | 'videollamada' | 'linkedin' | 'instagram' | 'sms'
 export type FollowUpEstado = 'pendiente' | 'completado' | 'cancelado'
 export type FollowUpResultado = 'positivo' | 'negativo' | 'sin_respuesta'
 /** Urgencia derivada en SQL por la vista `follow_ups_agenda`. */
@@ -231,6 +239,15 @@ export interface FollowUp {
   responsable?: string
   creadoEn?: string           // ISO
   completadoEn?: string       // ISO; solo si estado = 'completado'
+
+  // --- Migración 0020 ---
+  /** HH:MM. Opcional a propósito: "mañana, cuando pueda" es un toque válido. */
+  hora?: string
+  prioridad?: Priority
+  /** Qué se busca del toque. Se escribe antes; `resultado` se rellena después. */
+  resultadoEsperado?: string
+  /** Notas privadas del equipo, distintas de `nota` (contexto del toque). */
+  comentariosInternos?: string
 }
 
 /** Fila de la vista `follow_ups_agenda`: follow-up pendiente + datos del lead. */
@@ -265,7 +282,18 @@ export interface Tarea {
   /** Meta a la que alimenta esta tarea, si está ligada a una (opcional). */
   goalId?: string
   responsable?: string
+  /** Contexto libre de la tarea (columna `descripcion`, existe desde la 0001). */
+  descripcion?: string
   notas?: string
+  /** Instante en que pasó a hecha; lo sella la BD (migración 0017). */
+  completadaEn?: string
+  /** Referencias externas (documento, diseño, ticket). Migración 0021. */
+  enlaces?: string[]
+  /**
+   * Duración ESTIMADA en minutos. Distinta del tiempo realmente dedicado, que
+   * vive en `time_entries`: el tiempo mide, no puntúa. Migración 0021.
+   */
+  duracionMin?: number
   creado?: string
   actualizado?: string
 }
@@ -288,6 +316,8 @@ export type GoalTipo = 'contador' | 'toggle'
 export interface Goal {
   id: string
   nombre: string
+  /** Contexto libre: qué cuenta como avance y por qué existe (migración 0017). */
+  descripcion?: string
   periodo: GoalPeriodo
   parentId?: string
   tipo: GoalTipo
@@ -308,6 +338,8 @@ export interface Goal {
 export interface HorarioBloque {
   id: string
   titulo: string
+  /** Qué se hace exactamente en el bloque; el título es sólo la etiqueta. */
+  descripcion?: string
   horaInicio: string        // HH:MM
   horaFin: string           // HH:MM
   diasSemana: number[]      // ISO dow: 1 = lunes ... 7 = domingo
@@ -321,6 +353,99 @@ export interface HorarioBloque {
 /** Bloque del horario resuelto para un día concreto, con su estado. */
 export interface HorarioBloqueDia extends HorarioBloque {
   completado: boolean
+}
+
+// -------------------------------------------------------------
+// REGISTRO DE TIEMPO (migración 0016)
+// -------------------------------------------------------------
+
+/** Medida en vivo (`cronometro`) o escrita a mano después (`manual`). */
+export type TimeEntryFuente = 'cronometro' | 'manual'
+
+/**
+ * Un tramo de tiempo trabajado. Mide, no puntúa: parar el cronómetro NO suma
+ * a ninguna meta — para eso están los +/− de la meta diaria y los bloques del
+ * horario. Esto responde a "¿en qué se me fue el día?".
+ *
+ * `fecha` es la jornada a la que se imputa y la pone el cliente: el servidor
+ * está en UTC y un tramo de las 23:30 pertenece al día de quien lo trabajó.
+ */
+// -----------------------------------------------------------
+// CALENDARIO — migración 0018
+// -----------------------------------------------------------
+
+export type EventoTipo = 'evento' | 'reunion' | 'recordatorio'
+/** Incluye 'urgente', que `Priority` (de 0001) no tiene. */
+export type EventoPrioridad = 'baja' | 'media' | 'alta' | 'urgente'
+export type EventoEstado = 'pendiente' | 'confirmado' | 'hecho' | 'cancelado'
+
+/**
+ * Lo que vive en el calendario por derecho propio. Las tareas, las metas y
+ * los bloques del horario NO son eventos: el calendario los lee de su tabla
+ * de siempre y los pinta al lado (ver `ItemCalendario`).
+ */
+export interface Evento {
+  id: string
+  titulo: string
+  descripcion?: string
+  notas?: string
+  tipo: EventoTipo
+  estado: EventoEstado
+  /** ISO timestamptz: un evento sí es un instante absoluto. */
+  inicio: string
+  fin: string
+  todoElDia: boolean
+  color?: string
+  prioridad?: EventoPrioridad
+  categoria?: string
+  etiquetas: string[]
+  enlace?: string
+  ubicacion?: string
+  goalId?: string
+  taskId?: string
+  leadId?: string
+  responsable?: string
+  /** Presente sólo si el evento vino de (o se subió a) Google Calendar. */
+  googleEventId?: string
+  creado: string
+  actualizado: string
+}
+
+export interface TimeEntry {
+  id: string
+  descripcion: string
+  fecha: string             // YYYY-MM-DD
+  inicio: string            // ISO timestamptz
+  /** Ausente mientras el cronómetro corre. */
+  fin?: string
+  /** Ausente mientras el cronómetro corre; la calcula la BD, nunca el cliente. */
+  duracionSeg?: number
+  fuente: TimeEntryFuente
+  goalId?: string
+  bloqueId?: string
+  taskId?: string
+  responsable?: string
+  notas?: string
+  /**
+   * Tipo de trabajo (reuniones, desarrollo, ventas...). Agrupa el tiempo, y es
+   * una pregunta distinta de `goalId` («¿para qué objetivo?») y de
+   * `descripcion` («¿qué cosa concreta?»). Migración 0019.
+   */
+  categoria?: string
+}
+
+/**
+ * Fila de `v_tiempo_diario`: el tiempo ya agregado por día, responsable y
+ * meta. Lo agrega la BD para que el dashboard de Métricas no se traiga miles
+ * de tramos sueltos. Sólo cuenta tiempo cerrado.
+ */
+export interface TiempoDiario {
+  fecha: string
+  responsable?: string
+  goalId?: string
+  goalNombre?: string
+  entradas: number
+  segundos: number
 }
 
 export type ContactType = 'principal' | 'ventas' | 'soporte' | 'facturacion' | 'personal' | 'otro'

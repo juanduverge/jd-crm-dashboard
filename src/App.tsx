@@ -17,6 +17,7 @@ const MetasPage = lazy(() => import('./features/productividad/metas/MetasPage'))
 const HorarioPage = lazy(() => import('./features/productividad/horario/HorarioPage'))
 const CalendarioPage = lazy(() => import('./features/productividad/calendario/CalendarioPage'))
 const TareasPage = lazy(() => import('./features/productividad/tareas/TareasPage'))
+const TiempoPage = lazy(() => import('./features/productividad/tiempo/TiempoPage'))
 const MetricasPage = lazy(() => import('./features/productividad/metricas/MetricasPage'))
 const FollowUpsPage = lazy(() => import('./features/followups/FollowUpsPage').then((m) => ({ default: m.FollowUpsPage })))
 const ArchivoPage = lazy(() => import('./features/archivo/ArchivoPage').then((m) => ({ default: m.ArchivoPage })))
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="productividad/horario" element={<Suspense fallback={<RouteFallback />}><HorarioPage /></Suspense>} />
           <Route path="productividad/calendario" element={<Suspense fallback={<RouteFallback />}><CalendarioPage /></Suspense>} />
           <Route path="productividad/tareas" element={<Suspense fallback={<RouteFallback />}><TareasPage /></Suspense>} />
+          <Route path="productividad/tiempo" element={<Suspense fallback={<RouteFallback />}><TiempoPage /></Suspense>} />
           <Route path="productividad/metricas" element={<Suspense fallback={<RouteFallback />}><MetricasPage /></Suspense>} />
           {/* La ruta antigua sigue viva para no romper enlaces ya guardados. */}
           <Route path="tareas" element={<Navigate to="/productividad/tareas" replace />} />

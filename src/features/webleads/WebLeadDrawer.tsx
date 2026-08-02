@@ -8,6 +8,7 @@ import {
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge } from '@/components/ui'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
+import { ResponsableSelect } from '@/components/ui/ResponsableSelect'
 import { cn } from '@/lib/utils'
 import { useUpdateWebLead, useConvertWebLead, useCreateTarea, useDeleteWebLead, useEmailAliases } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
@@ -225,8 +226,9 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
 
             <Field label="Responsable">
               <div className="flex gap-2">
-                <input value={responsable} onChange={(e) => setResponsable(e.target.value)} placeholder="Nombre del responsable"
-                  className="input h-9 flex-1 text-sm" />
+                {/* Antes era texto libre: "JD", "Juan" y "Juan Duvergé" acababan
+                    contando como tres personas en cualquier filtro o métrica. */}
+                <ResponsableSelect value={responsable} onChange={setResponsable} className="flex-1" />
                 <Button variant="outline" disabled={update.isPending} onClick={() => patch({ id: lead.id, responsable }, 'Responsable asignado')}>
                   <UserCheck className="h-4 w-4" /> Asignar
                 </Button>

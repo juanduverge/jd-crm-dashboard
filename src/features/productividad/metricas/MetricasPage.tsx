@@ -1,16 +1,18 @@
-import { Placeholder } from '@/components/layout/Placeholder'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { MetricasView } from './MetricasView'
 
 /**
- * El dashboard llega en la fase 8, pero la entrada existe desde ya: el dato que
- * lo alimenta (`time_entries`) empieza a registrarse en la fase 4, y conviene
- * tener el destino visible mientras tanto.
+ * El panel del mes. Vive de `v_tiempo_diario` (migración 0016) y de las metas,
+ * así que sólo enseña algo cuando ya se ha registrado tiempo.
  */
 export default function MetricasPage() {
   return (
-    <Placeholder
-      title="Métricas y Rendimiento"
-      subtitle="En qué se va el tiempo, qué se completa y qué se traduce en negocio"
-      phase="Fase 8"
-    />
+    <div>
+      <PageHeader
+        title="Métricas y Rendimiento"
+        subtitle="En qué se va el tiempo, qué se completa y qué se traduce en negocio"
+      />
+      <MetricasView />
+    </div>
   )
 }

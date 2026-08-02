@@ -11,9 +11,9 @@ import { LeadForm } from './LeadForm'
 import { LeadDrawer } from './LeadDrawer'
 import { LeadSearchModal } from './LeadSearchModal'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
-import { useLeads, useDeleteLead } from '@/hooks/useData'
+import { useLeads, useDeleteLead, useNichos } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
-import { DEFAULT_NICHES, PIPELINE_STAGES } from '@/lib/config'
+import { PIPELINE_STAGES } from '@/lib/config'
 import { scoreColor, fuzzyMatch, formatCurrency, downloadCSV, cn } from '@/lib/utils'
 import type { Lead } from '@/types'
 import { formToLeadPatch, type LeadFormValues } from './leadSchema'
@@ -63,6 +63,7 @@ export function LeadsPage() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const deleteLead = useDeleteLead()
+  const nichos = useNichos()
 
   // Base: aplica búsqueda + filtros avanzados (nicho/score), sin la pestaña ni pills.
   const base = useMemo(() =>
@@ -233,7 +234,7 @@ export function LeadsPage() {
             <label className="text-xs text-muted">Nicho
               <Select className="mt-1 w-44" value={fNicho} onChange={(e) => setFNicho(e.target.value)}>
                 <option value="">Todos</option>
-                {DEFAULT_NICHES.map((n) => <option key={n.id} value={n.id}>{n.emoji} {n.nombre}</option>)}
+                {nichos.map((n) => <option key={n.id} value={n.id}>{n.emoji} {n.nombre}</option>)}
               </Select>
             </label>
             <label className="text-xs text-muted">Score mínimo: {fScoreMin}
@@ -293,7 +294,7 @@ export function LeadsPage() {
               <tbody>
                 {filtered.map((l) => {
                   const sc = scoreColor(l.score)
-                  const niche = DEFAULT_NICHES.find((n) => n.id === l.nicho)
+                  const niche = nichos.find((n) => n.id === l.nicho)
                   return (
                     <tr key={l.id} className="border-b border-border last:border-0 hover:bg-surface-2/60">
                       <td className="px-3 py-2.5">

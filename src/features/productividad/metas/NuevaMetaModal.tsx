@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { Button, Input, Select } from '@/components/ui'
+import { AutoTextarea } from '@/components/ui/AutoTextarea'
 import { Modal } from '@/components/ui/Modal'
 import { cn } from '@/lib/utils'
 import { useCrearMetaMensual, useCrearMetaSuelta } from '@/hooks/useData'
@@ -30,6 +31,7 @@ export function NuevaMetaModal({
   const crearSuelta = useCrearMetaSuelta()
 
   const [nombre, setNombre] = useState('')
+  const [descripcion, setDescripcion] = useState('')
   const [tipo, setTipo] = useState<GoalTipo>('contador')
   const [target, setTarget] = useState('')
   const [unidad, setUnidad] = useState('')
@@ -47,7 +49,7 @@ export function NuevaMetaModal({
   const previaDia = previaSemana && dias.length ? previaSemana / dias.length : 0
 
   const reset = () => {
-    setNombre(''); setTarget(''); setUnidad(''); setTipo('contador')
+    setNombre(''); setDescripcion(''); setTarget(''); setUnidad(''); setTipo('contador')
     setConCascada(true); setDias([1, 2, 3, 4, 5])
   }
 
@@ -68,6 +70,7 @@ export function NuevaMetaModal({
       crearMensual.mutate(
         {
           nombre: nombre.trim(),
+          descripcion: descripcion.trim() || undefined,
           tipo,
           target: targetNum,
           unidad: unidad.trim() || undefined,
@@ -82,6 +85,7 @@ export function NuevaMetaModal({
       crearSuelta.mutate(
         {
           nombre: nombre.trim(),
+          descripcion: descripcion.trim() || undefined,
           periodo,
           tipo,
           target: targetNum,
@@ -109,6 +113,19 @@ export function NuevaMetaModal({
             placeholder="Ej. Conseguir leads nuevos"
             autoFocus
           />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs text-muted">Descripción (opcional)</label>
+          <AutoTextarea
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            placeholder="Qué cuenta como avance, cómo se consigue, con quién…"
+          />
+          <p className="mt-1 text-[11px] text-muted">
+            El nombre cabe en una línea; aquí va el contexto. Se copia a las metas
+            semanales y diarias que se generen.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">

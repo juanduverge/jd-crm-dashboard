@@ -55,11 +55,90 @@ export const PIPELINE_STAGES = [
   { id: 'perdido', label: 'Cerrado Perdido', color: '#ff4848', probability: 0 },
 ] as const
 
-export const DEFAULT_NICHES = [
-  { id: 'real-estate', nombre: 'Real Estate', emoji: '🏠', color: '#ff7448' },
-  { id: 'restaurantes', nombre: 'Restaurantes', emoji: '🍽️', color: '#f38744' },
-  { id: 'clinicas', nombre: 'Clínicas', emoji: '🏥', color: '#0082f3' },
-  { id: 'abogados', nombre: 'Abogados', emoji: '⚖️', color: '#6248ff' },
-  { id: 'fitness', nombre: 'Fitness', emoji: '💪', color: '#16a34a' },
-  { id: 'otros', nombre: 'Otros', emoji: '📦', color: '#94a3b8' },
+/**
+ * Nichos (categorías de lead) que trae el CRM de fábrica.
+ *
+ * Con seis opciones casi todo acababa en "Otros", que es la forma de perder la
+ * dimensión más útil para segmentar campañas. La lista se agrupa por sector
+ * para que el desplegable siga siendo navegable siendo largo, y el usuario
+ * puede añadir los suyos desde el propio formulario (se guardan en `settings`,
+ * clave `nichos_personalizados`; ver `useNichos` en hooks/useData.ts).
+ *
+ * Los `id` son estables: son lo que queda escrito en `leads.nicho`. Cambiar uno
+ * huérfana los leads que ya lo tenían, así que se añaden, no se renombran.
+ * "Otros" va siempre el último, y por eso vive fuera de los grupos.
+ */
+export interface Niche {
+  id: string
+  nombre: string
+  emoji: string
+  color: string
+  grupo: string
+}
+
+export const DEFAULT_NICHES: Niche[] = [
+  // Construcción y espacio
+  { id: 'arquitectura', nombre: 'Arquitectura', emoji: '📐', color: '#ff7448', grupo: 'Construcción y espacio' },
+  { id: 'ingenieria', nombre: 'Ingeniería', emoji: '⚙️', color: '#f38744', grupo: 'Construcción y espacio' },
+  { id: 'construccion', nombre: 'Construcción', emoji: '🏗️', color: '#eab308', grupo: 'Construcción y espacio' },
+  { id: 'real-estate', nombre: 'Bienes Raíces', emoji: '🏠', color: '#ff7448', grupo: 'Construcción y espacio' },
+  { id: 'interiorismo', nombre: 'Interiorismo', emoji: '🛋️', color: '#d946ef', grupo: 'Construcción y espacio' },
+
+  // Hostelería y turismo
+  { id: 'restaurantes', nombre: 'Restaurantes', emoji: '🍽️', color: '#f38744', grupo: 'Hostelería y turismo' },
+  { id: 'hoteles', nombre: 'Hoteles', emoji: '🏨', color: '#0ea5e9', grupo: 'Hostelería y turismo' },
+  { id: 'turismo', nombre: 'Turismo', emoji: '🧳', color: '#06b6d4', grupo: 'Hostelería y turismo' },
+
+  // Salud
+  { id: 'clinicas', nombre: 'Clínicas', emoji: '🏥', color: '#0082f3', grupo: 'Salud' },
+  { id: 'dentistas', nombre: 'Dentistas', emoji: '🦷', color: '#38bdf8', grupo: 'Salud' },
+  { id: 'medicos', nombre: 'Médicos', emoji: '🩺', color: '#0284c7', grupo: 'Salud' },
+
+  // Servicios profesionales
+  { id: 'abogados', nombre: 'Abogados', emoji: '⚖️', color: '#6248ff', grupo: 'Servicios profesionales' },
+  { id: 'contadores', nombre: 'Contadores', emoji: '🧮', color: '#7c3aed', grupo: 'Servicios profesionales' },
+  { id: 'consultores', nombre: 'Consultores', emoji: '📊', color: '#8b5cf6', grupo: 'Servicios profesionales' },
+
+  // Marketing y creatividad
+  { id: 'agencias-marketing', nombre: 'Agencias de Marketing', emoji: '📣', color: '#ec4899', grupo: 'Marketing y creatividad' },
+  { id: 'estudios-creativos', nombre: 'Estudios Creativos', emoji: '🎨', color: '#f472b6', grupo: 'Marketing y creatividad' },
+
+  // Tecnología
+  { id: 'software', nombre: 'Software', emoji: '💻', color: '#2563eb', grupo: 'Tecnología' },
+  { id: 'saas', nombre: 'SaaS', emoji: '☁️', color: '#3b82f6', grupo: 'Tecnología' },
+  { id: 'ia', nombre: 'Inteligencia Artificial', emoji: '🤖', color: '#6366f1', grupo: 'Tecnología' },
+
+  // Educación
+  { id: 'educacion', nombre: 'Educación', emoji: '📚', color: '#f59e0b', grupo: 'Educación' },
+  { id: 'universidades', nombre: 'Universidades', emoji: '🎓', color: '#d97706', grupo: 'Educación' },
+  { id: 'escuelas', nombre: 'Escuelas', emoji: '🏫', color: '#fbbf24', grupo: 'Educación' },
+
+  // Comercio
+  { id: 'ecommerce', nombre: 'Ecommerce', emoji: '🛒', color: '#10b981', grupo: 'Comercio' },
+  { id: 'retail', nombre: 'Retail', emoji: '🏪', color: '#059669', grupo: 'Comercio' },
+
+  // Industria y logística
+  { id: 'manufactura', nombre: 'Manufactura', emoji: '🏭', color: '#64748b', grupo: 'Industria y logística' },
+  { id: 'industriales', nombre: 'Empresas Industriales', emoji: '🔧', color: '#475569', grupo: 'Industria y logística' },
+  { id: 'logistica', nombre: 'Logística', emoji: '📦', color: '#78716c', grupo: 'Industria y logística' },
+  { id: 'transporte', nombre: 'Transporte', emoji: '🚚', color: '#57534e', grupo: 'Industria y logística' },
+
+  // Automoción
+  { id: 'automotriz', nombre: 'Automotriz', emoji: '🚗', color: '#dc2626', grupo: 'Automoción' },
+  { id: 'talleres', nombre: 'Talleres', emoji: '🔩', color: '#b91c1c', grupo: 'Automoción' },
+
+  // Bienestar y belleza
+  { id: 'fitness', nombre: 'Gimnasios', emoji: '💪', color: '#16a34a', grupo: 'Bienestar y belleza' },
+  { id: 'centros-deportivos', nombre: 'Centros Deportivos', emoji: '⚽', color: '#22c55e', grupo: 'Bienestar y belleza' },
+  { id: 'barberias', nombre: 'Barberías', emoji: '💈', color: '#e11d48', grupo: 'Bienestar y belleza' },
+  { id: 'salones-belleza', nombre: 'Salones de Belleza', emoji: '💅', color: '#f43f5e', grupo: 'Bienestar y belleza' },
+
+  // Organizaciones
+  { id: 'ong', nombre: 'ONG', emoji: '🤝', color: '#0d9488', grupo: 'Organizaciones' },
+  { id: 'iglesias', nombre: 'Iglesias', emoji: '⛪', color: '#a16207', grupo: 'Organizaciones' },
+
+  { id: 'otros', nombre: 'Otros', emoji: '📦', color: '#94a3b8', grupo: 'Otros' },
 ]
+
+/** Clave en `settings` donde se guardan los nichos que crea el usuario. */
+export const CLAVE_NICHOS = 'nichos_personalizados'

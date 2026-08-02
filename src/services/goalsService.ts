@@ -14,6 +14,7 @@ import type { Goal, GoalPeriodo, GoalTipo, HorarioBloque } from '@/types'
 interface GoalRow {
   id: string
   nombre: string
+  descripcion: string | null
   periodo: GoalPeriodo
   parent_id: string | null
   tipo: GoalTipo
@@ -31,6 +32,7 @@ interface GoalRow {
 interface BloqueRow {
   id: string
   titulo: string
+  descripcion: string | null
   hora_inicio: string
   hora_fin: string
   dias_semana: number[]
@@ -46,6 +48,7 @@ function rowToGoal(row: GoalRow, conHijas: Set<string>): Goal {
   return {
     id: row.id,
     nombre: row.nombre,
+    descripcion: row.descripcion ?? undefined,
     periodo: row.periodo,
     parentId: row.parent_id ?? undefined,
     tipo: row.tipo,
@@ -66,6 +69,7 @@ function rowToBloque(row: BloqueRow): HorarioBloque {
   return {
     id: row.id,
     titulo: row.titulo,
+    descripcion: row.descripcion ?? undefined,
     horaInicio: (row.hora_inicio || '').slice(0, 5),
     horaFin: (row.hora_fin || '').slice(0, 5),
     diasSemana: row.dias_semana ?? [],
@@ -102,6 +106,7 @@ export const goalsService = {
   /** Crea la meta mensual y, si es contador, toda su cascada, en una transacción. */
   async crearMetaMensual(payload: {
     nombre: string
+    descripcion?: string
     tipo: GoalTipo
     target: number
     unidad?: string
@@ -121,12 +126,30 @@ export const goalsService = {
       p_responsable: payload.responsable || null,
     })
     if (error) throw error
-    return data as string
+
+    const id = data as string
+    // La cascada ya existe cuando vuelve el RPC, así que la descripción se
+    // baja aparte a toda la rama: una meta diaria sin contexto obliga a subir
+    // a la mensual para entender qué hay que hacer ese día.
+    if (payload.descripcion?.trim()) {
+      await this.setDescripcionCascada(id, payload.descripcion)
+    }
+    return id
+  },
+
+  /** Escribe la descripción en una meta y en todas sus descendientes. */
+  async setDescripcionCascada(id: string, descripcion: string): Promise<void> {
+    const { error } = await supabase.rpc('set_descripcion_cascada', {
+      p_goal_id: id,
+      p_descripcion: descripcion,
+    })
+    if (error) throw error
   },
 
   /** Meta suelta de una semana o un día, sin madre (fuera de la cascada). */
   async crearMetaSuelta(payload: {
     nombre: string
+    descripcion?: string
     periodo: 'semana' | 'dia'
     tipo: GoalTipo
     target: number
@@ -137,6 +160,7 @@ export const goalsService = {
   }): Promise<void> {
     const { error } = await supabase.from('goals').insert({
       nombre: payload.nombre,
+      descripcion: payload.descripcion || null,
       periodo: payload.periodo,
       tipo: payload.tipo,
       target: payload.tipo === 'toggle' ? 1 : payload.target,
@@ -156,6 +180,7 @@ export const goalsService = {
   async actualizarMeta(payload: {
     id: string
     nombre?: string
+    descripcion?: string
     target?: number
     unidad?: string
     responsable?: string
@@ -170,6 +195,12 @@ export const goalsService = {
     if (Object.keys(row).length) {
       const { error } = await supabase.from('goals').update(row).eq('id', payload.id)
       if (error) throw error
+    }
+
+    // La descripción baja a toda la rama: es el mismo objetivo visto a tres
+    // alturas, no tres objetivos distintos.
+    if (payload.descripcion !== undefined) {
+      await this.setDescripcionCascada(payload.id, payload.descripcion)
     }
 
     if (payload.redistribuir) {
@@ -243,8 +274,30 @@ export const goalsService = {
     return (data ?? []).map((r) => r.bloque_id as string)
   },
 
+  /**
+   * Completions de un rango, para el «plan contra realidad» de Métricas.
+   * Se devuelven crudas (bloque + fecha) en vez de un contador: el mismo dato
+   * sirve para el total del mes y para el detalle por bloque.
+   */
+  async getCompletadosDelRango(
+    desde: string,
+    hasta: string,
+  ): Promise<{ bloqueId: string; fecha: string }[]> {
+    const { data, error } = await supabase
+      .from('horario_completions')
+      .select('bloque_id, fecha')
+      .gte('fecha', desde)
+      .lte('fecha', hasta)
+    if (error) throw error
+    return (data ?? []).map((r) => ({
+      bloqueId: r.bloque_id as string,
+      fecha: r.fecha as string,
+    }))
+  },
+
   async crearBloque(payload: {
     titulo: string
+    descripcion?: string
     horaInicio: string
     horaFin: string
     diasSemana: number[]
@@ -253,6 +306,7 @@ export const goalsService = {
   }): Promise<void> {
     const { error } = await supabase.from('horario_bloques').insert({
       titulo: payload.titulo,
+      descripcion: payload.descripcion || null,
       hora_inicio: payload.horaInicio,
       hora_fin: payload.horaFin,
       dias_semana: payload.diasSemana,
@@ -265,6 +319,7 @@ export const goalsService = {
   async actualizarBloque(payload: {
     id: string
     titulo?: string
+    descripcion?: string
     horaInicio?: string
     horaFin?: string
     diasSemana?: number[]
@@ -274,6 +329,7 @@ export const goalsService = {
   }): Promise<void> {
     const row: Record<string, unknown> = {}
     if (payload.titulo !== undefined) row.titulo = payload.titulo
+    if (payload.descripcion !== undefined) row.descripcion = payload.descripcion || null
     if (payload.horaInicio !== undefined) row.hora_inicio = payload.horaInicio
     if (payload.horaFin !== undefined) row.hora_fin = payload.horaFin
     if (payload.diasSemana !== undefined) row.dias_semana = payload.diasSemana
