@@ -142,9 +142,13 @@ export function PipelinePage() {
   const confirmDelete = async () => {
     if (!deleteTarget) return
     const id = deleteTarget.id
-    await deleteLead.mutateAsync({ leadId: id })
-    removeLeads([id])
-    toast.success(`${deleteTarget.empresa} eliminado`)
+    try {
+      await deleteLead.mutateAsync({ leadId: id })
+      removeLeads([id])
+      toast.success(`${deleteTarget.empresa} eliminado`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar el lead')
+    }
     setDeleteTarget(null)
   }
 

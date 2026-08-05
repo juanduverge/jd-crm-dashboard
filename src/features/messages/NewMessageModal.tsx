@@ -66,7 +66,12 @@ export function NewMessageModal({
       })
       const effectiveLeadId = leadId ?? matchedLead?.id
       const effectiveSubject = subject.trim() || 'Mensaje de JD Developer'
-      await messagesService.logSentMessage({ leadId: effectiveLeadId, asunto: effectiveSubject, cuerpo: body.trim() })
+      await messagesService.logSentMessage({
+        leadId: effectiveLeadId,
+        destinatario: email,
+        asunto: effectiveSubject,
+        cuerpo: body.trim(),
+      })
       toast.success('Mensaje enviado')
       reset()
       onSent?.()

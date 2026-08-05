@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react'
 import { addDays, isToday } from 'date-fns'
 import toast from 'react-hot-toast'
-import { Check, ChevronLeft, ChevronRight, Circle, ListChecks, Minus, Plus } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Circle, ListChecks, Minus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button, EmptyState, Skeleton } from '@/components/ui'
+import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { cn } from '@/lib/utils'
-import { useGoals, useRegistrarAvance, useTareas } from '@/hooks/useData'
+import { useEliminarMeta, useGoals, useRegistrarAvance, useTareas } from '@/hooks/useData'
+import { EditarMetaModal } from './EditarMetaModal'
 import { NuevaMetaModal } from './NuevaMetaModal'
 import {
   filtrarPorPeriodo, fmtDia, fmtNum, iso, progreso, rangoConsulta, tonoProgreso,
@@ -114,6 +116,9 @@ export function MetasDiaView() {
 
 function FilaMetaDia({ goal }: { goal: Goal }) {
   const avance = useRegistrarAvance()
+  const eliminar = useEliminarMeta()
+  const [editando, setEditando] = useState(false)
+  const [borrando, setBorrando] = useState(false)
   const pct = progreso(goal)
   const esToggle = goal.tipo === 'toggle'
   const hecho = esToggle ? goal.valorActual >= 1 : pct >= 100
@@ -162,6 +167,31 @@ function FilaMetaDia({ goal }: { goal: Goal }) {
         )}
       </div>
 
+      {/* Editar / eliminar también aquí: el día es la vista de entrada por
+          defecto, y hasta ahora obligaba a subir a semana o mes sólo para
+          corregir una errata o quitar una meta suelta. */}
+      <div className="flex shrink-0 items-center gap-0.5">
+        <button
+          onClick={() => setEditando(true)}
+          className="btn-ghost h-8 w-8 rounded-lg p-0 text-muted hover:text-fg"
+          title="Editar meta"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        {/* Sólo las metas SUELTAS se borran desde el día: una meta diaria de
+            una cascada es un trozo del reparto mensual, y borrarla aquí
+            dejaría el mes descuadrado. Esa se elimina desde su meta madre. */}
+        {!goal.parentId && (
+          <button
+            onClick={() => setBorrando(true)}
+            className="btn-ghost h-8 w-8 rounded-lg p-0 text-red-500 hover:bg-red-500/10"
+            title="Eliminar meta"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
       {!esToggle && (
         <div className="flex shrink-0 items-center gap-1">
           <button
@@ -182,6 +212,19 @@ function FilaMetaDia({ goal }: { goal: Goal }) {
           </button>
         </div>
       )}
+
+      <EditarMetaModal goal={goal} open={editando} onClose={() => setEditando(false)} />
+      <ConfirmDeleteModal
+        open={borrando}
+        onClose={() => setBorrando(false)}
+        title="Eliminar meta"
+        itemLabel={goal.nombre}
+        onConfirm={async () => {
+          await eliminar.mutateAsync(goal.id)
+          toast.success('Meta eliminada')
+          setBorrando(false)
+        }}
+      />
     </div>
   )
 }

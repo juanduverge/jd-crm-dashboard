@@ -150,22 +150,43 @@ export const timeService = {
     return data as string
   },
 
-  /** Sólo texto y enlaces: las horas no se editan por aquí (ver el trigger). */
+  /**
+   * Corrige un tramo ya registrado, horas incluidas.
+   *
+   * Va por RPC (`editar_tiempo`, migración 0023) y no por UPDATE directo: es
+   * quien impide cerrar un cronómetro en marcha por la puerta de atrás y
+   * quien comprueba que la jornada siga cuadrando con el inicio. La duración
+   * nunca se manda — la deriva el trigger de inicio/fin.
+   *
+   * `null` significa "no tocar". Para VACIAR meta o categoría hay que pasar
+   * explícitamente `null`, y el servicio lo traduce a la bandera de limpieza
+   * que espera el RPC.
+   */
   async actualizar(p: {
     id: string
     descripcion?: string
+    /** YYYY-MM-DD */
+    fecha?: string
+    /** ISO */
+    inicio?: string
+    /** ISO. Sólo en tramos ya cerrados. */
+    fin?: string
     goalId?: string | null
     notas?: string
     categoria?: string | null
   }): Promise<void> {
-    const row: Record<string, unknown> = {}
-    if (p.descripcion !== undefined) row.descripcion = p.descripcion
-    if (p.goalId !== undefined) row.goal_id = p.goalId || null
-    if (p.notas !== undefined) row.notas = p.notas || null
-    if (p.categoria !== undefined) row.categoria = p.categoria || null
-    if (!Object.keys(row).length) return
-
-    const { error } = await supabase.from('time_entries').update(row).eq('id', p.id)
+    const { error } = await supabase.rpc('editar_tiempo', {
+      p_id: p.id,
+      p_descripcion: p.descripcion ?? null,
+      p_fecha: p.fecha ?? null,
+      p_inicio: p.inicio ?? null,
+      p_fin: p.fin ?? null,
+      p_goal_id: p.goalId || null,
+      p_notas: p.notas ?? null,
+      p_categoria: p.categoria || null,
+      p_limpiar_goal: p.goalId === null,
+      p_limpiar_categoria: p.categoria === null,
+    })
     if (error) throw error
   },
 

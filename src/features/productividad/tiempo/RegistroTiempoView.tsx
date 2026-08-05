@@ -10,8 +10,8 @@ import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import {
-  useCreateTarea, useEliminarEntradaTiempo, useEntradaAbierta, useEntradasDelDia, useGoals,
-  useIniciarTiempo, usePararTiempo, useRegistrarTiempoManual, useTareas,
+  useActualizarEntradaTiempo, useCreateTarea, useEliminarEntradaTiempo, useEntradaAbierta,
+  useEntradasDelDia, useGoals, useIniciarTiempo, usePararTiempo, useRegistrarTiempoManual, useTareas,
 } from '@/hooks/useData'
 import { filtrarPorPeriodo, fmtDia, iso, rangoConsulta } from '../shared/goalMeta'
 import { fmtDuracion, fmtHora, fmtReloj, segundosDesde } from './tiempoMeta'
@@ -134,6 +134,7 @@ export function RegistroTiempoView() {
               key={e.id}
               entrada={e}
               meta={e.goalId ? metasPorId.get(e.goalId) : undefined}
+              metasMes={metasMes}
               onEliminar={() => setBorrando(e)}
             />
           ))}
@@ -410,12 +411,14 @@ function NuevaTareaRapidaModal({
 }
 
 function FilaEntrada({
-  entrada, meta, onEliminar,
+  entrada, meta, metasMes, onEliminar,
 }: {
   entrada: TimeEntry
   meta?: Goal
+  metasMes: Goal[]
   onEliminar: () => void
 }) {
+  const [editando, setEditando] = useState(false)
   const corriendo = !entrada.fin
 
   return (
@@ -454,10 +457,174 @@ function FilaEntrada({
         {corriendo ? '—' : fmtDuracion(entrada.duracionSeg ?? 0)}
       </span>
 
+      {/* Corregir el tramo: el cronómetro casi nunca se arranca en el minuto
+          exacto en que se empezó a trabajar. También en el tramo en marcha,
+          donde sólo se puede mover la hora de inicio. */}
+      <button
+        onClick={() => setEditando(true)}
+        className="btn-ghost h-7 w-7 shrink-0 p-0 text-muted hover:text-fg"
+        title={corriendo ? 'Corregir la hora de inicio' : 'Editar tramo'}
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+
       <button onClick={onEliminar} className="btn-ghost h-7 w-7 shrink-0 p-0 text-red-500 hover:bg-red-500/10" title="Eliminar">
         <Trash2 className="h-3.5 w-3.5" />
       </button>
+
+      <EditarEntradaModal
+        open={editando}
+        onClose={() => setEditando(false)}
+        entrada={entrada}
+        metasMes={metasMes}
+      />
     </div>
+  )
+}
+
+/** HH:MM en hora local a partir de un instante ISO, para un `<input type="time">`. */
+function horaInput(iso?: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+/**
+ * Corrección de un tramo ya registrado.
+ *
+ * El caso que justifica esta pantalla: empiezas a trabajar a las 9:00 y te
+ * acuerdas de darle al play a las 9:30. Sin esto, esa media hora se perdía y
+ * el registro del día quedaba mal para siempre.
+ *
+ * La DURACIÓN no es un campo: la recalcula la BD a partir de inicio y fin.
+ * Mostrarla como editable sería mentir — el trigger la reescribe igual.
+ *
+ * En un tramo EN MARCHA sólo se ofrece la hora de inicio: cerrarlo es trabajo
+ * del botón de parar, que es quien libera el cronómetro único.
+ */
+function EditarEntradaModal({
+  open, onClose, entrada, metasMes,
+}: {
+  open: boolean
+  onClose: () => void
+  entrada: TimeEntry
+  metasMes: Goal[]
+}) {
+  const actualizar = useActualizarEntradaTiempo()
+  const corriendo = !entrada.fin
+
+  const [descripcion, setDescripcion] = useState(entrada.descripcion)
+  const [fecha, setFecha] = useState(entrada.fecha)
+  const [desde, setDesde] = useState(() => horaInput(entrada.inicio))
+  const [hasta, setHasta] = useState(() => horaInput(entrada.fin))
+  const [goalId, setGoalId] = useState(entrada.goalId ?? '')
+  const [categoria, setCategoria] = useState(entrada.categoria ?? '')
+
+  // Resincroniza al abrir: el modal se queda montado dentro de la fila y sin
+  // esto conservaría lo tecleado la vez anterior.
+  useEffect(() => {
+    if (!open) return
+    setDescripcion(entrada.descripcion)
+    setFecha(entrada.fecha)
+    setDesde(horaInput(entrada.inicio))
+    setHasta(horaInput(entrada.fin))
+    setGoalId(entrada.goalId ?? '')
+    setCategoria(entrada.categoria ?? '')
+  }, [open, entrada])
+
+  const guardar = () => {
+    if (!descripcion.trim()) { toast.error('Escribe qué hiciste'); return }
+    if (!fecha || !desde) { toast.error('Hacen falta la jornada y la hora de inicio'); return }
+    if (!corriendo && !hasta) { toast.error('Hacen falta las dos horas'); return }
+    if (!corriendo && hasta <= desde) {
+      toast.error('La hora de fin debe ser posterior a la de inicio'); return
+    }
+
+    actualizar.mutate(
+      {
+        id: entrada.id,
+        descripcion: descripcion.trim(),
+        fecha,
+        inicio: new Date(`${fecha}T${desde}`).toISOString(),
+        // En marcha no se manda `fin`: el RPC lo rechaza a propósito.
+        ...(corriendo ? {} : { fin: new Date(`${fecha}T${hasta}`).toISOString() }),
+        // `null` explícito para poder DESenlazar la meta o quitar la categoría.
+        goalId: goalId || null,
+        categoria: categoria || null,
+      },
+      {
+        onSuccess: () => { toast.success('Tramo corregido'); onClose() },
+        onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'No se pudo corregir el tramo'),
+      },
+    )
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={corriendo ? 'Corregir tramo en marcha' : 'Editar tramo'}>
+      <div className="space-y-3">
+        <div>
+          <label className="mb-1 block text-xs text-muted">¿Qué hiciste?</label>
+          <Input value={descripcion} onChange={(e) => setDescripcion(e.target.value)} autoFocus />
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs text-muted">Jornada</label>
+          <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs text-muted">Desde</label>
+            <Input type="time" value={desde} onChange={(e) => setDesde(e.target.value)} />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Hasta</label>
+            <Input
+              type="time"
+              value={hasta}
+              onChange={(e) => setHasta(e.target.value)}
+              disabled={corriendo}
+            />
+          </div>
+        </div>
+
+        {corriendo ? (
+          <p className="rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">
+            El cronómetro sigue corriendo: aquí sólo se corrige la hora de inicio
+            («empecé a las 9:00, no a las 9:30»). Para cerrarlo, usa el botón de parar.
+          </p>
+        ) : (
+          <p className="text-[11px] text-muted">
+            La duración se recalcula sola a partir de estas dos horas.
+          </p>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs text-muted">Meta (opcional)</label>
+            <Select value={goalId} onChange={(e) => setGoalId(e.target.value)}>
+              <option value="">Sin meta</option>
+              {metasMes.map((g) => <option key={g.id} value={g.id}>{g.nombre}</option>)}
+            </Select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Categoría (opcional)</label>
+            <Select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
+              <option value="">Sin categoría</option>
+              {CATEGORIAS.map((c) => <option key={c.valor} value={c.valor}>{c.label}</option>)}
+            </Select>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={guardar} disabled={actualizar.isPending}>
+            {actualizar.isPending ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 

@@ -53,6 +53,9 @@ export function LeadDrawer({
   if (!lead) return null
   const sc = scoreColor(lead.score)
   const emailOptions = lead.emails && lead.emails.length > 1 ? lead.emails : undefined
+  // Teléfonos distintos del principal (Apify devuelve `phone` + `phoneUnformatted`
+  // + a veces varios más; ver migración 0025).
+  const otrosTelefonos = (lead.telefonos ?? []).filter((t) => t !== lead.telefono)
   const activeEmail = selectedEmail && emailOptions?.includes(selectedEmail) ? selectedEmail : (emailOptions?.[0] ?? lead.email)
 
   const analizarConIA = async () => {
@@ -173,6 +176,11 @@ export function LeadDrawer({
               <Row icon={Mail} label="Email" value={lead.email} onClick={lead.email ? () => setComposeOpen(true) : undefined} />
             )}
             <Row icon={Phone} label="Teléfono" value={lead.telefono} />
+            {/* El scraping suele traer más de un número (fijo + móvil). Se
+                muestran los adicionales en vez de quedarse sólo con el primero. */}
+            {otrosTelefonos.map((t) => (
+              <Row key={t} icon={Phone} label="Otro teléfono" value={t} />
+            ))}
             <Row icon={MessageCircle} label="WhatsApp" value={lead.whatsapp} />
             <Row icon={Instagram} label="Instagram" value={lead.instagram} />
             <Row icon={Facebook} label="Facebook" value={lead.facebook} />

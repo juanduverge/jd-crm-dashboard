@@ -1,10 +1,37 @@
 import { create } from 'zustand'
+import toast from 'react-hot-toast'
 import type { Lead } from '@/types'
 import { leadsService } from '@/services/leadsService'
 import { pipelineService } from '@/services/pipelineService'
 
 /**
- * Persistencia best-effort; nunca bloquea la UI optimista.
+ * Un fallo de escritura NO puede quedarse callado.
+ *
+ * Todas estas llamadas hacían `.catch(() => {})`. El efecto era el peor de
+ * los posibles con una UI optimista: la pantalla pintaba el cambio, la
+ * pantalla decía «Lead actualizado», Supabase lo rechazaba (RLS, constraint,
+ * red) y el dato falso se sostenía DIRTY_WINDOW_MS más hasta que un refetch
+ * lo revertía sin explicación. Eso es exactamente el síntoma «campos que no
+ * se actualizan» / «estado inconsistente».
+ *
+ * Ahora: se avisa, y se quita la marca `dirty` de ese lead para que el
+ * siguiente refetch traiga la verdad del servidor de inmediato en vez de
+ * seguir defendiendo el valor local que ya sabemos que no se guardó.
+ */
+function fallo(id: string, que: string) {
+  return (error: unknown) => {
+    const msg = error instanceof Error ? error.message
+      : (error as { message?: string })?.message ?? 'error desconocido'
+    toast.error(`No se pudo guardar ${que}: ${msg}`)
+    useLeadsStore.setState((s) => {
+      const { [id]: _descartado, ...resto } = s.dirty
+      return { dirty: resto }
+    })
+  }
+}
+
+/**
+ * Persistencia optimista: no bloquea la UI, pero sí informa si falla.
  * Los campos "propios" del lead y los de Pipeline (estado/valor/prioridad/
  * canal/responsable/próximo seguimiento/probabilidad/fecha cierre/score
  * manual) viven en la misma fila de Supabase (`leads`, ver migración 0008):
@@ -16,14 +43,14 @@ const persist = {
       estado: lead.estado, valorEstimado: lead.valorEstimado,
       prioridad: lead.prioridad, canalPrincipal: lead.canalPrincipal, responsable: lead.responsable,
       proximoSeguimiento: lead.proximoSeguimiento,
-    }).catch(() => {})
+    }).catch(fallo(lead.id, 'la etapa del lead'))
   },
   create(_lead: Lead) {
     // El lead (incluidos sus campos de pipeline) ya se creó en Supabase
     // vía leadsService.createLead antes de llegar aquí; nada más que hacer.
   },
   favorito(lead: Lead) {
-    leadsService.toggleFavorito(lead.id, !!lead.favorito).catch(() => {})
+    leadsService.toggleFavorito(lead.id, !!lead.favorito).catch(fallo(lead.id, 'el favorito'))
   },
   update(lead: Lead, prevEstado?: Lead['estado']) {
     // Campos propios del lead -> Supabase.
@@ -35,7 +62,7 @@ const persist = {
       facebook: lead.facebook, linkedin: lead.linkedin,
       fuente: lead.fuente, notas: lead.notas,
       etiquetas: lead.etiquetas ?? [],
-    }).catch(() => {})
+    }).catch(fallo(lead.id, 'los datos del lead'))
     // Campos de pipeline -> Supabase (misma fila `leads`). Solo se envía `estado`
     // (y por lo tanto se inserta un evento en pipeline_events) si de verdad cambió;
     // así una edición normal del lead no genera ruido en el historial de etapas.
@@ -45,7 +72,7 @@ const persist = {
       canalPrincipal: lead.canalPrincipal, responsable: lead.responsable,
       proximoSeguimiento: lead.proximoSeguimiento, probabilidad: lead.probabilidad,
       fechaCierreEstimada: lead.fechaCierreEstimada, scoreManual: lead.scoreManual ?? 0,
-    }).catch(() => {})
+    }).catch(fallo(lead.id, 'los datos de pipeline'))
   },
 }
 
@@ -140,7 +167,10 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
     const leads = get().leads.map((l) =>
       l.id === id ? { ...l, estado, fechaUltimoMovimiento: now } : l,
     )
-    set({ leads })
+    // Marcar dirty igual que updateLead/toggleFavorito: sin esto, un refetch
+    // del polling de 30 s que ya estuviera en vuelo devolvía la tarjeta a su
+    // columna anterior en pleno arrastre, aunque la escritura fuese bien.
+    set({ leads, dirty: { ...get().dirty, [id]: Date.now() } })
     const moved = leads.find((l) => l.id === id)
     if (moved) persist.move(moved)
   },

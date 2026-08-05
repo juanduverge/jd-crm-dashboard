@@ -2,7 +2,7 @@ import {
   addDays, endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek,
 } from 'date-fns'
 import { es } from 'date-fns/locale'
-import type { Goal } from '@/types'
+import type { Goal, GoalEstado } from '@/types'
 
 /** Lunes = 1 ... domingo = 7, igual que el `isodow` de Postgres. */
 export const DIAS_SEMANA: { iso: number; corto: string; label: string }[] = [
@@ -93,4 +93,16 @@ export function filtrarPorPeriodo(
   return (goals ?? []).filter(
     (g) => g.periodo === periodo && g.fechaInicio <= hasta && g.fechaFin >= desde,
   )
+}
+
+/**
+ * Etiqueta y color del estado declarativo de una meta (migración 0022).
+ * 'activa' entra en la tabla por completitud, pero la UI no la pinta: es el
+ * caso normal y no aporta información.
+ */
+export const GOAL_ESTADO_META: Record<GoalEstado, { label: string; cls: string }> = {
+  activa: { label: 'Activa', cls: 'bg-surface-2 text-muted' },
+  pausada: { label: 'Pausada', cls: 'bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400' },
+  completada: { label: 'Completada', cls: 'bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400' },
+  cancelada: { label: 'Cancelada', cls: 'bg-slate-100 text-slate-500 dark:bg-slate-500/15 dark:text-slate-400' },
 }

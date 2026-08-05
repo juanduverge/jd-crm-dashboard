@@ -141,10 +141,16 @@ export function LeadsPage() {
   const confirmDelete = async () => {
     const ids = [...selectedIds]
     if (!ids.length) return
-    await Promise.all(ids.map((id) => deleteLead.mutateAsync({ leadId: id })))
-    removeLeads(ids)
-    clearSelection()
-    toast.success(`${ids.length} lead(s) eliminado(s)`)
+    // Sin try/catch, un borrado rechazado (RLS, red) dejaba una promesa sin
+    // capturar y la seleccion sin limpiar: la pantalla se quedaba a medias.
+    try {
+      await Promise.all(ids.map((id) => deleteLead.mutateAsync({ leadId: id })))
+      removeLeads(ids)
+      clearSelection()
+      toast.success(`${ids.length} lead(s) eliminado(s)`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudieron eliminar los leads')
+    }
   }
 
   return (

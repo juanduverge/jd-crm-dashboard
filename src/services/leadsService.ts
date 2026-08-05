@@ -67,6 +67,14 @@ interface LeadRow {
   cerrado_en: string | null
   motivo_cierre: string | null
   etapa_previa: string | null
+  // Datos del scraping (migración 0025). Apify ya los entregaba; hasta ahora
+  // no había columna donde guardarlos y se perdían en el mapeo de n8n.
+  place_id: string | null
+  telefono_2: string | null
+  telefonos: string[] | null
+  emails: string[] | null
+  categoria: string | null
+  codigo_pais: string | null
 }
 
 /** El análisis IA (observaciones/recomendaciones/oportunidades/errores) se guarda como JSON en score_reasoning. */
@@ -103,8 +111,16 @@ function rowToLead(row: LeadRow): Lead {
     pais: row.pais ?? undefined,
     direccion: row.direccion ?? undefined,
     telefono: row.telefono ?? undefined,
-    email: row.email_contacto || row.email || undefined,
-    emails: [row.email_contacto, row.email].filter((e): e is string => !!e),
+    telefono2: row.telefono_2 ?? undefined,
+    // Todos los teléfonos que trajo el scraping, sin perder el principal.
+    telefonos: [...new Set([row.telefono, row.telefono_2, ...(row.telefonos ?? [])].filter((t): t is string => !!t))],
+    email: row.email_contacto || row.email || (row.emails?.[0] ?? undefined),
+    // `emails` era una lista de dos elementos cosida a mano a partir de las
+    // dos columnas escalares. Ahora incluye también el array real de la BD
+    // (0025), que es donde caen los correos que Apify encuentra en la web.
+    emails: [...new Set([row.email_contacto, row.email, ...(row.emails ?? [])].filter((e): e is string => !!e))],
+    placeId: row.place_id ?? undefined,
+    categoria: row.categoria ?? undefined,
     web: row.web ?? undefined,
     whatsapp: row.whatsapp ?? undefined,
     instagram: row.instagram ?? undefined,

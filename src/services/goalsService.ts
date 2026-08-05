@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-import type { Goal, GoalPeriodo, GoalTipo, HorarioBloque } from '@/types'
+import type { Goal, GoalEstado, GoalPeriodo, GoalTipo, HorarioBloque, Priority } from '@/types'
 
 /**
  * goalsService — módulo Tareas: metas en cascada (mes -> semana -> día) y
@@ -25,6 +25,8 @@ interface GoalRow {
   fecha_fin: string
   responsable: string | null
   orden: number
+  prioridad: Priority | null
+  estado: GoalEstado | null
   created_at: string
   updated_at: string
 }
@@ -59,6 +61,10 @@ function rowToGoal(row: GoalRow, conHijas: Set<string>): Goal {
     fechaFin: row.fecha_fin,
     responsable: row.responsable ?? undefined,
     orden: row.orden,
+    prioridad: row.prioridad ?? undefined,
+    // Si la 0022 aún no está aplicada la columna no viene: 'activa' es el
+    // mismo default que pone la BD, así la UI no se rompe entre despliegues.
+    estado: row.estado ?? 'activa',
     tieneHijas: conHijas.has(row.id),
     creado: row.created_at,
     actualizado: row.updated_at,
@@ -184,6 +190,11 @@ export const goalsService = {
     target?: number
     unidad?: string
     responsable?: string
+    /** YYYY-MM-DD. La BD valida que la hija siga cabiendo en su madre. */
+    fechaInicio?: string
+    fechaFin?: string
+    prioridad?: Priority | null
+    estado?: GoalEstado
     redistribuir?: boolean
   }): Promise<void> {
     const row: Record<string, unknown> = {}
@@ -191,10 +202,24 @@ export const goalsService = {
     if (payload.target !== undefined) row.target = payload.target
     if (payload.unidad !== undefined) row.unidad = payload.unidad || null
     if (payload.responsable !== undefined) row.responsable = payload.responsable || null
+    if (payload.fechaInicio !== undefined) row.fecha_inicio = payload.fechaInicio
+    if (payload.fechaFin !== undefined) row.fecha_fin = payload.fechaFin
+    if (payload.prioridad !== undefined) row.prioridad = payload.prioridad || null
+    if (payload.estado !== undefined) row.estado = payload.estado
 
     if (Object.keys(row).length) {
       const { error } = await supabase.from('goals').update(row).eq('id', payload.id)
-      if (error) throw error
+      // `goal_check_jerarquia` puede rechazar el cambio de fechas. El mensaje
+      // de Postgres es críptico, así que se traduce antes de subirlo a la UI.
+      if (error) {
+        if (/jerarqu|rango|fuera del periodo/i.test(error.message)) {
+          throw new Error(
+            'Las fechas no caben dentro del periodo de la meta superior. ' +
+            'Ajusta primero la meta madre.',
+          )
+        }
+        throw error
+      }
     }
 
     // La descripción baja a toda la rama: es el mismo objetivo visto a tres

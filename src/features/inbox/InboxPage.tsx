@@ -74,7 +74,14 @@ export function InboxPage() {
         leadId: selected.idLead,
         ...(att ? { attachmentName: replyAttachment!.name, attachmentBase64: att, attachmentMimeType: replyAttachment!.type } : {}),
       })
-      await messagesService.logSentMessage({ leadId: selected.idLead, asunto: selected.asunto || '(sin asunto)', cuerpo: replyText.trim() })
+      // `destinatario` siempre: si la respuesta va a alguien que aun no
+      // es lead, el envio tiene que quedar registrado igual.
+      await messagesService.logSentMessage({
+        leadId: selected.idLead,
+        destinatario: selected.deEmail,
+        asunto: selected.asunto || '(sin asunto)',
+        cuerpo: replyText.trim(),
+      })
       toast.success('Respuesta enviada')
       setReplyOpen(false)
       setReplyText('')

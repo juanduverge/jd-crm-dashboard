@@ -2,12 +2,12 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { Check, Minus, Pencil, Plus, Trash2, Layers } from 'lucide-react'
 import { Button, Input } from '@/components/ui'
-import { AutoTextarea } from '@/components/ui/AutoTextarea'
-import { Modal } from '@/components/ui/Modal'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { cn } from '@/lib/utils'
-import { useActualizarMeta, useEliminarMeta, useRegistrarAvance } from '@/hooks/useData'
-import { fmtNum, progreso, tonoProgreso } from '../shared/goalMeta'
+import { useEliminarMeta, useRegistrarAvance } from '@/hooks/useData'
+import { PRIORITY_META } from '@/lib/pipeline'
+import { EditarMetaModal } from './EditarMetaModal'
+import { GOAL_ESTADO_META, fmtNum, progreso, tonoProgreso } from '../shared/goalMeta'
 import type { Goal } from '@/types'
 
 /**
@@ -51,6 +51,22 @@ export function GoalCard({
           <p className={cn('truncate font-semibold text-fg', compacto ? 'text-sm' : 'text-sm')} title={goal.nombre}>
             {goal.nombre}
           </p>
+          {/* Prioridad y estado sólo se pintan cuando dicen algo: una meta
+              activa y sin prioridad es lo normal y no merece ruido visual. */}
+          {(goal.prioridad || goal.estado !== 'activa') && (
+            <div className="mt-1 flex flex-wrap items-center gap-1">
+              {goal.prioridad && (
+                <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-medium', PRIORITY_META[goal.prioridad].cls)}>
+                  {PRIORITY_META[goal.prioridad].label}
+                </span>
+              )}
+              {goal.estado !== 'activa' && (
+                <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-medium', GOAL_ESTADO_META[goal.estado].cls)}>
+                  {GOAL_ESTADO_META[goal.estado].label}
+                </span>
+              )}
+            </div>
+          )}
           {(subtitulo || goal.tieneHijas) && (
             <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted">
               {goal.tieneHijas && <Layers className="h-3 w-3 shrink-0" />}
@@ -192,90 +208,5 @@ function AvanceLibre({ onSumar, disabled }: { onSumar: (n: number) => void; disa
         Sumar
       </Button>
     </div>
-  )
-}
-
-function EditarMetaModal({ goal, open, onClose }: { goal: Goal; open: boolean; onClose: () => void }) {
-  const actualizar = useActualizarMeta()
-  const [nombre, setNombre] = useState(goal.nombre)
-  const [descripcion, setDescripcion] = useState(goal.descripcion ?? '')
-  const [target, setTarget] = useState(String(goal.target))
-  const [unidad, setUnidad] = useState(goal.unidad ?? '')
-
-  const targetCambia = Number(target) !== goal.target
-
-  const guardar = () => {
-    const t = Number(target)
-    if (!nombre.trim()) { toast.error('Escribe un nombre'); return }
-    if (goal.tipo === 'contador' && (!t || t <= 0)) { toast.error('El objetivo debe ser mayor que 0'); return }
-
-    actualizar.mutate(
-      {
-        id: goal.id,
-        nombre: nombre.trim(),
-        descripcion,
-        target: goal.tipo === 'toggle' ? 1 : t,
-        unidad,
-        // Al cambiar el objetivo de una meta con hijas, se reparte de nuevo
-        // entre ellas sin perder el progreso ya registrado.
-        redistribuir: goal.tieneHijas && targetCambia,
-      },
-      {
-        onSuccess: () => {
-          toast.success(goal.tieneHijas && targetCambia ? 'Meta actualizada y repartida' : 'Meta actualizada')
-          onClose()
-        },
-        onError: (e: unknown) => toast.error(e instanceof Error ? e.message : 'No se pudo actualizar'),
-      },
-    )
-  }
-
-  return (
-    <Modal open={open} onClose={onClose} title="Editar meta">
-      <div className="space-y-3">
-        <div>
-          <label className="mb-1 block text-xs text-muted">Nombre</label>
-          <Input value={nombre} onChange={(e) => setNombre(e.target.value)} autoFocus />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-muted">Descripción</label>
-          <AutoTextarea
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            placeholder="Qué cuenta como avance, cómo se consigue, con quién…"
-          />
-          {goal.tieneHijas && (
-            <p className="mt-1 text-[11px] text-muted">
-              Se copia también a sus metas
-              {goal.periodo === 'mes' ? ' semanales y diarias' : ' diarias'}.
-            </p>
-          )}
-        </div>
-        {goal.tipo === 'contador' && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs text-muted">Objetivo</label>
-              <Input value={target} onChange={(e) => setTarget(e.target.value)} inputMode="decimal" />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Unidad</label>
-              <Input value={unidad} onChange={(e) => setUnidad(e.target.value)} placeholder="leads, horas…" />
-            </div>
-          </div>
-        )}
-        {goal.tieneHijas && targetCambia && (
-          <p className="rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">
-            El nuevo objetivo se repartirá entre sus metas
-            {goal.periodo === 'mes' ? ' semanales y diarias' : ' diarias'}. El progreso ya registrado no se pierde.
-          </p>
-        )}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={guardar} disabled={actualizar.isPending}>
-            {actualizar.isPending ? 'Guardando…' : 'Guardar'}
-          </Button>
-        </div>
-      </div>
-    </Modal>
   )
 }

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   AlertTriangle, CalendarClock, CalendarDays, Check, CheckCircle2,
-  Clock, RefreshCw, Phone, Mail, MessageCircle,
+  Clock, RefreshCw, Phone, Mail, MessageCircle, ExternalLink,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Badge, Input, Select, Skeleton, EmptyState } from '@/components/ui'
@@ -19,6 +19,7 @@ import type { FollowUpTipo } from '@/types'
 import { PRIORITY_META } from '@/lib/pipeline'
 import { cn } from '@/lib/utils'
 import { CompletarFollowUpModal } from './CompletarFollowUpModal'
+import { LeadDetailHost } from '@/features/leads/LeadDetailHost'
 import type { FollowUpAgendaItem } from '@/types'
 
 /**
@@ -45,6 +46,10 @@ export function FollowUpsPage() {
   const [nuevaHora, setNuevaHora] = useState('')
   const [nuevoTipo, setNuevoTipo] = useState<FollowUpTipo>('llamada')
   const [nuevoResponsable, setNuevoResponsable] = useState('')
+  // Ficha completa del lead. Se guarda el id, no el item de la agenda: la ficha
+  // la resuelve `LeadDetailHost` desde el store de leads, que es la misma
+  // fuente que usa el módulo de Leads.
+  const [fichaLeadId, setFichaLeadId] = useState<string | null>(null)
 
   const items = useMemo(
     () => (data ?? []).filter((f) => !fResponsable || f.responsable === fResponsable),
@@ -159,6 +164,7 @@ export function FollowUpsPage() {
             vacio="Ninguno vencido. Al día."
             onCompletar={setCompletando}
             onReprogramar={abrirReprogramar}
+            onAbrirFicha={setFichaLeadId}
           />
           <Grupo
             titulo="Para hoy"
@@ -168,6 +174,7 @@ export function FollowUpsPage() {
             vacio="Nada agendado para hoy."
             onCompletar={setCompletando}
             onReprogramar={abrirReprogramar}
+            onAbrirFicha={setFichaLeadId}
           />
           <Grupo
             titulo="Próximos 7 días"
@@ -177,6 +184,7 @@ export function FollowUpsPage() {
             vacio="Nada en la próxima semana."
             onCompletar={setCompletando}
             onReprogramar={abrirReprogramar}
+            onAbrirFicha={setFichaLeadId}
           />
           {grupos.masAdelante.length > 0 && (
             <Grupo
@@ -187,6 +195,7 @@ export function FollowUpsPage() {
               vacio=""
               onCompletar={setCompletando}
               onReprogramar={abrirReprogramar}
+              onAbrirFicha={setFichaLeadId}
             />
           )}
         </div>
@@ -197,6 +206,10 @@ export function FollowUpsPage() {
         leadEmpresa={completando?.leadEmpresa}
         onClose={() => setCompletando(null)}
       />
+
+      {/* La MISMA ficha del módulo de Leads (drawer + edición + cambio de
+          etapa), no una versión reducida: ver LeadDetailHost. */}
+      <LeadDetailHost leadId={fichaLeadId} onClose={() => setFichaLeadId(null)} />
 
       <Modal
         open={!!reprogramando}
@@ -284,7 +297,7 @@ const TONOS = {
 } as const
 
 function Grupo({
-  titulo, icon, items, tono, vacio, onCompletar, onReprogramar,
+  titulo, icon, items, tono, vacio, onCompletar, onReprogramar, onAbrirFicha,
 }: {
   titulo: string
   icon: React.ReactNode
@@ -293,6 +306,7 @@ function Grupo({
   vacio: string
   onCompletar: (f: FollowUpAgendaItem) => void
   onReprogramar: (f: FollowUpAgendaItem) => void
+  onAbrirFicha: (leadId: string) => void
 }) {
   const t = TONOS[tono]
   if (items.length === 0 && !vacio) return null
@@ -309,7 +323,14 @@ function Grupo({
       ) : (
         <ul className="space-y-2">
           {items.map((f) => (
-            <Fila key={f.id} f={f} cls={t.fila} onCompletar={onCompletar} onReprogramar={onReprogramar} />
+            <Fila
+              key={f.id}
+              f={f}
+              cls={t.fila}
+              onCompletar={onCompletar}
+              onReprogramar={onReprogramar}
+              onAbrirFicha={onAbrirFicha}
+            />
           ))}
         </ul>
       )}
@@ -345,12 +366,13 @@ function AccionesContacto({ f }: { f: FollowUpAgendaItem }) {
 }
 
 function Fila({
-  f, cls, onCompletar, onReprogramar,
+  f, cls, onCompletar, onReprogramar, onAbrirFicha,
 }: {
   f: FollowUpAgendaItem
   cls: string
   onCompletar: (f: FollowUpAgendaItem) => void
   onReprogramar: (f: FollowUpAgendaItem) => void
+  onAbrirFicha: (leadId: string) => void
 }) {
   const tipo = TIPO_META[f.tipo]
   return (
@@ -359,9 +381,16 @@ function Fila({
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate text-sm font-semibold text-fg" title={f.leadEmpresa}>
+          {/* El nombre es el atajo natural a la ficha; el botón de abajo hace
+              lo mismo de forma explícita para quien no lo intuya. */}
+          <button
+            type="button"
+            onClick={() => onAbrirFicha(f.leadId)}
+            className="truncate text-left text-sm font-semibold text-fg hover:text-primary-500 hover:underline"
+            title={`Abrir ficha completa de ${f.leadEmpresa}`}
+          >
             {f.leadEmpresa}
-          </span>
+          </button>
           <Badge>{tipo.label}</Badge>
           <Badge>toque {f.orden}</Badge>
           {f.leadPrioridad && (
@@ -380,6 +409,10 @@ function Fila({
       <AccionesContacto f={f} />
 
       <div className="flex items-center gap-1.5">
+        <Button size="sm" variant="outline" onClick={() => onAbrirFicha(f.leadId)}>
+          <ExternalLink className="mr-1 h-3.5 w-3.5" />
+          Abrir ficha completa
+        </Button>
         <Button size="sm" variant="outline" onClick={() => onReprogramar(f)}>
           <CalendarClock className="mr-1 h-3.5 w-3.5" />
           Reprogramar

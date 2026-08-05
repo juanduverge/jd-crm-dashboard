@@ -75,22 +75,35 @@ export function MessagesPage() {
   const sendMessage = async () => {
     if (!selected || !compose.trim() || !leadEmail) return
     setSending(true)
+    // El id del hilo NO siempre es un lead: en un hilo suelto es la dirección
+    // de correo. Mandarlo como `leadId` metía un email en una columna uuid,
+    // el insert reventaba y el catch se lo comía: el mensaje salía por SMTP
+    // pero nunca quedaba registrado. Aquí se separan las dos cosas.
+    const leadId = selected.lead?.id
+    const asunto = `Mensaje de JD Developer${selected.lead?.empresa ? ` · ${selected.lead.empresa}` : ''}`
     try {
       const att = attachment ? await fileToBase64(attachment) : null
       await crmApi.sendReply({
         to: leadEmail,
-        subject: `Mensaje de JD Developer${selected.lead?.empresa ? ` · ${selected.lead.empresa}` : ''}`,
+        subject: asunto,
         body: compose.trim(),
-        leadId: selected.idLead,
+        leadId,
         ...(att ? { attachmentName: attachment!.name, attachmentBase64: att, attachmentMimeType: attachment!.type } : {}),
       })
-      await messagesService.logSentMessage({ leadId: selected.idLead, asunto: `Mensaje de JD Developer${selected.lead?.empresa ? ` · ${selected.lead.empresa}` : ''}`, cuerpo: compose.trim() })
+      await messagesService.logSentMessage({
+        leadId,
+        destinatario: leadEmail,
+        asunto,
+        cuerpo: compose.trim(),
+      })
       toast.success('Mensaje enviado')
       setCompose('')
       setAttachment(null)
       refetch()
-    } catch {
-      toast.error('No se pudo enviar el mensaje. Intenta de nuevo.')
+    } catch (e) {
+      // El error concreto importa: no es lo mismo que falle el envío que que
+      // falle el registro. Antes ambos daban el mismo mensaje genérico.
+      toast.error(e instanceof Error ? e.message : 'No se pudo enviar el mensaje. Intenta de nuevo.')
     } finally {
       setSending(false)
     }
@@ -117,8 +130,11 @@ export function MessagesPage() {
       {isError ? (
         <EmptyState
           icon={<MessageSquare className="h-8 w-8" />}
-          title="No se pudo conectar con n8n"
-          description='Verifica que el workflow "CRM API - Leer Sheets" esté activo y vuelve a intentar.'
+          // Este módulo lee de Supabase (`outreach_messages` + `inbox_messages`),
+          // no de n8n ni de Sheets. El mensaje anterior mandaba a revisar un
+          // workflow que no interviene: media hora perdida cada vez que fallaba.
+          title="No se pudieron cargar los mensajes"
+          description="La consulta a Supabase falló. Revisa la conexión y que las migraciones 0012 y 0024 estén aplicadas."
           action={<Button onClick={() => refetch()}>Reintentar</Button>}
         />
       ) : isLoading ? (
@@ -214,10 +230,20 @@ export function MessagesPage() {
                         <div className="flex items-center gap-2 text-xs text-muted">
                           <Icon className="h-3.5 w-3.5" />
                           <span className="font-medium text-fg">{recibido ? 'Recibido' : m.tipo || 'Enviado'}</span>
+                          {m.remitente && <span className="truncate">· {m.remitente}</span>}
                           <span className="ml-auto">{formatFecha(m.fecha)}</span>
                         </div>
+                        {/* El asunto se guardaba en la BD y se descartaba al
+                            mapear: sin él, el hilo era una pila de cuerpos
+                            sueltos sin saber de qué iba cada uno. */}
+                        {m.asunto && <p className="truncate text-xs font-semibold text-fg">{m.asunto}</p>}
                         <p className="whitespace-pre-wrap text-sm text-fg">{htmlToText(m.contenido)}</p>
                         {m.estadoEnvio && <span className="text-[11px] text-muted">Estado: {m.estadoEnvio}</span>}
+                        {/* Un envío fallido tiene que decir por qué; el motivo
+                            estaba en `outreach_messages.error` y no se leía. */}
+                        {m.error && (
+                          <span className="text-[11px] text-red-500">Error: {m.error}</span>
+                        )}
                       </div>
                     )
                   })}

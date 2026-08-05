@@ -30,8 +30,12 @@ export interface Lead {
   pais?: string
   direccion?: string
   telefono?: string
-  email?: string              // Email Contacto (primer email si hay varios en la celda)
-  emails?: string[]           // Todos los emails detectados en la celda (para elegir cuál usar)
+  telefono2?: string          // Segundo teléfono / versión sin formato (Apify: phoneUnformatted)
+  telefonos?: string[]        // Todos los teléfonos detectados por el scraping (migración 0025)
+  email?: string              // Email Contacto (primer email si hay varios)
+  emails?: string[]           // Todos los emails detectados (para elegir cuál usar)
+  placeId?: string            // Google Place ID: clave de negocio para importar sin duplicar
+  categoria?: string          // categoryName de Google Maps
   web?: string                // Sitio web
   whatsapp?: string
   instagram?: string
@@ -77,12 +81,22 @@ export interface Lead {
 
 /** Mensaje = fila de la hoja "messages" */
 export interface Message {
+  /**
+   * Clave del hilo: el id del lead, o —si el mensaje no está emparejado con
+   * ninguno— la dirección de correo en minúsculas. Ver `messagesService`.
+   */
   idLead: string
   fecha: string
   canal: Channel
   tipo: string                // Tipo de mensaje
+  /** Asunto del correo. Sin él el hilo no se puede leer. */
+  asunto?: string
+  /** Dirección del remitente, en los mensajes recibidos. */
+  remitente?: string
   contenido: string           // Mensaje generado
   estadoEnvio?: string
+  /** Motivo del fallo cuando `estadoEnvio === 'failed'`. */
+  error?: string
   respuestaRecibida?: string
   direccion?: 'enviado' | 'recibido'
 }
@@ -328,11 +342,21 @@ export interface Goal {
   fechaFin: string      // YYYY-MM-DD
   responsable?: string
   orden: number
+  /** Prioridad declarada del objetivo (migración 0022). */
+  prioridad?: Priority
+  /**
+   * Estado declarativo (migración 0022). No lo deriva el progreso: sirve para
+   * pausar o cancelar un objetivo sin borrarlo ni perder su historial.
+   */
+  estado: GoalEstado
   /** Derivado en el cliente: si tiene hijas, su valor no se edita a mano. */
   tieneHijas: boolean
   creado?: string
   actualizado?: string
 }
+
+/** Estado declarativo de una meta (migración 0022). */
+export type GoalEstado = 'activa' | 'pausada' | 'completada' | 'cancelada'
 
 /** Bloque de la plantilla de horario diario. */
 export interface HorarioBloque {
