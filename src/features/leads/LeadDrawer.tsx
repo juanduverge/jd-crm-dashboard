@@ -62,6 +62,13 @@ export function LeadDrawer({
   // Teléfonos distintos del principal (Apify devuelve `phone` + `phoneUnformatted`
   // + a veces varios más; ver migración 0025).
   const otrosTelefonos = (lead.telefonos ?? []).filter((t) => t !== lead.telefono)
+  // Apify guarda el enlace real de la ficha en google_maps. Si el lead es
+  // manual (o vino sin enlace) caemos a una busqueda por nombre + direccion,
+  // que es lo que uno haria a mano.
+  const mapsUrl = lead.googleMaps
+    || (lead.empresa
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([lead.empresa, lead.direccion, lead.ciudad].filter(Boolean).join(' '))}`
+        : undefined)
   const activeEmail = selectedEmail && emailOptions?.includes(selectedEmail) ? selectedEmail : (emailOptions?.[0] ?? lead.email)
   // Procedencia del WhatsApp (migración 0026). Sólo se guarda cuando la propia
   // empresa lo publica: nunca se deduce del teléfono, porque no hay forma
@@ -207,6 +214,7 @@ export function LeadDrawer({
             <Row icon={MapPin} label="Dirección" value={lead.direccion} />
             <Row icon={MapPin} label="Ciudad" value={lead.ciudad} />
             <Row icon={MapPin} label="País" value={lead.pais} />
+            <Row icon={MapPin} label="Google Maps" value={mapsUrl ? (lead.googleMaps ? 'Ver ficha en Google Maps' : 'Buscar en Google Maps') : undefined} link={mapsUrl} />
             <Row icon={Flag} label="Fuente" value={lead.fuente} />
             {/* `sin_datos` = se buscó en su web y no había nada, que es distinto
                 de no haberlo intentado nunca (last_enriched_at vacío). */}

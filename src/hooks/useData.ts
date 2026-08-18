@@ -40,6 +40,19 @@ export function useLeads() {
   return { ...query, leads }
 }
 
+/**
+ * Ultima corrida de `importar_leads`. Se refresca seguido porque el import lo
+ * dispara n8n en segundo plano: es lo que explica por que Apify trajo 20 y en
+ * la lista solo hay N nuevos.
+ */
+export function useUltimaImportacion() {
+  return useQuery({
+    queryKey: ['ultima-importacion'],
+    queryFn: () => leadsService.getUltimaImportacion(),
+    refetchInterval: 30_000,
+  })
+}
+
 export function useMessages() {
   return useQuery({
     queryKey: ['messages'],

@@ -11,7 +11,7 @@ import { LeadForm } from './LeadForm'
 import { LeadDrawer } from './LeadDrawer'
 import { LeadSearchModal } from './LeadSearchModal'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
-import { useLeads, useDeleteLead, useNichos } from '@/hooks/useData'
+import { useLeads, useDeleteLead, useNichos, useUltimaImportacion } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
 import { PIPELINE_STAGES } from '@/lib/config'
 import { scoreColor, fuzzyMatch, formatCurrency, downloadCSV, cn } from '@/lib/utils'
@@ -19,6 +19,7 @@ import { TouchFilterBar } from '@/components/TouchFilterBar'
 import { pasaFiltroToque } from '@/lib/touches'
 import { today } from '@/lib/followUps'
 import type { Lead } from '@/types'
+import type { LeadImport } from '@/services/leadsService'
 import { formToLeadPatch, type LeadFormValues } from './leadSchema'
 
 type SortKey = 'empresa' | 'score' | 'ciudad' | 'valorEstimado' | 'estado' | 'favorito' | 'fechaCaptura' | 'actualizado'
@@ -68,6 +69,7 @@ export function LeadsPage() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
   const deleteLead = useDeleteLead()
   const nichos = useNichos()
+  const ultimaImportacion = useUltimaImportacion().data
 
   // Base: aplica búsqueda + filtros avanzados (nicho/score), sin la pestaña ni pills.
   const base = useMemo(() =>
@@ -193,6 +195,8 @@ export function LeadsPage() {
           </>
         }
       />
+
+      <ResumenImportacion resumen={ultimaImportacion ?? null} />
 
       {/* Barra de búsqueda + filtros */}
       <div className="mb-3 flex flex-col gap-3">
@@ -407,5 +411,41 @@ function Th({ children, onClick }: { children: React.ReactNode; onClick: () => v
         {children} <ArrowUpDown className="h-3 w-3" />
       </button>
     </th>
+  )
+}
+
+
+/**
+ * Explica el hueco entre lo que Apify encontro y lo que se ve en la lista:
+ * los repetidos se actualizan (no suman fila nueva) y los descartados traen
+ * su motivo. Sin esto la diferencia "20 en Apify / 16 en el CRM" es invisible.
+ */
+function ResumenImportacion({ resumen }: { resumen: LeadImport | null }) {
+  const [oculto, setOculto] = useState(false)
+  if (!resumen || oculto) return null
+  // Solo interesa mientras es reciente: 24 h despues ya es ruido.
+  const horas = (Date.now() - new Date(resumen.fecha).getTime()) / 3_600_000
+  if (!(horas >= 0 && horas < 24)) return null
+
+  return (
+    <div className="mb-3 flex items-start gap-2 rounded-xl border border-border bg-surface-2 p-3 text-xs">
+      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary-500" />
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-fg">
+          Última búsqueda{resumen.consulta ? ` (${resumen.consulta})` : ''}: {resumen.recibidos} encontrados
+          {' · '}{resumen.insertados} nuevos
+          {' · '}{resumen.actualizados} ya existían
+          {' · '}{resumen.descartados} descartados
+        </p>
+        {resumen.motivos.length > 0 && (
+          <p className="mt-0.5 text-muted">
+            Descartados por: {resumen.motivos.map((m) => `${m.motivo} (${m.cantidad})`).join(', ')}.
+            {resumen.motivos.some((m) => m.motivo === 'borrado previamente') &&
+              ' Los que borraste antes no vuelven a entrar; restáuralos desde la Papelera si los quieres.'}
+          </p>
+        )}
+      </div>
+      <button type="button" className="shrink-0 text-muted hover:text-fg" onClick={() => setOculto(true)}>✕</button>
+    </div>
   )
 }

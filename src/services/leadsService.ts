@@ -251,7 +251,59 @@ async function currentUser() {
   return data.user
 }
 
+/**
+ * Resumen de una corrida de `importar_leads` (tabla `lead_imports`). Sirve para
+ * explicar el hueco entre "Apify encontro 20" y "en el CRM aparecen 16": la
+ * diferencia son leads ya conocidos (actualizados) o descartados, y el motivo
+ * de cada descarte queda en `detalle`.
+ */
+export interface LeadImport {
+  id: string
+  fecha: string
+  fuente: string
+  consulta?: string
+  recibidos: number
+  insertados: number
+  actualizados: number
+  descartados: number
+  motivos: { motivo: string; empresa?: string; cantidad: number }[]
+}
+
+function rowToImport(r: any): LeadImport {
+  const detalle: any[] = Array.isArray(r.detalle) ? r.detalle : []
+  const conteo = new Map<string, { motivo: string; empresa?: string; cantidad: number }>()
+  for (const d of detalle) {
+    const motivo = String(d?.motivo ?? 'sin motivo')
+    const prev = conteo.get(motivo)
+    if (prev) prev.cantidad += 1
+    else conteo.set(motivo, { motivo, empresa: d?.empresa, cantidad: 1 })
+  }
+  return {
+    id: r.id,
+    fecha: r.created_at,
+    fuente: r.fuente ?? 'google_maps',
+    consulta: r.consulta ?? undefined,
+    recibidos: r.recibidos ?? 0,
+    insertados: r.insertados ?? 0,
+    actualizados: r.actualizados ?? 0,
+    descartados: r.descartados ?? 0,
+    motivos: [...conteo.values()].sort((a, b) => b.cantidad - a.cantidad),
+  }
+}
+
 export const leadsService = {
+  /** Ultima importacion de Apify, para saber que paso con el lote completo. */
+  async getUltimaImportacion(): Promise<LeadImport | null> {
+    const { data, error } = await supabase
+      .from('lead_imports')
+      .select('id, created_at, fuente, consulta, recibidos, insertados, actualizados, descartados, detalle')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    return data ? rowToImport(data) : null
+  },
+
   /** Lee los leads activos de Supabase (incluye sus columnas de pipeline). */
   async getLeads(): Promise<Lead[]> {
     const { data: rows, error } = await supabase
