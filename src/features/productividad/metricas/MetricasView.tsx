@@ -17,9 +17,10 @@ import {
 } from '@/hooks/useData'
 import {
   desdeIso, diasDelRango, filtrarPorPeriodo, fmtMes, fmtNum, progreso, rangoConsulta,
-  rangoMes, tonoProgreso,
+  rangoMes, tonoProgreso, valorProgreso,
 } from '../shared/goalMeta'
 import { duracionBloqueSeg, fmtDuracion } from '../tiempo/tiempoMeta'
+import { PanelComercial } from './PanelComercial'
 import type { Goal } from '@/types'
 
 /**
@@ -192,7 +193,7 @@ export function MetricasView() {
     for (const g of filtrarPorPeriodo(goals, 'mes', rango.desde, rango.hasta)) {
       const v = dame(g.responsable)
       v.metas += 1
-      if (g.valorActual >= g.target) v.cumplidas += 1
+      if (valorProgreso(g) >= g.target) v.cumplidas += 1
     }
 
     return [...m.values()]
@@ -264,7 +265,7 @@ export function MetricasView() {
     const limite = rango.hasta < hoy ? rango.hasta : hoy
 
     const metas = filtrarPorPeriodo(goals, 'dia', rango.desde, rango.hasta)
-      .filter((g: Goal) => g.fechaFin < limite && g.valorActual < g.target)
+      .filter((g: Goal) => g.fechaFin < limite && valorProgreso(g) < g.target)
       .sort((a, b) => (a.fechaFin < b.fechaFin ? 1 : -1))
 
     const pendientes = (tareas ?? []).filter(
@@ -274,7 +275,7 @@ export function MetricasView() {
 
     // Cuánto se dejó de hacer, no cuántas metas fallaron: 20 llamadas de 100
     // y 99 de 100 no son el mismo problema.
-    const deficit = metas.reduce((acc, g) => acc + Math.max(0, g.target - g.valorActual), 0)
+    const deficit = metas.reduce((acc, g) => acc + Math.max(0, g.target - valorProgreso(g)), 0)
 
     return { metas, pendientes, deficit }
   }, [goals, tareas, rango.desde, rango.hasta])
@@ -312,6 +313,16 @@ export function MetricasView() {
             Este mes
           </Button>
         )}
+      </div>
+
+      {/* Actividad comercial — se pinta ANTES del tiempo porque es la pregunta
+          principal del CRM: qué se hizo con los leads. El análisis de tiempo
+          contra el horario sigue debajo, intacto. */}
+      <PanelComercial mes={ref} esActual={esActual} />
+
+      <div className="flex items-center gap-2 pt-2">
+        <Clock className="h-4 w-4 text-muted" />
+        <h3 className="text-sm font-semibold text-fg">Tiempo y cumplimiento del horario</h3>
       </div>
 
       {/* KPIs */}
@@ -449,7 +460,7 @@ export function MetricasView() {
                           <td className="px-4 py-3">
                             <p className="font-medium text-fg">{goal.nombre}</p>
                             <p className="text-xs text-muted">
-                              {fmtNum(goal.valorActual)} / {fmtNum(goal.target)}
+                              {fmtNum(valorProgreso(goal))} / {fmtNum(goal.target)}
                               {goal.unidad ? ` ${goal.unidad}` : ''}
                             </p>
                           </td>

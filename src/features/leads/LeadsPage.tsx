@@ -15,6 +15,9 @@ import { useLeads, useDeleteLead, useNichos } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
 import { PIPELINE_STAGES } from '@/lib/config'
 import { scoreColor, fuzzyMatch, formatCurrency, downloadCSV, cn } from '@/lib/utils'
+import { TouchFilterBar } from '@/components/TouchFilterBar'
+import { pasaFiltroToque } from '@/lib/touches'
+import { today } from '@/lib/followUps'
 import type { Lead } from '@/types'
 import { formToLeadPatch, type LeadFormValues } from './leadSchema'
 
@@ -53,6 +56,7 @@ export function LeadsPage() {
   const [fNicho, setFNicho] = useState('')
   const [fScoreMin, setFScoreMin] = useState(0)
   const [tab, setTab] = useState<'todos' | 'favoritos' | Lead['estado']>('todos')
+  const [fToque, setFToque] = useState('')
   const [smart, setSmart] = useState<'' | 'prioridad' | 'conIA' | 'sinIA' | 'sinResponsable'>('')
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'score', dir: 'desc' })
   const [formOpen, setFormOpen] = useState(false)
@@ -85,16 +89,27 @@ export function LeadsPage() {
       case 'prioridad': return l.prioridad === 'alta'
       case 'conIA': return l.scoreIA !== undefined
       case 'sinIA': return l.scoreIA === undefined
-      case 'sinResponsable': return !l.responsable || l.responsable === 'JD'
+      // Sin responsable de verdad: vacío. Antes se colaba aquí la abreviatura
+      // 'JD' del importador, que ya no existe (0028 unificó los responsables).
+      case 'sinResponsable': return !l.responsable?.trim()
       default: return true
     }
   }
 
-  const filtered = useMemo(() => {
-    let res = base.filter((l) =>
+  // Conjunto sobre el que la barra de toques cuenta: pestaña y pills ya
+  // aplicadas, para que sus números coincidan con la tabla resultante.
+  const conPestana = useMemo(
+    () => base.filter((l) =>
       (tab === 'todos' ? true : tab === 'favoritos' ? l.favorito : l.estado === tab) &&
       smartMatch(l),
-    )
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [base, tab, smart],
+  )
+
+  const hoy = today()
+  const filtered = useMemo(() => {
+    let res = conPestana.filter((l) => pasaFiltroToque(l, fToque, hoy))
     const sortVal = (l: Lead): string | number => {
       if (sort.key === 'favorito') return l.favorito ? 1 : 0
       if (sort.key === 'actualizado') return l.fechaUltimoMovimiento || l.ultimaAccion || ''
@@ -109,7 +124,7 @@ export function LeadsPage() {
     })
     return res
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base, tab, smart, sort])
+  }, [conPestana, fToque, hoy, sort])
 
   const allSelected = filtered.length > 0 && filtered.every((l) => selectedIds.has(l.id))
 
@@ -234,6 +249,10 @@ export function LeadsPage() {
             )
           })}
         </div>
+
+        {/* Toque y situación de seguimiento — mismo catálogo que Pipeline y
+            Seguimiento, para que los tres respondan lo mismo. */}
+        <TouchFilterBar leads={conPestana} value={fToque} onChange={setFToque} />
 
         {showFilters && (
           <div className="card flex flex-wrap items-end gap-3 p-3">

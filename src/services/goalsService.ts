@@ -1,5 +1,8 @@
 import { supabase } from '@/lib/supabaseClient'
-import type { Goal, GoalEstado, GoalPeriodo, GoalTipo, HorarioBloque, Priority } from '@/types'
+import { metricsService } from './metricsService'
+import type {
+  Goal, GoalEstado, GoalPeriodo, GoalTipo, HorarioBloque, MetricaClave, Priority,
+} from '@/types'
 
 /**
  * goalsService — módulo Tareas: metas en cascada (mes -> semana -> día) y
@@ -27,6 +30,7 @@ interface GoalRow {
   orden: number
   prioridad: Priority | null
   estado: GoalEstado | null
+  metrica: string | null
   created_at: string
   updated_at: string
 }
@@ -65,6 +69,7 @@ function rowToGoal(row: GoalRow, conHijas: Set<string>): Goal {
     // Si la 0022 aún no está aplicada la columna no viene: 'activa' es el
     // mismo default que pone la BD, así la UI no se rompe entre despliegues.
     estado: row.estado ?? 'activa',
+    metrica: (row.metrica as MetricaClave) ?? undefined,
     tieneHijas: conHijas.has(row.id),
     creado: row.created_at,
     actualizado: row.updated_at,
@@ -106,7 +111,19 @@ export const goalsService = {
     const rows = (data ?? []) as unknown as GoalRow[]
     const conHijas = new Set<string>()
     for (const r of rows) if (r.parent_id) conHijas.add(r.parent_id)
-    return rows.map((r) => rowToGoal(r, conHijas))
+    const goals = rows.map((r) => rowToGoal(r, conHijas))
+
+    // Metas automáticas: el progreso NO está en `valor_actual` (esa columna la
+    // gobierna el rollup de la cascada), sino que se deriva de las acciones
+    // reales sobre el rango de cada meta. Se pide en la misma carga para que
+    // la tarjeta nunca llegue a pintarse con un valor y corregirse después.
+    if (goals.some((g) => g.metrica)) {
+      const derivados = await metricsService.getProgresoMetas(desde, hasta)
+      for (const g of goals) {
+        if (g.metrica) g.valorDerivado = derivados[g.id] ?? 0
+      }
+    }
+    return goals
   },
 
   /** Crea la meta mensual y, si es contador, toda su cascada, en una transacción. */
@@ -120,6 +137,8 @@ export const goalsService = {
     generarCascada?: boolean
     diasLaborables?: number[]   // ISO dow, por defecto lunes a viernes
     responsable?: string
+    /** Si viene, la meta y toda su cascada se alimentan solas del CRM. */
+    metrica?: MetricaClave
   }): Promise<string> {
     const { data, error } = await supabase.rpc('crear_meta_mensual', {
       p_nombre: payload.nombre,
@@ -140,7 +159,21 @@ export const goalsService = {
     if (payload.descripcion?.trim()) {
       await this.setDescripcionCascada(id, payload.descripcion)
     }
+    // La métrica también baja a toda la rama: si el mes cuenta leads
+    // encontrados, sus semanas y sus días cuentan lo mismo en su tramo.
+    if (payload.metrica) {
+      await this.setMetricaCascada(id, payload.metrica)
+    }
     return id
+  },
+
+  /** Engancha (o desengancha, con null) una meta y su cascada a una métrica. */
+  async setMetricaCascada(id: string, metrica: MetricaClave | null): Promise<void> {
+    const { error } = await supabase.rpc('set_metrica_cascada', {
+      p_goal_id: id,
+      p_metrica: metrica ?? '',
+    })
+    if (error) throw error
   },
 
   /** Escribe la descripción en una meta y en todas sus descendientes. */
@@ -163,6 +196,7 @@ export const goalsService = {
     fechaInicio: string
     fechaFin: string
     responsable?: string
+    metrica?: MetricaClave
   }): Promise<void> {
     const { error } = await supabase.from('goals').insert({
       nombre: payload.nombre,
@@ -174,6 +208,7 @@ export const goalsService = {
       fecha_inicio: payload.fechaInicio,
       fecha_fin: payload.fechaFin,
       responsable: payload.responsable || null,
+      metrica: payload.metrica || null,
     })
     if (error) throw error
   },
@@ -195,6 +230,8 @@ export const goalsService = {
     fechaFin?: string
     prioridad?: Priority | null
     estado?: GoalEstado
+    /** `null` desengancha la meta y la devuelve a contar a mano. */
+    metrica?: MetricaClave | null
     redistribuir?: boolean
   }): Promise<void> {
     const row: Record<string, unknown> = {}
@@ -226,6 +263,10 @@ export const goalsService = {
     // alturas, no tres objetivos distintos.
     if (payload.descripcion !== undefined) {
       await this.setDescripcionCascada(payload.id, payload.descripcion)
+    }
+
+    if (payload.metrica !== undefined) {
+      await this.setMetricaCascada(payload.id, payload.metrica)
     }
 
     if (payload.redistribuir) {

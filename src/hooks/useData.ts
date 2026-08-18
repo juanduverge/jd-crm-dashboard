@@ -10,6 +10,7 @@ import { inboxService } from '@/services/inboxService'
 import { campaignsService, type CampaignCreateInput, type CampaignUpdateInput } from '@/services/campaignsService'
 import { tasksService } from '@/services/tasksService'
 import { goalsService } from '@/services/goalsService'
+import { metricsService } from '@/services/metricsService'
 import { timeService } from '@/services/timeService'
 import { eventosService, type EventoPayload } from '@/services/eventosService'
 import { followUpsService } from '@/services/followUpsService'
@@ -285,7 +286,7 @@ export function useLeadFollowUps(leadId?: string) {
 /**
  * Invalida todo lo que un cambio de seguimiento puede afectar: la agenda, el
  * historial del lead, y `leads` — porque el trigger de la BD actualiza
- * `leads.proximo_seguimiento` por detrás y el kanban lo muestra.
+ * `leads.proximo_seguimiento` y el touch por detrás, y el kanban lo muestra.
  */
 function useInvalidateFollowUps() {
   const qc = useQueryClient()
@@ -293,6 +294,11 @@ function useInvalidateFollowUps() {
     qc.invalidateQueries({ queryKey: ['follow_ups_agenda'] })
     qc.invalidateQueries({ queryKey: ['follow_ups'] })
     qc.invalidateQueries({ queryKey: ['leads'] })
+    // Un toque completado mueve el touch del lead, su etapa y, por tanto, las
+    // metas automáticas y el panel de métricas. Se invalidan aquí y no en cada
+    // pantalla para que registrar el contacto sea la única acción del usuario.
+    qc.invalidateQueries({ queryKey: ['goals'] })
+    qc.invalidateQueries({ queryKey: ['metricas_crm'] })
   }
 }
 
@@ -425,6 +431,25 @@ export function useUpdateTarea() {
 }
 
 // -------------------------------------------------------------
+// MÉTRICAS (metricas_crm) — migración 0028
+// -------------------------------------------------------------
+
+/**
+ * Panel de métricas de un rango. Se recalcula solo: cualquier mutación de
+ * seguimientos, leads o metas invalida `['metricas_crm']`, así que los números
+ * salen siempre de las acciones reales y nunca de un contador que alguien
+ * tenga que acordarse de subir.
+ */
+export function useMetricasCrm(desde: string, hasta: string) {
+  return useQuery({
+    queryKey: ['metricas_crm', desde, hasta],
+    queryFn: () => metricsService.getMetricas(desde, hasta),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
+// -------------------------------------------------------------
 // METAS + HORARIO (goals / horario_bloques) — migración 0015
 // -------------------------------------------------------------
 // Una sola query por rango de fechas alimenta las tres vistas de metas
@@ -449,6 +474,7 @@ function useInvalidateGoals() {
   return () => {
     qc.invalidateQueries({ queryKey: ['goals'] })
     qc.invalidateQueries({ queryKey: ['horario_dia'] })
+    qc.invalidateQueries({ queryKey: ['metricas_crm'] })
   }
 }
 

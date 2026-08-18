@@ -21,6 +21,9 @@ import { OpportunityForm } from './OpportunityForm'
 import { HScrollBoard } from './HScrollBoard'
 import { CerrarDropZone, CERRAR_DROP_ID } from './CerrarDropZone'
 import { CerrarLeadModal } from './CerrarLeadModal'
+import { TouchFilterBar } from '@/components/TouchFilterBar'
+import { pasaFiltroToque } from '@/lib/touches'
+import { today } from '@/lib/followUps'
 import type { Lead, LeadStatus } from '@/types'
 import { formToLeadPatch, type LeadFormValues } from '../leads/leadSchema'
 
@@ -42,6 +45,9 @@ export function PipelinePage() {
   const [fPrioridad, setFPrioridad] = useState('')
   const [fResponsable, setFResponsable] = useState('')
   const [fValorMin, setFValorMin] = useState(0)
+  // Filtro de toque/situación: vive fuera del panel plegable porque es la
+  // pregunta que más se hace en el tablero ("¿a quién le toca hoy?").
+  const [fToque, setFToque] = useState('')
   const [activeLead, setActiveLead] = useState<Lead | null>(null)
   const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null)
   const drawerLead = drawerLeadId ? (leads.find((l) => l.id === drawerLeadId) ?? null) : null
@@ -76,7 +82,9 @@ export function PipelinePage() {
     [leads],
   )
 
-  const filtered = useMemo(
+  // Base para los recuentos de la barra de toques: todo lo demás ya aplicado,
+  // para que cada píldora enseñe el número real que va a dar al pulsarla.
+  const baseFiltrada = useMemo(
     () =>
       activos.filter(
         (l) =>
@@ -86,6 +94,12 @@ export function PipelinePage() {
           (l.valorEstimado || 0) >= fValorMin,
       ),
     [activos, fNicho, fPrioridad, fResponsable, fValorMin],
+  )
+
+  const hoy = today()
+  const filtered = useMemo(
+    () => baseFiltrada.filter((l) => pasaFiltroToque(l, fToque, hoy)),
+    [baseFiltrada, fToque, hoy],
   )
 
   const fc = useMemo(() => forecast(filtered), [filtered])
@@ -189,6 +203,14 @@ export function PipelinePage() {
           accent={staleCount ? 'text-red-500' : undefined}
         />
       </div>
+
+      <TouchFilterBar
+        leads={baseFiltrada}
+        value={fToque}
+        onChange={setFToque}
+        gruposVisibles={['toque', 'situacion']}
+        className="mb-4"
+      />
 
       {showFilters && (
         <div className="card mb-4 flex flex-wrap items-end gap-3 p-3">

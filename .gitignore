@@ -23,3 +23,6 @@ graphify-out/
 
 # Artefacto incremental de TypeScript
 tsconfig.tsbuildinfo
+
+# Backups de workflows n8n: contienen secretos en claro, nunca versionar
+n8n/backup-vivo-*/

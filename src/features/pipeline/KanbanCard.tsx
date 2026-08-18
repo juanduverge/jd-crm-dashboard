@@ -1,8 +1,10 @@
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { Mail, MessageCircle, Clock, AlertTriangle, ArrowRight, Trash2, Pencil } from 'lucide-react'
+import { Mail, MessageCircle, Clock, AlertTriangle, ArrowRight, History, Trash2, Pencil } from 'lucide-react'
 import { initials, stringToColor, formatCurrency, scoreColor, cn } from '@/lib/utils'
 import { daysInStage, isStale, PRIORITY_META } from '@/lib/pipeline'
+import { SITUACION_META, situacionLead, textoProximo, textoUltimoContacto, touchColor, touchLabel } from '@/lib/touches'
+import { today } from '@/lib/followUps'
 import type { Lead } from '@/types'
 
 export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onOpen: (l: Lead) => void; onDelete?: (l: Lead) => void; onEdit?: (l: Lead) => void }) {
@@ -14,6 +16,12 @@ export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onO
   const days = daysInStage(lead)
   const sc = scoreColor(lead.score)
   const prio = lead.prioridad ? PRIORITY_META[lead.prioridad] : null
+  // El toque y la situación se derivan del lead que ya está en memoria: la
+  // tarjeta responde "¿en qué contacto va?" y "¿qué toca ahora?" sin abrirla.
+  const hoy = today()
+  const sit = situacionLead(lead, hoy)
+  const proximo = textoProximo(lead, hoy)
+  const ultimo = textoUltimoContacto(lead)
 
   return (
     <div
@@ -83,10 +91,28 @@ export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onO
         )}
       </div>
 
-      {lead.proximoSeguimiento && (
-        <div className="mt-2 flex items-center gap-1 text-[11px] text-muted">
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', touchColor(lead.touchActual))}>
+          {touchLabel(lead.touchActual)}
+        </span>
+        {(sit === 'atrasado' || sit === 'hoy' || sit === 'sin_proximo') && (
+          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-medium', SITUACION_META[sit].cls)}>
+            {SITUACION_META[sit].corto}
+          </span>
+        )}
+      </div>
+
+      {ultimo && (
+        <div className="mt-1.5 flex items-center gap-1 text-[11px] text-muted">
+          <History className="h-3 w-3 shrink-0" />
+          <span className="min-w-0 flex-1 truncate">Último: {ultimo}</span>
+        </div>
+      )}
+
+      {proximo && (
+        <div className={cn('mt-1 flex items-center gap-1 text-[11px]', proximo.cls)}>
           <ArrowRight className="h-3 w-3 shrink-0" />
-          <span className="min-w-0 flex-1 truncate" title={lead.proximoSeguimiento}>{lead.proximoSeguimiento}</span>
+          <span className="min-w-0 flex-1 truncate">Próximo: {proximo.texto}</span>
         </div>
       )}
 

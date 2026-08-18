@@ -6,7 +6,8 @@ import { Modal } from '@/components/ui/Modal'
 import { cn } from '@/lib/utils'
 import { useCrearMetaMensual, useCrearMetaSuelta } from '@/hooks/useData'
 import { DIAS_SEMANA, fmtMes, fmtNum } from '../shared/goalMeta'
-import type { GoalTipo } from '@/types'
+import { metricasPorGrupo, METRICA_BY_CLAVE } from '@/lib/metricas'
+import type { GoalTipo, MetricaClave } from '@/types'
 
 /**
  * Alta de meta mensual (el caso normal: crea la cascada completa) o de meta
@@ -37,6 +38,9 @@ export function NuevaMetaModal({
   const [unidad, setUnidad] = useState('')
   const [conCascada, setConCascada] = useState(true)
   const [dias, setDias] = useState<number[]>([1, 2, 3, 4, 5])
+  // Métrica: si se elige una, la meta se mide sola contra el CRM y desaparecen
+  // los botones de +/−. Es el caso que queremos por defecto para prospección.
+  const [metrica, setMetrica] = useState<MetricaClave | ''>('')
 
   const pendiente = crearMensual.isPending || crearSuelta.isPending
   const targetNum = Number(target)
@@ -50,7 +54,7 @@ export function NuevaMetaModal({
 
   const reset = () => {
     setNombre(''); setDescripcion(''); setTarget(''); setUnidad(''); setTipo('contador')
-    setConCascada(true); setDias([1, 2, 3, 4, 5])
+    setConCascada(true); setDias([1, 2, 3, 4, 5]); setMetrica('')
   }
 
   const guardar = () => {
@@ -74,6 +78,7 @@ export function NuevaMetaModal({
           tipo,
           target: targetNum,
           unidad: unidad.trim() || undefined,
+          metrica: metrica || undefined,
           mes: `${mes.getFullYear()}-${String(mes.getMonth() + 1).padStart(2, '0')}-01`,
           generarCascada: conCascada,
           diasLaborables: dias,
@@ -90,6 +95,7 @@ export function NuevaMetaModal({
           tipo,
           target: targetNum,
           unidad: unidad.trim() || undefined,
+          metrica: metrica || undefined,
           fechaInicio: rango.desde,
           fechaFin: rango.hasta,
         },
@@ -157,6 +163,31 @@ export function NuevaMetaModal({
               onChange={(e) => setUnidad(e.target.value)}
               placeholder="leads, reuniones, horas…"
             />
+          </div>
+        )}
+
+
+        {tipo === 'contador' && (
+          <div>
+            <label className="mb-1 block text-xs text-muted">¿Se mide sola?</label>
+            <Select
+              value={metrica}
+              onChange={(e) => setMetrica(e.target.value as MetricaClave | '')}
+            >
+              <option value="">No — la actualizo yo a mano</option>
+              {metricasPorGrupo().map((g) => (
+                <optgroup key={g.grupo} label={g.grupo}>
+                  {g.metricas.map((m) => (
+                    <option key={m.clave} value={m.clave}>{m.label}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </Select>
+            <p className="mt-1 text-[11px] text-muted">
+              {metrica
+                ? METRICA_BY_CLAVE[metrica].ayuda
+                : 'Si eliges una métrica, el avance sale del CRM: registrar el contacto ES el avance y no hay que apuntarlo dos veces.'}
+            </p>
           </div>
         )}
 

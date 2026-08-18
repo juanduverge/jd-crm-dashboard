@@ -1,19 +1,29 @@
 import { useState } from 'react'
 import toast from 'react-hot-toast'
-import { Check, Minus, Pencil, Plus, Trash2, Layers } from 'lucide-react'
+import { Check, Minus, Pencil, Plus, Trash2, Layers, Zap } from 'lucide-react'
 import { Button, Input } from '@/components/ui'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { cn } from '@/lib/utils'
 import { useEliminarMeta, useRegistrarAvance } from '@/hooks/useData'
 import { PRIORITY_META } from '@/lib/pipeline'
 import { EditarMetaModal } from './EditarMetaModal'
-import { GOAL_ESTADO_META, fmtNum, progreso, tonoProgreso } from '../shared/goalMeta'
+import { METRICA_BY_CLAVE } from '@/lib/metricas'
+import {
+  GOAL_ESTADO_META, desviacion, fmtNum, pctTranscurrido, progreso, tonoProgreso, valorProgreso,
+} from '../shared/goalMeta'
 import type { Goal } from '@/types'
 
 /**
  * Tarjeta de meta con barra de progreso.
  *
- * Los botones +/− sólo aparecen en metas HOJA. Una meta con hijas muestra su
+ * Dos clases de meta conviven aquí:
+ *
+ * · AUTOMÁTICA (`goal.metrica`): el progreso lo pone el CRM contando acciones
+ *   reales — leads encontrados, toques completados, cierres. No lleva +/−
+ *   porque no hay nada que teclear: registrar el toque ya es el avance.
+ * · MANUAL: la de toda la vida, con +/− y campo de avance libre.
+ *
+ * Los botones +/− sólo aparecen en metas HOJA y manuales. Una meta con hijas muestra su
  * valor como suma (la BD lo garantiza con un trigger): para moverlo hay que
  * bajar al nivel de abajo. Es la regla de la cascada, no una limitación de la
  * pantalla.
@@ -35,8 +45,15 @@ export function GoalCard({
   const [borrando, setBorrando] = useState(false)
 
   const pct = progreso(goal)
+  const valor = valorProgreso(goal)
   const esToggle = goal.tipo === 'toggle'
-  const hecho = esToggle ? goal.valorActual >= 1 : pct >= 100
+  const hecho = esToggle ? valor >= 1 : pct >= 100
+  const auto = goal.metrica ? METRICA_BY_CLAVE[goal.metrica] : undefined
+  // El ritmo sólo se enseña mientras el periodo está vivo: en una meta ya
+  // vencida "vas con retraso" no es un aviso, es historia.
+  const transcurrido = pctTranscurrido(goal)
+  const desv = desviacion(goal)
+  const mostrarRitmo = !esToggle && transcurrido > 0 && transcurrido < 100 && !hecho
 
   const sumar = (delta: number) => {
     avance.mutate({ id: goal.id, delta }, {
@@ -53,8 +70,16 @@ export function GoalCard({
           </p>
           {/* Prioridad y estado sólo se pintan cuando dicen algo: una meta
               activa y sin prioridad es lo normal y no merece ruido visual. */}
-          {(goal.prioridad || goal.estado !== 'activa') && (
+          {(goal.prioridad || goal.estado !== 'activa' || auto) && (
             <div className="mt-1 flex flex-wrap items-center gap-1">
+              {auto && (
+                <span
+                  className="flex items-center gap-0.5 rounded-full bg-primary-100 px-1.5 py-0.5 text-[10px] font-medium text-primary-700 dark:bg-primary-500/15 dark:text-primary-400"
+                  title={auto.ayuda}
+                >
+                  <Zap className="h-2.5 w-2.5" /> Automática
+                </span>
+              )}
               {goal.prioridad && (
                 <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-medium', PRIORITY_META[goal.prioridad].cls)}>
                   {PRIORITY_META[goal.prioridad].label}
@@ -108,7 +133,7 @@ export function GoalCard({
       {esToggle ? (
         <button
           onClick={() => sumar(hecho ? -1 : 1)}
-          disabled={goal.tieneHijas || avance.isPending}
+          disabled={goal.tieneHijas || !!auto || avance.isPending}
           className={cn(
             'flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition',
             hecho
@@ -127,7 +152,7 @@ export function GoalCard({
       ) : (
         <>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-2xl font-bold text-fg">{fmtNum(goal.valorActual)}</span>
+            <span className="text-2xl font-bold text-fg">{fmtNum(valor)}</span>
             <span className="text-sm text-muted">/ {fmtNum(goal.target)}</span>
             {goal.unidad && <span className="text-xs text-muted">{goal.unidad}</span>}
             <span className={cn('ml-auto text-xs font-semibold', hecho ? 'text-green-600 dark:text-green-400' : 'text-muted')}>
@@ -139,7 +164,24 @@ export function GoalCard({
             <div className={cn('h-full rounded-full transition-all', tonoProgreso(pct))} style={{ width: `${pct}%` }} />
           </div>
 
-          {goal.tieneHijas ? (
+          {mostrarRitmo && (
+            <p className="text-[11px] text-muted">
+              {/* La referencia de ritmo va como marca sobre la barra mental del
+                  usuario: "voy por el 47% y el periodo va por el 60%" es una
+                  frase accionable; "47%" a secas, no. */}
+              Periodo al {transcurrido}% ·{' '}
+              <span className={cn('font-medium', desv < 0 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400')}>
+                {desv < 0 ? `${fmtNum(Math.abs(desv))} por detrás` : `${fmtNum(desv)} por delante`}
+              </span>
+            </p>
+          )}
+
+          {auto ? (
+            <p className="flex items-start gap-1 text-[11px] text-muted" title={auto.ayuda}>
+              <Zap className="mt-0.5 h-3 w-3 shrink-0 text-primary-500" />
+              <span>Se actualiza sola: {auto.label.toLowerCase()}</span>
+            </p>
+          ) : goal.tieneHijas ? (
             <p className="text-[11px] text-muted">
               Suma automática de sus metas {goal.periodo === 'mes' ? 'semanales' : 'diarias'}
             </p>
@@ -147,7 +189,7 @@ export function GoalCard({
             <div className="flex items-center gap-1.5">
               <button
                 onClick={() => sumar(-1)}
-                disabled={avance.isPending || goal.valorActual <= 0}
+                disabled={avance.isPending || valor <= 0}
                 className="btn-ghost h-8 w-8 rounded-lg border border-border p-0 disabled:opacity-40"
                 title="Restar 1"
               >

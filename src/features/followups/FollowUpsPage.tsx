@@ -17,6 +17,7 @@ import {
 import { ResponsableSelect } from '@/components/ui/ResponsableSelect'
 import type { FollowUpTipo } from '@/types'
 import { PRIORITY_META } from '@/lib/pipeline'
+import { touchColor, touchLabel, TOUCH_MAX } from '@/lib/touches'
 import { cn } from '@/lib/utils'
 import { CompletarFollowUpModal } from './CompletarFollowUpModal'
 import { LeadDetailHost } from '@/features/leads/LeadDetailHost'
@@ -40,6 +41,9 @@ export function FollowUpsPage() {
   const actualizar = useActualizarFollowUp()
 
   const [fResponsable, setFResponsable] = useState('')
+  // Filtro por toque: mismo vocabulario que Leads y Pipeline. Aquí el toque es
+  // el del seguimiento pendiente, o sea el contacto que está a punto de darse.
+  const [fToque, setFToque] = useState('')
   const [completando, setCompletando] = useState<FollowUpAgendaItem | null>(null)
   const [reprogramando, setReprogramando] = useState<FollowUpAgendaItem | null>(null)
   const [nuevaFecha, setNuevaFecha] = useState('')
@@ -52,8 +56,13 @@ export function FollowUpsPage() {
   const [fichaLeadId, setFichaLeadId] = useState<string | null>(null)
 
   const items = useMemo(
-    () => (data ?? []).filter((f) => !fResponsable || f.responsable === fResponsable),
-    [data, fResponsable],
+    () => (data ?? []).filter((f) =>
+      (!fResponsable || f.responsable === fResponsable) &&
+      (!fToque || (fToque === String(TOUCH_MAX)
+        ? f.orden >= TOUCH_MAX
+        : f.orden === Number(fToque))),
+    ),
+    [data, fResponsable, fToque],
   )
   const responsables = useMemo(
     () => [...new Set((data ?? []).map((f) => f.responsable).filter(Boolean))] as string[],
@@ -140,6 +149,19 @@ export function FollowUpsPage() {
                 {responsables.map((r) => <option key={r} value={r}>{r}</option>)}
               </Select>
             )}
+            <Select
+              value={fToque}
+              onChange={(e) => setFToque(e.target.value)}
+              className="h-9 w-auto"
+              title="Filtrar por número de contacto"
+            >
+              <option value="">Todos los toques</option>
+              <option value="1">Touch 1</option>
+              <option value="2">Touch 2</option>
+              <option value="3">Touch 3</option>
+              <option value="4">Touch 4</option>
+              <option value="5">Touch 5+</option>
+            </Select>
             <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={cn('mr-1.5 h-4 w-4', isFetching && 'animate-spin')} />
               Actualizar
@@ -392,7 +414,9 @@ function Fila({
             {f.leadEmpresa}
           </button>
           <Badge>{tipo.label}</Badge>
-          <Badge>toque {f.orden}</Badge>
+          <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', touchColor(f.orden))}>
+            {touchLabel(f.orden)}
+          </span>
           {f.leadPrioridad && (
             <Badge className={PRIORITY_META[f.leadPrioridad].cls}>
               {PRIORITY_META[f.leadPrioridad].label}

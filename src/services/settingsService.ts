@@ -33,11 +33,29 @@ export const settingsService = {
     return Object.fromEntries(((data ?? []) as SettingRow[]).map((r) => [r.key, r.value ?? '']))
   },
 
+  /**
+   * Guarda un ajuste GLOBAL (user_id null).
+   *
+   * Update y luego insert, en vez de `upsert`: la unicidad de los ajustes
+   * globales la da un índice parcial (`uq_settings_global`, migración 0028) y
+   * PostgREST no puede inferir un índice parcial desde `on_conflict`. La
+   * carrera entre los dos pasos la corta ese mismo índice, que rechazaría el
+   * segundo insert.
+   */
   async updateConfig(clave: string, valor: string): Promise<void> {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('settings')
-      .upsert({ key: clave, value: valor, user_id: null }, { onConflict: 'key,user_id' })
+      .update({ value: valor })
+      .eq('key', clave)
+      .is('user_id', null)
+      .select('key')
     if (error) throw error
+    if (data && data.length > 0) return
+
+    const { error: insErr } = await supabase
+      .from('settings')
+      .insert({ key: clave, value: valor, user_id: null })
+    if (insErr) throw insErr
   },
 
   async getActivity(): Promise<ActivityEvent[]> {

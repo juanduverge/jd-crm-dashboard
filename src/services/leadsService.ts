@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient'
 import { crmApi } from './crmApi'
+import { RESPONSABLE_POR_DEFECTO } from '@/lib/equipo'
 import type { Lead, Contact, ContactType, Note } from '@/types'
 
 /**
@@ -67,6 +68,14 @@ interface LeadRow {
   cerrado_en: string | null
   motivo_cierre: string | null
   etapa_previa: string | null
+  // Contacto derivado de `follow_ups` por trigger (migración 0028). Sólo
+  // lectura: escribir aquí no sirve de nada, el trigger lo recalcula.
+  touch_actual: number | null
+  primer_contacto_en: string | null
+  ultimo_contacto_en: string | null
+  ultimo_contacto_tipo: string | null
+  ultimo_contacto_resultado: string | null
+  respondio_en: string | null
   // Datos del scraping (migración 0025). Apify ya los entregaba; hasta ahora
   // no había columna donde guardarlos y se perdían en el mapeo de n8n.
   place_id: string | null
@@ -75,6 +84,18 @@ interface LeadRow {
   emails: string[] | null
   categoria: string | null
   codigo_pais: string | null
+  // Redes y procedencia (migración 0026). Las redes en plural las trae Apify
+  // sólo cuando el actor recibe `scrapeContacts: true`.
+  youtube: string | null
+  tiktok: string | null
+  twitter: string | null
+  pinterest: string | null
+  email_source: string | null
+  phone_source: string | null
+  social_source: string | null
+  whatsapp_source: string | null
+  last_enriched_at: string | null
+  enrichment_status: string | null
 }
 
 /** El análisis IA (observaciones/recomendaciones/oportunidades/errores) se guarda como JSON en score_reasoning. */
@@ -126,7 +147,17 @@ function rowToLead(row: LeadRow): Lead {
     instagram: row.instagram ?? undefined,
     facebook: row.facebook ?? undefined,
     linkedin: row.linkedin ?? undefined,
+    youtube: row.youtube ?? undefined,
+    tiktok: row.tiktok ?? undefined,
+    twitter: row.twitter ?? undefined,
+    pinterest: row.pinterest ?? undefined,
     googleMaps: row.google_maps ?? undefined,
+    emailSource: row.email_source ?? undefined,
+    phoneSource: row.phone_source ?? undefined,
+    socialSource: row.social_source ?? undefined,
+    whatsappSource: row.whatsapp_source ?? undefined,
+    lastEnrichedAt: row.last_enriched_at ?? undefined,
+    enrichmentStatus: row.enrichment_status ?? undefined,
     etiquetas: row.etiquetas ?? [],
     ratingGoogle: row.rating_google ?? undefined,
     numResenas: row.num_resenas ?? undefined,
@@ -151,7 +182,7 @@ function rowToLead(row: LeadRow): Lead {
     valorEstimado: row.valor_estimado ?? 0,
     probabilidad: row.probabilidad ?? undefined,
     fechaCierreEstimada: row.fecha_cierre_estimada ?? undefined,
-    responsable: row.responsable || 'JD',
+    responsable: row.responsable || RESPONSABLE_POR_DEFECTO,
     proximoSeguimiento: row.proximo_seguimiento ?? undefined,
     ultimaAccion: row.updated_at,
     favorito: row.favorito,
@@ -159,6 +190,14 @@ function rowToLead(row: LeadRow): Lead {
     cerradoEn: row.cerrado_en ?? undefined,
     motivoCierre: row.motivo_cierre ?? undefined,
     etapaPrevia: (row.etapa_previa as Lead['etapaPrevia']) ?? undefined,
+    // Contacto (migración 0028). `touch_actual` cae a 0 y no a undefined: un
+    // lead sin contactar tiene cero toques, que es un dato, no una ausencia.
+    touchActual: row.touch_actual ?? 0,
+    primerContactoEn: row.primer_contacto_en ?? undefined,
+    ultimoContactoEn: row.ultimo_contacto_en ?? undefined,
+    ultimoContactoTipo: (row.ultimo_contacto_tipo as Lead['ultimoContactoTipo']) ?? undefined,
+    ultimoContactoResultado: (row.ultimo_contacto_resultado as Lead['ultimoContactoResultado']) ?? undefined,
+    respondioEn: row.respondio_en ?? undefined,
   }
 }
 
@@ -178,6 +217,10 @@ function leadPatchToRow(patch: Partial<Lead>): Record<string, unknown> {
   if (patch.instagram !== undefined) row.instagram = patch.instagram
   if (patch.facebook !== undefined) row.facebook = patch.facebook
   if (patch.linkedin !== undefined) row.linkedin = patch.linkedin
+  if (patch.youtube !== undefined) row.youtube = patch.youtube
+  if (patch.tiktok !== undefined) row.tiktok = patch.tiktok
+  if (patch.twitter !== undefined) row.twitter = patch.twitter
+  if (patch.pinterest !== undefined) row.pinterest = patch.pinterest
   if (patch.googleMaps !== undefined) row.google_maps = patch.googleMaps
   if (patch.ratingGoogle !== undefined) row.rating_google = patch.ratingGoogle
   if (patch.numResenas !== undefined) row.num_resenas = patch.numResenas
@@ -359,7 +402,7 @@ export const leadsService = {
     return (data ?? []).map((r) => ({
       id: r.id,
       leadId: r.lead_id,
-      autor: r.autor || 'JD',
+      autor: r.autor || RESPONSABLE_POR_DEFECTO,
       texto: r.contenido || '',
       creado: r.created_at,
       editado: r.updated_at ?? undefined,
@@ -371,7 +414,7 @@ export const leadsService = {
     const user = await currentUser()
     const { data, error } = await supabase
       .from('notes')
-      .insert({ lead_id: payload.leadId, contenido: payload.texto, created_by: user?.id ?? null, autor: payload.autor ?? user?.email ?? 'JD' })
+      .insert({ lead_id: payload.leadId, contenido: payload.texto, created_by: user?.id ?? null, autor: payload.autor ?? user?.email ?? RESPONSABLE_POR_DEFECTO })
       .select('id')
       .single()
     if (error) throw error

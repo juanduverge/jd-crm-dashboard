@@ -9,7 +9,7 @@ import { useEliminarMeta, useGoals, useRegistrarAvance, useTareas } from '@/hook
 import { EditarMetaModal } from './EditarMetaModal'
 import { NuevaMetaModal } from './NuevaMetaModal'
 import {
-  filtrarPorPeriodo, fmtDia, fmtNum, iso, progreso, rangoConsulta, tonoProgreso,
+  filtrarPorPeriodo, fmtDia, fmtNum, iso, progreso, valorProgreso, rangoConsulta, tonoProgreso,
 } from '../shared/goalMeta'
 import type { Goal } from '@/types'
 
@@ -120,8 +120,11 @@ function FilaMetaDia({ goal }: { goal: Goal }) {
   const [editando, setEditando] = useState(false)
   const [borrando, setBorrando] = useState(false)
   const pct = progreso(goal)
+  const valor = valorProgreso(goal)
   const esToggle = goal.tipo === 'toggle'
-  const hecho = esToggle ? goal.valorActual >= 1 : pct >= 100
+  const hecho = esToggle ? valor >= 1 : pct >= 100
+  // Una meta automática no se toca a mano: la alimentan las acciones del CRM.
+  const auto = !!goal.metrica
 
   const sumar = (delta: number) =>
     avance.mutate({ id: goal.id, delta }, {
@@ -135,7 +138,7 @@ function FilaMetaDia({ goal }: { goal: Goal }) {
       {esToggle ? (
         <button
           onClick={() => sumar(hecho ? -1 : 1)}
-          disabled={avance.isPending}
+          disabled={avance.isPending || auto}
           className="shrink-0"
           title={hecho ? 'Desmarcar' : 'Marcar como hecho'}
         >
@@ -161,7 +164,7 @@ function FilaMetaDia({ goal }: { goal: Goal }) {
               <div className={cn('h-full rounded-full transition-all', tonoProgreso(pct))} style={{ width: `${pct}%` }} />
             </div>
             <span className="text-xs text-muted">
-              {fmtNum(goal.valorActual)} / {fmtNum(goal.target)}{goal.unidad ? ` ${goal.unidad}` : ''}
+              {fmtNum(valor)} / {fmtNum(goal.target)}{goal.unidad ? ` ${goal.unidad}` : ''}
             </span>
           </div>
         )}
@@ -192,11 +195,11 @@ function FilaMetaDia({ goal }: { goal: Goal }) {
         )}
       </div>
 
-      {!esToggle && (
+      {!esToggle && !auto && (
         <div className="flex shrink-0 items-center gap-1">
           <button
             onClick={() => sumar(-1)}
-            disabled={avance.isPending || goal.valorActual <= 0}
+            disabled={avance.isPending || valor <= 0}
             className="btn-ghost h-8 w-8 rounded-lg border border-border p-0 disabled:opacity-40"
             title="Restar 1"
           >

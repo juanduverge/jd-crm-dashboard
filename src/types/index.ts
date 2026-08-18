@@ -41,7 +41,19 @@ export interface Lead {
   instagram?: string
   facebook?: string
   linkedin?: string
+  youtube?: string           // Redes que `scrapeContacts` de Apify devuelve en plural (migración 0026)
+  tiktok?: string
+  twitter?: string
+  pinterest?: string
   googleMaps?: string
+  // Procedencia de cada dato (migración 0026). Saber de dónde salió un email
+  // es la diferencia entre confiarlo y volver a comprobarlo a mano.
+  emailSource?: string       // apify_contacts | web_scrape | manual
+  phoneSource?: string
+  socialSource?: string
+  whatsappSource?: string    // wa_link_web = la empresa lo publica en su web. Nunca inferido.
+  lastEnrichedAt?: string
+  enrichmentStatus?: string  // ok | sin_datos | error
   etiquetas?: string[]        // Etiquetas libres (col Etiquetas, separadas por coma)
   ratingGoogle?: number
   numResenas?: number
@@ -77,7 +89,34 @@ export interface Lead {
   cerradoEn?: string          // ISO; cuándo pasó a ganado/perdido
   motivoCierre?: string       // Por qué se cerró
   etapaPrevia?: LeadStatus    // Etapa desde la que se cerró (destino al reactivar)
+
+  // --- Contacto: DERIVADO de `follow_ups` por trigger (migración 0028) ---
+  // Nada de esto se escribe a mano ni se calcula en el cliente. Vive en `leads`
+  // para que kanban, tabla y filtros puedan ordenar por toque sin un join por
+  // fila, igual que ya pasaba con `proximoSeguimiento` desde la 0013.
+  /** Nº de contactos COMPLETADOS. 0 = nunca contactado; 2 = va por el Touch 2. */
+  touchActual: number
+  primerContactoEn?: string   // ISO
+  ultimoContactoEn?: string   // ISO
+  ultimoContactoTipo?: FollowUpTipo
+  ultimoContactoResultado?: FollowUpResultado
+  /** Primer toque que obtuvo respuesta (positiva o negativa). Base de la tasa de respuesta. */
+  respondioEn?: string        // ISO
 }
+
+/**
+ * Situación de seguimiento de un lead, tal y como la calcula la vista
+ * `v_leads_seguimiento` (migración 0028). Se deriva en SQL a propósito: es la
+ * ÚNICA definición de "atrasado" del CRM, y así Pipeline, Leads y Seguimiento
+ * no pueden discrepar sobre qué está al día y qué no.
+ */
+export type SituacionSeguimiento =
+  | 'sin_contactar'   // 0 toques y sin nada programado
+  | 'sin_proximo'     // ya contactado, pero sin siguiente toque en la agenda
+  | 'atrasado'        // tiene toque pendiente con fecha pasada
+  | 'hoy'             // toca hoy
+  | 'programado'      // toca más adelante
+  | 'cerrado'         // ganado o perdido
 
 /** Mensaje = fila de la hoja "messages" */
 export interface Message {
@@ -349,6 +388,18 @@ export interface Goal {
    * pausar o cancelar un objetivo sin borrarlo ni perder su historial.
    */
   estado: GoalEstado
+  /**
+   * Métrica del CRM que alimenta esta meta (migración 0028). Si está puesta,
+   * la meta es AUTOMÁTICA: su progreso se deriva de las acciones reales dentro
+   * del rango de la propia meta, y los +/− manuales dejan de aplicar.
+   */
+  metrica?: MetricaClave
+  /**
+   * Progreso derivado de `metrica`, resuelto en el servidor sobre las fechas
+   * de esta meta. Sólo viene en metas automáticas; `valorProgreso()` es lo que
+   * debe pintar la UI, nunca `valorActual` a secas.
+   */
+  valorDerivado?: number
   /** Derivado en el cliente: si tiene hijas, su valor no se edita a mano. */
   tieneHijas: boolean
   creado?: string
@@ -510,4 +561,70 @@ export interface TrashItem {
   detail?: string
   eliminadoEn?: string
   eliminadoPor?: string
+}
+
+
+// -------------------------------------------------------------
+// MÉTRICAS DE PRODUCTIVIDAD COMERCIAL (migración 0028)
+// -------------------------------------------------------------
+
+/**
+ * Claves de `metrica_valor()` en Postgres. Son las únicas que el CRM sabe
+ * medir, y la lista vive aquí sólo como espejo tipado: la DEFINICIÓN de cada
+ * una (qué filas cuenta, con qué fecha) está en SQL y en ningún otro sitio.
+ *
+ * Todas son de PERIODO: "qué pasó entre estas dos fechas". Lo que se puede
+ * contar ahora mismo (cuántos leads hay sin contactar) es una pregunta
+ * distinta y vive en `SituacionCrm`.
+ */
+export type MetricaClave =
+  | 'leads_encontrados'
+  | 'leads_contactados'
+  | 'contactos_realizados'
+  | 'touch_1' | 'touch_2' | 'touch_3' | 'touch_4' | 'touch_5'
+  | 'respuestas_recibidas'
+  | 'leads_respondieron'
+  | 'reuniones_agendadas'
+  | 'propuestas_enviadas'
+  | 'leads_ganados'
+  | 'leads_perdidos'
+  | 'valor_ganado'
+  | 'tiempo_prospeccion_min'
+  | 'tareas_completadas'
+
+/** Lo que ocurrió en el periodo consultado. */
+export type MetricasPeriodo = Record<MetricaClave, number> & {
+  /** Días de media entre dos toques consecutivos del mismo lead. */
+  dias_entre_contactos: number
+}
+
+/** Cómo está la cartera AHORA. No depende del rango de fechas. */
+export interface SituacionCrm {
+  total_activos: number
+  sin_contactar: number
+  en_curso: number
+  interesados: number
+  reunion: number
+  propuesta: number
+  negociacion: number
+  seg_pendientes: number
+  seg_hoy: number
+  seg_atrasados: number
+  sin_proximo: number
+}
+
+/** Porcentajes ya calculados en SQL, para que dos pantallas no puedan discrepar. */
+export interface RatiosCrm {
+  tasa_respuesta: number
+  tasa_conversion: number
+  toques_por_lead: number
+}
+
+/** Respuesta completa del RPC `metricas_crm`. */
+export interface MetricasCrm {
+  desde: string
+  hasta: string
+  periodo: MetricasPeriodo
+  situacion: SituacionCrm
+  ratios: RatiosCrm
 }

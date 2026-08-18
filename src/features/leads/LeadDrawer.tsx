@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star, Calendar, Clock, Gauge } from 'lucide-react'
+import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star, Calendar, Clock, Gauge, Youtube, Twitter, Music2, Pin } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge, Skeleton } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn, htmlToText } from '@/lib/utils'
@@ -11,6 +11,12 @@ import { NewMessageModal } from '@/features/messages/NewMessageModal'
 import { LeadFollowUpsTab } from '@/features/followups/LeadFollowUpsTab'
 import toast from 'react-hot-toast'
 import type { Lead, Contact, ContactType, Note, Channel } from '@/types'
+
+import {
+  SITUACION_META, siguienteToque, situacionLead, textoProximo, textoUltimoContacto,
+  touchColor, touchLabel,
+} from '@/lib/touches'
+import { today } from '@/lib/followUps'
 
 const TABS = ['Detalles', 'Seguimientos', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
 
@@ -57,6 +63,13 @@ export function LeadDrawer({
   // + a veces varios más; ver migración 0025).
   const otrosTelefonos = (lead.telefonos ?? []).filter((t) => t !== lead.telefono)
   const activeEmail = selectedEmail && emailOptions?.includes(selectedEmail) ? selectedEmail : (emailOptions?.[0] ?? lead.email)
+  // Procedencia del WhatsApp (migración 0026). Sólo se guarda cuando la propia
+  // empresa lo publica: nunca se deduce del teléfono, porque no hay forma
+  // legítima de saber si un número tiene WhatsApp.
+  const waHint = lead.whatsappSource === 'wa_link_web' ? 'publicado en su web'
+    : lead.whatsappSource === 'apify_contacts' ? 'detectado por Apify'
+    : lead.whatsappSource === 'manual' ? 'añadido a mano'
+    : undefined
 
   const analizarConIA = async () => {
     setAnalizando(true)
@@ -141,6 +154,8 @@ export function LeadDrawer({
         </div>
       </div>
 
+      <FichaSeguimiento lead={lead} onVerSeguimientos={() => setTab('Seguimientos')} />
+
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border px-5">
         {TABS.map((t) => (
@@ -181,14 +196,28 @@ export function LeadDrawer({
             {otrosTelefonos.map((t) => (
               <Row key={t} icon={Phone} label="Otro teléfono" value={t} />
             ))}
-            <Row icon={MessageCircle} label="WhatsApp" value={lead.whatsapp} />
-            <Row icon={Instagram} label="Instagram" value={lead.instagram} />
-            <Row icon={Facebook} label="Facebook" value={lead.facebook} />
-            <Row icon={Linkedin} label="LinkedIn" value={lead.linkedin} />
+            <Row icon={MessageCircle} label="WhatsApp" value={lead.whatsapp} hint={waHint} />
+            <Row icon={Instagram} label="Instagram" value={lead.instagram} link={lead.instagram} />
+            <Row icon={Facebook} label="Facebook" value={lead.facebook} link={lead.facebook} />
+            <Row icon={Linkedin} label="LinkedIn" value={lead.linkedin} link={lead.linkedin} />
+            <Row icon={Youtube} label="YouTube" value={lead.youtube} link={lead.youtube} />
+            <Row icon={Music2} label="TikTok" value={lead.tiktok} link={lead.tiktok} />
+            <Row icon={Twitter} label="X / Twitter" value={lead.twitter} link={lead.twitter} />
+            <Row icon={Pin} label="Pinterest" value={lead.pinterest} link={lead.pinterest} />
             <Row icon={MapPin} label="Dirección" value={lead.direccion} />
             <Row icon={MapPin} label="Ciudad" value={lead.ciudad} />
             <Row icon={MapPin} label="País" value={lead.pais} />
             <Row icon={Flag} label="Fuente" value={lead.fuente} />
+            {/* `sin_datos` = se buscó en su web y no había nada, que es distinto
+                de no haberlo intentado nunca (last_enriched_at vacío). */}
+            <Row
+              icon={Clock}
+              label="Enriquecido"
+              value={lead.lastEnrichedAt ? fmtFecha(lead.lastEnrichedAt) : undefined}
+              hint={lead.enrichmentStatus === 'sin_datos' ? 'sin datos en su web'
+                : lead.enrichmentStatus === 'error' ? 'falló, se reintentará'
+                : undefined}
+            />
             <Row icon={User} label="Responsable" value={lead.responsable} />
             {lead.etiquetas && lead.etiquetas.length > 0 && (
               <div className="flex items-start gap-2">
@@ -261,15 +290,100 @@ export function LeadDrawer({
   )
 }
 
-function Row({ icon: Icon, label, value, link, onClick }: { icon: any; label: string; value?: string; link?: string; onClick?: () => void }) {
+/** `hint` es la procedencia del dato (migración 0026): de dónde salió y cuándo. */
+/**
+ * Ficha de seguimiento — la respuesta única a "¿dónde está este lead?".
+ *
+ * Se pinta siempre, por encima de las pestañas, porque es la información que
+ * hace falta ANTES de decidir qué hacer: etapa, cuántos contactos lleva, cuál
+ * fue el último, qué toca ahora y por qué canal. Todo sale de campos que
+ * mantiene la BD (migración 0028) a partir de los seguimientos reales, así que
+ * dice exactamente lo mismo que el Pipeline y que la agenda de Seguimientos.
+ */
+function FichaSeguimiento({ lead, onVerSeguimientos }: { lead: Lead; onVerSeguimientos: () => void }) {
+  const hoy = today()
+  const sit = situacionLead(lead, hoy)
+  const proximo = textoProximo(lead, hoy)
+  const ultimo = textoUltimoContacto(lead)
+  const etapa = PIPELINE_STAGES.find((s) => s.id === lead.estado)
+
+  // Próxima acción: una sola frase accionable, derivada de la situación. No es
+  // un campo que nadie escriba; es la lectura del estado actual.
+  const accion =
+    sit === 'cerrado' ? 'Lead cerrado. Sin acción pendiente.'
+    : sit === 'sin_contactar' ? `Primer contacto pendiente (Touch 1) por ${lead.canalPrincipal || 'el canal que prefieras'}.`
+    : sit === 'sin_proximo' ? `Programa el Touch ${siguienteToque(lead)}: lleva ${lead.touchActual} contacto${lead.touchActual === 1 ? '' : 's'} y ninguno agendado.`
+    : sit === 'atrasado' ? `Touch ${siguienteToque(lead)} atrasado. Contacta hoy o reprograma.`
+    : sit === 'hoy' ? `Touch ${siguienteToque(lead)} programado para hoy.`
+    : `Touch ${siguienteToque(lead)} programado.`
+
+  return (
+    <div className="mx-5 mb-1 rounded-xl border border-border bg-surface-2/50 p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {etapa && (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2 py-0.5 text-[11px] font-medium text-fg">
+            <span className="h-2 w-2 rounded-full" style={{ background: etapa.color }} />
+            {etapa.label}
+          </span>
+        )}
+        <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', touchColor(lead.touchActual))}>
+          {touchLabel(lead.touchActual)}
+        </span>
+        <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', SITUACION_META[sit].cls)}>
+          {SITUACION_META[sit].label}
+        </span>
+        {lead.canalPrincipal && (
+          <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] text-muted">
+            Canal: {lead.canalPrincipal}
+          </span>
+        )}
+        {lead.responsable && (
+          <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] text-muted">
+            {lead.responsable}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
+        <div className="text-xs">
+          <span className="block text-muted">Último contacto</span>
+          <span className="font-medium text-fg">{ultimo ?? 'Todavía ninguno'}</span>
+        </div>
+        <div className="text-xs">
+          <span className="block text-muted">Próximo seguimiento</span>
+          <span className={cn('font-medium', proximo ? proximo.cls : 'text-fg')}>
+            {proximo ? proximo.texto : 'Sin programar'}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
+        <p className="min-w-0 flex-1 text-xs text-fg">
+          <span className="font-semibold">Próxima acción:</span> {accion}
+        </p>
+        <button
+          onClick={onVerSeguimientos}
+          className="shrink-0 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+        >
+          Ver historial
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function Row({ icon: Icon, label, value, link, onClick, hint }: { icon: any; label: string; value?: string; link?: string; onClick?: () => void; hint?: string }) {
   if (!value) return null
   return (
     <div className="flex items-center gap-2">
       <Icon className="h-4 w-4 text-muted" />
       <span className="w-20 text-xs text-muted">{label}</span>
-      {onClick ? <button onClick={onClick} className="min-w-0 flex-1 truncate text-left text-primary-600 hover:underline" title={value}>{value}</button>
-      : link ? <a href={link} target="_blank" className="min-w-0 flex-1 truncate text-primary-600 hover:underline" title={value}>{value}</a>
-            : <span className="min-w-0 flex-1 truncate text-fg" title={value}>{value}</span>}
+      <span className="flex min-w-0 flex-1 items-baseline gap-2">
+        {onClick ? <button onClick={onClick} className="min-w-0 truncate text-left text-primary-600 hover:underline" title={value}>{value}</button>
+        : link ? <a href={link} target="_blank" className="min-w-0 truncate text-primary-600 hover:underline" title={value}>{value}</a>
+              : <span className="min-w-0 truncate text-fg" title={value}>{value}</span>}
+        {hint && <span className="shrink-0 text-[10px] text-muted">{hint}</span>}
+      </span>
     </div>
   )
 }

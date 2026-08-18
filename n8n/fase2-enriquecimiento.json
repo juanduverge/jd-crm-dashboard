@@ -1,0 +1,291 @@
+{
+  "id": "jdFase2Enriquec",
+  "name": "Fase 2 - Enriquecimiento de Contacto",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f2-subtrigger-0001",
+      "name": "Llamado por Fase 1",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "f2-cron-0002",
+      "name": "Cada 30 min (red de seguridad)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -460,
+        220
+      ],
+      "notes": "Recoge lo que quedo pendiente si la captacion fallo a medias o si un lead se creo a mano. El trigger manual de antes hacia que el enriquecimiento no ocurriera NUNCA salvo que alguien lo lanzara."
+    },
+    {
+      "parameters": {},
+      "id": "f2-manual-0003",
+      "name": "Ejecutar a mano (pruebas)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/rpc/leads_para_enriquecer",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_limite: 25 }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "f2-cola-0004",
+      "name": "Cola de Enriquecimiento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -220,
+        220
+      ],
+      "notes": "Quien necesita enriquecerse lo decide Supabase (leads_para_enriquecer), no un IF de este workflow. Devuelve {id, empresa, web} de los que tienen web y les falta email, whatsapp o instagram, sin repetir antes de 30 dias."
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "id": "f2-loop-0005",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        0,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.web }}",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "f2-fetch-0006",
+      "name": "Descargar Web",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        220
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "onError=continue a proposito: una web caida no puede tumbar el lote. El lead se marca con status 'error' y se reintenta en la siguiente ronda."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extrae contactos publicos del HTML del negocio.\n//\n// REGLA: lo que no se encuentra se OMITE del objeto, nunca se manda como \"\".\n// enriquecer_lead sólo rellena huecos, pero mandar \"\" seria mentirle. El\n// workflow anterior escribia \"\" sobre el Facebook y el WhatsApp existentes y\n// los borraba en cada pasada.\n\nconst lead = $('Loop Over Items').item.json;\nconst html = (typeof $json.data === 'string' ? $json.data : '') || '';\n\nconst datos = {};\n\nif (html.length < 200) {\n  // No hubo web utilizable. Se sella igualmente para no reintentar en bucle.\n  return [{ json: { id: lead.id, empresa: lead.empresa, datos: { status: 'error' } } }];\n}\n\n// --- Emails ---------------------------------------------------------\nconst emails = [...new Set((html.match(/[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g) || [])\n  .map(e => e.toLowerCase()))]\n  .filter(e =>\n    !/(example|domain|sentry|wix|schema|godaddy|squarespace|\\.png|\\.jpe?g|\\.gif|\\.svg|\\.css|\\.js)$/i.test(e) &&\n    !/(example|sentry\\.io|wixpress|\\.wixsite)/i.test(e)\n  );\nif (emails.length) datos.emails = emails.slice(0, 10);\n\n// --- WhatsApp -------------------------------------------------------\n// SOLO lo que la empresa publica en su propia web. No se deduce del telefono:\n// no existe forma legitima de saber si un numero tiene WhatsApp.\nconst waMatch = [...html.matchAll(/(?:wa\\.me\\/|wa\\.link\\/|(?:api\\.)?whatsapp\\.com\\/send(?:\\/)?[?&]phone=)\\+?([0-9]{7,15})/gi)];\nif (waMatch.length) {\n  datos.whatsapp = '+' + waMatch[0][1];\n  datos.whatsapp_source = 'wa_link_web';\n}\n\n// --- Redes sociales -------------------------------------------------\n// Se mira tambien el JSON-LD (`sameAs`), que es donde muchas webs declaran\n// sus perfiles de forma estructurada y sin basura de tracking.\nlet urlsLd = [];\nfor (const m of html.matchAll(/<script[^>]+application\\/ld\\+json[^>]*>([\\s\\S]*?)<\\/script>/gi)) {\n  try {\n    const json = JSON.parse(m[1].trim());\n    const walk = (o) => {\n      if (!o || typeof o !== 'object') return;\n      if (Array.isArray(o)) return o.forEach(walk);\n      if (o.sameAs) urlsLd = urlsLd.concat([].concat(o.sameAs));\n      Object.values(o).forEach(walk);\n    };\n    walk(json);\n  } catch (e) { /* JSON-LD roto: se ignora y seguimos con los regex */ }\n}\n\nconst redes = {\n  instagram: /(?:https?:\\/\\/)?(?:www\\.)?instagram\\.com\\/((?!p\\/|reel\\/|explore\\/|accounts\\/|stories\\/|tv\\/|sharer)[a-zA-Z0-9_.]{2,30})/i,\n  facebook:  /(?:https?:\\/\\/)?(?:www\\.)?facebook\\.com\\/((?!sharer|share|dialog|plugins|tr\\b|photo|events|login|groups\\/|watch|marketplace|gaming)[a-zA-Z0-9_.\\-]{2,80})/i,\n  linkedin:  /(?:https?:\\/\\/)?(?:[a-z]{2,3}\\.)?linkedin\\.com\\/(?:company|in)\\/([a-zA-Z0-9_.\\-]{2,80})/i,\n  youtube:   /(?:https?:\\/\\/)?(?:www\\.)?youtube\\.com\\/((?:@|c\\/|channel\\/|user\\/)[a-zA-Z0-9_.\\-]{2,60})/i,\n  tiktok:    /(?:https?:\\/\\/)?(?:www\\.)?tiktok\\.com\\/(@[a-zA-Z0-9_.]{2,30})/i,\n  twitter:   /(?:https?:\\/\\/)?(?:www\\.)?(?:twitter|x)\\.com\\/((?!intent|share|home|search)[a-zA-Z0-9_]{2,15})/i,\n  pinterest: /(?:https?:\\/\\/)?(?:[a-z]{2,3}\\.)?pinterest\\.[a-z.]{2,6}\\/([a-zA-Z0-9_\\-]{2,40})/i,\n};\n\nconst dominios = {\n  instagram: 'https://www.instagram.com/', facebook: 'https://www.facebook.com/',\n  linkedin: 'https://www.linkedin.com/', youtube: 'https://www.youtube.com/',\n  tiktok: 'https://www.tiktok.com/', twitter: 'https://x.com/',\n  pinterest: 'https://www.pinterest.com/',\n};\n\nconst fuente = urlsLd.join('\\n') + '\\n' + html;\nfor (const [red, re] of Object.entries(redes)) {\n  const m = fuente.match(re);\n  if (!m) continue;\n  // LinkedIn conserva el prefijo company/in; el resto se reconstruye limpio.\n  if (red === 'linkedin') {\n    const full = m[0].startsWith('http') ? m[0] : 'https://' + m[0].replace(/^\\/+/, '');\n    datos.linkedin = full;\n  } else {\n    datos[red] = dominios[red] + m[1].replace(/^\\//, '');\n  }\n}\n\n// --- Telefonos ------------------------------------------------------\n// Solo los declarados en enlaces tel:, que son intencionados. Un regex suelto\n// sobre el HTML confunde codigos postales, precios y numeros de licencia.\nconst tels = [...new Set([...html.matchAll(/href=[\"']tel:([+0-9().\\s\\-]{7,25})[\"']/gi)]\n  .map(m => m[1].replace(/[^\\d+]/g, ''))\n  .filter(t => t.replace(/\\D/g, '').length >= 7))];\nif (tels.length) datos.telefonos = tels.slice(0, 5);\n\nreturn [{ json: { id: lead.id, empresa: lead.empresa, datos } }];"
+      },
+      "id": "f2-extraer-0007",
+      "name": "Extraer Contactos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/rpc/enriquecer_lead",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_id: $json.id, p_datos: $json.datos, p_fuente: 'web_scrape' }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "f2-guardar-0008",
+      "name": "Guardar en Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        220
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "enriquecer_lead SOLO rellena huecos. Es imposible por construccion que este paso borre un dato existente, que es justo lo que hacia el 'Guardar en Sheets' anterior."
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "f2-wait-0009",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        220
+      ],
+      "webhookId": "f2-wait-enriquecimiento"
+    }
+  ],
+  "connections": {
+    "Llamado por Fase 1": {
+      "main": [
+        [
+          {
+            "node": "Cola de Enriquecimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada 30 min (red de seguridad)": {
+      "main": [
+        [
+          {
+            "node": "Cola de Enriquecimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar a mano (pruebas)": {
+      "main": [
+        [
+          {
+            "node": "Cola de Enriquecimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cola de Enriquecimiento": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Descargar Web",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar Web": {
+      "main": [
+        [
+          {
+            "node": "Extraer Contactos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer Contactos": {
+      "main": [
+        [
+          {
+            "node": "Guardar en Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en Supabase": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

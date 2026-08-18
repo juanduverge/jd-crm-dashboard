@@ -8,6 +8,7 @@ import { GoalCard } from './GoalCard'
 import { NuevaMetaModal } from './NuevaMetaModal'
 import {
   filtrarPorPeriodo, fmtMes, fmtNum, fmtRangoSemana, rangoConsulta, rangoMes, rangoSemana,
+  valorProgreso,
 } from '../shared/goalMeta'
 import type { Goal } from '@/types'
 
@@ -49,8 +50,9 @@ export function MetasPeriodoView({ periodo }: { periodo: 'mes' | 'semana' }) {
 
   const totales = metas.reduce(
     (acc, g) => {
-      if (g.tipo === 'contador') { acc.target += g.target; acc.valor += g.valorActual }
-      else { acc.toggles += 1; acc.togglesHechos += g.valorActual >= 1 ? 1 : 0 }
+      const v = valorProgreso(g)
+      if (g.tipo === 'contador') { acc.target += g.target; acc.valor += v }
+      else { acc.toggles += 1; acc.togglesHechos += v >= 1 ? 1 : 0 }
       return acc
     },
     { target: 0, valor: 0, toggles: 0, togglesHechos: 0 },

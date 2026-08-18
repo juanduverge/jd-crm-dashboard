@@ -5,7 +5,8 @@ import { AutoTextarea } from '@/components/ui/AutoTextarea'
 import { Modal } from '@/components/ui/Modal'
 import { ResponsableSelect } from '@/components/ui/ResponsableSelect'
 import { useActualizarMeta } from '@/hooks/useData'
-import type { Goal, GoalEstado, Priority } from '@/types'
+import { metricasPorGrupo, METRICA_BY_CLAVE } from '@/lib/metricas'
+import type { Goal, GoalEstado, MetricaClave, Priority } from '@/types'
 
 /**
  * Edición completa de una meta. Vive en su propio archivo (antes era privado
@@ -49,6 +50,7 @@ export function EditarMetaModal({
   const [prioridad, setPrioridad] = useState<Priority | ''>(goal.prioridad ?? '')
   const [estado, setEstado] = useState<GoalEstado>(goal.estado)
   const [responsable, setResponsable] = useState(goal.responsable ?? '')
+  const [metrica, setMetrica] = useState<MetricaClave | ''>(goal.metrica ?? '')
 
   // Resincroniza con la meta cada vez que se abre. Sin esto el formulario
   // conserva lo que se tecleó (o lo que había) la vez anterior.
@@ -63,10 +65,12 @@ export function EditarMetaModal({
     setPrioridad(goal.prioridad ?? '')
     setEstado(goal.estado)
     setResponsable(goal.responsable ?? '')
+    setMetrica(goal.metrica ?? '')
   }, [open, goal])
 
   const targetCambia = Number(target) !== goal.target
   const fechasCambian = fechaInicio !== goal.fechaInicio || fechaFin !== goal.fechaFin
+  const metricaCambia = (metrica || null) !== (goal.metrica ?? null)
 
   const guardar = () => {
     const t = Number(target)
@@ -89,6 +93,9 @@ export function EditarMetaModal({
         // fecha_inicio/fecha_fin dispara la validación de jerarquía, y no
         // tiene sentido arriesgar un rechazo por un campo que no se tocó.
         ...(fechasCambian ? { fechaInicio, fechaFin } : {}),
+        // `null` desengancha la métrica y devuelve la meta al modo manual; se
+        // manda sólo si cambió, para no reescribir la cascada en cada guardado.
+        ...(metricaCambia ? { metrica: (metrica || null) as MetricaClave | null } : {}),
         prioridad: prioridad || null,
         estado,
         // Al cambiar el objetivo de una meta con hijas, se reparte de nuevo
@@ -138,6 +145,27 @@ export function EditarMetaModal({
               <label className="mb-1 block text-xs text-muted">Unidad</label>
               <Input value={unidad} onChange={(e) => setUnidad(e.target.value)} placeholder="leads, horas…" />
             </div>
+          </div>
+        )}
+
+        {goal.tipo === 'contador' && (
+          <div>
+            <label className="mb-1 block text-xs text-muted">¿Se mide sola?</label>
+            <Select value={metrica} onChange={(e) => setMetrica(e.target.value as MetricaClave | '')}>
+              <option value="">No — la actualizo yo a mano</option>
+              {metricasPorGrupo().map((g) => (
+                <optgroup key={g.grupo} label={g.grupo}>
+                  {g.metricas.map((m) => (
+                    <option key={m.clave} value={m.clave}>{m.label}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </Select>
+            <p className="mt-1 text-[11px] text-muted">
+              {metrica
+                ? `${METRICA_BY_CLAVE[metrica].ayuda}${goal.tieneHijas ? ' Se aplica también a sus metas hijas.' : ''}`
+                : 'Sin métrica, el avance se registra a mano con los botones + / − de la tarjeta.'}
+            </p>
           </div>
         )}
 

@@ -59,9 +59,43 @@ export function fmtNum(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, '')
 }
 
+/**
+ * Valor a pintar de una meta. Es la ÚNICA función que debe consultarse para
+ * saber "cuánto llevo": una meta automática (con `metrica`) vale lo que dicen
+ * los datos reales, y una manual lo que se haya registrado a mano.
+ *
+ * Leer `valorActual` directamente es el error a evitar — en una meta
+ * automática esa columna sigue existiendo por la cascada, pero no significa
+ * nada para el usuario.
+ */
+export function valorProgreso(g: Goal): number {
+  return g.metrica ? (g.valorDerivado ?? 0) : g.valorActual
+}
+
 export function progreso(g: Goal): number {
   if (g.target <= 0) return 0
-  return Math.min(100, Math.round((g.valorActual / g.target) * 100))
+  return Math.min(100, Math.round((valorProgreso(g) / g.target) * 100))
+}
+
+/**
+ * Ritmo: qué porcentaje del periodo ha transcurrido ya. Comparado con el
+ * progreso dice lo único que importa a media semana — si se va por delante o
+ * por detrás. Un 47% de meta el día 3 de un mes es excelente; el día 28, malo.
+ */
+export function pctTranscurrido(g: Goal, hoy = new Date()): number {
+  const ini = desdeIso(g.fechaInicio).getTime()
+  const fin = desdeIso(g.fechaFin).getTime() + 86_399_000  // hasta el final del día
+  if (fin <= ini) return 100
+  return Math.max(0, Math.min(100, Math.round(((hoy.getTime() - ini) / (fin - ini)) * 100)))
+}
+
+/**
+ * Diferencia entre lo conseguido y lo que "tocaría" a estas alturas del
+ * periodo, en unidades de la meta. Negativo = se va con retraso.
+ */
+export function desviacion(g: Goal, hoy = new Date()): number {
+  const esperado = (g.target * pctTranscurrido(g, hoy)) / 100
+  return Math.round((valorProgreso(g) - esperado) * 10) / 10
 }
 
 export function tonoProgreso(pct: number): string {
