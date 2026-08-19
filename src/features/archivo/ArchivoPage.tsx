@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Badge, Input, Select, Skeleton, EmptyState } from '@/components/ui'
 import { useLeads, useReactivarLead } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
+import { crearFiltroLeads } from '@/lib/leadSearch'
 import { formatCurrency, cn } from '@/lib/utils'
 import { STAGE_BY_ID } from '@/lib/pipeline'
 import { FollowUpTimeline } from '../followups/FollowUpTimeline'
@@ -31,11 +32,13 @@ export function ArchivoPage() {
   const [abierto, setAbierto] = useState<string | null>(null)
 
   const archivados = useMemo(() => {
-    const term = q.trim().toLowerCase()
+    // Mismo motor que la lista de Leads: busca en toda la ficha y admite
+    // sintaxis por campo (`ciudad:madrid`, `motivo:precio`, `cerrado:3m`).
+    const coincide = crearFiltroLeads(q)
     return leads
       .filter((l) => l.estado === 'ganado' || l.estado === 'perdido')
       .filter((l) => filtro === 'todos' || l.estado === filtro)
-      .filter((l) => !term || l.empresa.toLowerCase().includes(term))
+      .filter(coincide)
       // Lo más recientemente cerrado primero.
       .sort((a, b) => (b.cerradoEn ?? '').localeCompare(a.cerradoEn ?? ''))
   }, [leads, q, filtro])
@@ -80,7 +83,7 @@ export function ArchivoPage() {
               <Input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Buscar empresa…"
+                placeholder="Buscar en toda la ficha…"
                 className="h-9 w-48 pl-9"
               />
             </div>

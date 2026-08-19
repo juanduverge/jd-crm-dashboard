@@ -12,6 +12,7 @@ interface Resultado {
   action: () => void
 }
 import { fuzzyMatch, cn } from '@/lib/utils'
+import { crearFiltroLeads } from '@/lib/leadSearch'
 
 /** Búsqueda global tipo Linear/Raycast (Cmd/Ctrl+K). */
 export function CommandPalette() {
@@ -42,13 +43,15 @@ export function CommandPalette() {
       .filter((n) => fuzzyMatch(n.label, q))
       .map((n) => ({ type: 'Página', label: n.label, action: () => navigate(n.to) }))
     const leadHits: Resultado[] = leads
-      .filter((l) => fuzzyMatch(`${l.empresa} ${l.email} ${l.ciudad}`, q))
+      .filter(crearFiltroLeads(q))
       .slice(0, 6)
       .map((l) => ({
         type: 'Lead',
         label: l.empresa,
-        sub: l.ciudad,
-        action: () => navigate('/leads'),
+        sub: [l.ciudad, l.telefono].filter(Boolean).join(' · '),
+        // Abre la ficha del lead, no sólo la lista: buscar un teléfono aquí y
+        // acabar en una tabla de 70 filas no servía de nada.
+        action: () => navigate(`/leads?lead=${encodeURIComponent(l.id)}`),
       }))
     return [...pages, ...leadHits].slice(0, 12)
   }, [q, leads, navigate])

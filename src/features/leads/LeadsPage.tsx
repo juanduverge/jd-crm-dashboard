@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   Plus, Download, RefreshCw, Trash2, Search, ArrowUpDown, Mail, MessageCircle,
@@ -14,7 +15,9 @@ import { NewMessageModal } from '@/features/messages/NewMessageModal'
 import { useLeads, useDeleteLead, useNichos, useUltimaImportacion } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
 import { PIPELINE_STAGES } from '@/lib/config'
-import { scoreColor, fuzzyMatch, formatCurrency, downloadCSV, cn } from '@/lib/utils'
+import { scoreColor, formatCurrency, downloadCSV, cn } from '@/lib/utils'
+import { crearFiltroLeads, relevanciaLead } from '@/lib/leadSearch'
+import { AyudaBusqueda } from './AyudaBusqueda'
 import { TouchFilterBar } from '@/components/TouchFilterBar'
 import { pasaFiltroToque } from '@/lib/touches'
 import { today } from '@/lib/followUps'
@@ -64,6 +67,22 @@ export function LeadsPage() {
   const [editing, setEditing] = useState<Lead | null>(null)
   const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null)
   const drawerLead = drawerLeadId ? (leads.find((l) => l.id === drawerLeadId) ?? null) : null
+
+  // `/leads?lead=<id>` abre la ficha directamente: así la paleta global (⌘K)
+  // puede llevarte al lead concreto en vez de dejarte en la lista.
+  const [params, setParams] = useSearchParams()
+  const leadParam = params.get('lead')
+  useEffect(() => {
+    if (leadParam) setDrawerLeadId(leadParam)
+  }, [leadParam])
+  const cerrarDrawer = () => {
+    setDrawerLeadId(null)
+    if (leadParam) {
+      const p = new URLSearchParams(params)
+      p.delete('lead')
+      setParams(p, { replace: true })
+    }
+  }
   const [composeLead, setComposeLead] = useState<Lead | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
@@ -72,12 +91,16 @@ export function LeadsPage() {
   const ultimaImportacion = useUltimaImportacion().data
 
   // Base: aplica búsqueda + filtros avanzados (nicho/score), sin la pestaña ni pills.
-  const base = useMemo(() =>
-    leads.filter((l) =>
-      fuzzyMatch(`${l.empresa} ${l.email} ${l.ciudad} ${l.web}`, search) &&
+  // La búsqueda recorre TODOS los campos de la ficha y admite sintaxis por
+  // campo (`ciudad:madrid`, `tel:600`, `creado:>2026-01`); ver `lib/leadSearch`.
+  const base = useMemo(() => {
+    const coincide = crearFiltroLeads(search)
+    return leads.filter((l) =>
+      coincide(l) &&
       (!fNicho || l.nicho === fNicho) &&
       (l.score >= fScoreMin),
-    ), [leads, search, fNicho, fScoreMin])
+    )
+  }, [leads, search, fNicho, fScoreMin])
 
   // Conteos por pestaña, calculados sobre la base (respetan búsqueda/filtros).
   const counts = useMemo(() => {
@@ -117,7 +140,13 @@ export function LeadsPage() {
       if (sort.key === 'actualizado') return l.fechaUltimoMovimiento || l.ultimaAccion || ''
       return l[sort.key] ?? ''
     }
+    // Con búsqueda activa manda la relevancia: lo que claramente buscabas
+    // (teléfono exacto, empresa que empieza igual) va primero. Dentro del mismo
+    // tramo sigue mandando el orden de columna que hayas elegido.
+    const rel = new Map(res.map((l) => [l.id, relevanciaLead(l, search)]))
     res = [...res].sort((a, b) => {
+      const dr = (rel.get(b.id) ?? 0) - (rel.get(a.id) ?? 0)
+      if (dr !== 0) return dr
       const av = sortVal(a)
       const bv = sortVal(b)
       const cmp = typeof av === 'number' && typeof bv === 'number'
@@ -126,7 +155,7 @@ export function LeadsPage() {
     })
     return res
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conPestana, fToque, hoy, sort])
+  }, [conPestana, fToque, hoy, sort, search])
 
   const allSelected = filtered.length > 0 && filtered.every((l) => selectedIds.has(l.id))
 
@@ -201,10 +230,34 @@ export function LeadsPage() {
       {/* Barra de búsqueda + filtros */}
       <div className="mb-3 flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative max-w-md flex-1">
+          <form
+            className="relative max-w-md flex-1"
+            onSubmit={(e) => {
+              // El filtrado ya es en vivo; Enter abre la ficha del primer
+              // resultado, que es lo que espera quien pega un teléfono.
+              e.preventDefault()
+              if (filtered.length > 0) setDrawerLeadId(filtered[0].id)
+            }}
+          >
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input className="pl-9" placeholder="Buscar empresa, email, ciudad…" value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
+            <Input
+              className="pl-9 pr-9"
+              placeholder="Buscar en toda la ficha: teléfono, ciudad, nicho, calle, fecha…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Limpiar búsqueda"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted hover:text-fg"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </form>
+          <AyudaBusqueda onEjemplo={(q) => setSearch(q)} />
         </div>
 
         {/* Pestañas rápidas por estado (un clic cambia la vista, estilo Pipeline) */}
@@ -381,8 +434,8 @@ export function LeadsPage() {
       <LeadSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
       <LeadDrawer
         lead={drawerLead}
-        onClose={() => setDrawerLeadId(null)}
-        onEdit={(l) => { setDrawerLeadId(null); setEditing(l); setFormOpen(true) }}
+        onClose={cerrarDrawer}
+        onEdit={(l) => { cerrarDrawer(); setEditing(l); setFormOpen(true) }}
         onMoveStage={(id, estado) => { moveStage(id, estado); toast.success('Etapa actualizada') }}
       />
       <NewMessageModal
