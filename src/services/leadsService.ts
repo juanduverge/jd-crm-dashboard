@@ -267,18 +267,31 @@ export interface LeadImport {
   actualizados: number
   descartados: number
   motivos: { motivo: string; empresa?: string; cantidad: number }[]
+  /** Las empresas que ya estaban en la lista, para poder ir a ellas. */
+  yaExistian: { empresa: string; leadId?: string }[]
 }
 
 function rowToImport(r: any): LeadImport {
   const detalle: any[] = Array.isArray(r.detalle) ? r.detalle : []
   const conteo = new Map<string, { motivo: string; empresa?: string; cantidad: number }>()
+  const yaExistian: { empresa: string; leadId?: string }[] = []
   for (const d of detalle) {
+    // Desde la 0030 `detalle` trae también los actualizados, con
+    // `resultado: 'actualizado'`. Sin separarlos, "20 encontrados / 1 nuevo"
+    // seguiria siendo un misterio, pero los 19 aparecerian mal contados como
+    // descartados. Los registros anteriores a la 0030 no traen `resultado`:
+    // todos eran descartes, asi que ese es el valor por defecto.
+    if (d?.resultado === 'actualizado') {
+      yaExistian.push({ empresa: String(d?.empresa ?? '—'), leadId: d?.lead_id })
+      continue
+    }
     const motivo = String(d?.motivo ?? 'sin motivo')
     const prev = conteo.get(motivo)
     if (prev) prev.cantidad += 1
     else conteo.set(motivo, { motivo, empresa: d?.empresa, cantidad: 1 })
   }
   return {
+    yaExistian,
     id: r.id,
     fecha: r.created_at,
     fuente: r.fuente ?? 'google_maps',

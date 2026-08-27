@@ -495,6 +495,18 @@ function ResumenImportacion({ resumen }: { resumen: LeadImport | null }) {
             Descartados por: {resumen.motivos.map((m) => `${m.motivo} (${m.cantidad})`).join(', ')}.
             {resumen.motivos.some((m) => m.motivo === 'borrado previamente') &&
               ' Los que borraste antes no vuelven a entrar; restáuralos desde la Papelera si los quieres.'}
+            {resumen.motivos.some((m) => m.motivo.startsWith('borrado definitivamente')) &&
+              ' Los que vaciaste de la Papelera tampoco vuelven, aunque ya no estén en la lista.'}
+          </p>
+        )}
+        {/* El caso que dejaba a Juan mirando "20 encontrados, 1 lead" sin
+            explicación: los repetidos no crean fila, así que hay que nombrarlos
+            o parece que se perdieron. */}
+        {resumen.yaExistian.length > 0 && (
+          <p className="mt-0.5 text-muted">
+            Ya estaban en tu lista (se actualizaron, no crean fila nueva):{' '}
+            {resumen.yaExistian.slice(0, 6).map((y) => y.empresa).join(', ')}
+            {resumen.yaExistian.length > 6 && ` y ${resumen.yaExistian.length - 6} más`}.
           </p>
         )}
       </div>
