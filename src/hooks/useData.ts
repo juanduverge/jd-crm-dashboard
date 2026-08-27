@@ -18,7 +18,8 @@ import { supabase } from '@/lib/supabaseClient'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useCampaignsStore } from '@/store/campaignsStore'
 import { STARTER_TEMPLATES } from '@/lib/campaigns'
-import { CLAVE_NICHOS, DEFAULT_NICHES, type Niche } from '@/lib/config'
+import { DEFAULT_NICHES, type Niche } from '@/lib/config'
+import { nichosService } from '@/services/nichosService'
 import { CLAVE_RESPONSABLES, claveResponsable, componerResponsables } from '@/lib/equipo'
 
 /** Carga leads reales (Sheets vía n8n) e hidrata el store local. */
@@ -934,37 +935,58 @@ export function useAgregarResponsable() {
 }
 
 /**
- * Nichos disponibles = los de fábrica + los que ha creado el usuario. Los
- * personalizados se guardan en `settings` (clave `nichos_personalizados`) como
- * JSON de `Niche`, no como texto suelto, para que lleven emoji y color y se
- * pinten igual que los de fábrica en el resto del CRM.
+ * El catálogo de nichos, desde Supabase (tabla `nichos`, migración 0033).
+ *
+ * Antes se armaba aquí mismo: `DEFAULT_NICHES` más un JSON guardado en
+ * `settings`. El problema no era la lista, era dónde vivía: el importador de
+ * Apify normaliza el nicho en SQL y no podía leerla, así que `leads.nicho`
+ * acababa con el texto crudo de Google ("Roofing contractor") y la columna
+ * Nicho salía "—" en toda la tabla. Bajando el catálogo a la BD, importador e
+ * interfaz miran por fin lo mismo.
+ *
+ * Devuelve un array y no el objeto de la query para no tocar los ~10 sitios
+ * que ya lo llaman. Mientras carga —o si falla— caen los de fábrica: un
+ * desplegable de nichos vacío es peor que uno desactualizado.
  */
+export function useNichosQuery() {
+  return useQuery({
+    queryKey: ['nichos'],
+    queryFn: () => nichosService.listar(),
+    staleTime: 5 * 60_000,
+  })
+}
+
 export function useNichos(): Niche[] {
-  const { data: cfg } = useConfig()
-  const raw = cfg?.[CLAVE_NICHOS]
+  const { data } = useNichosQuery()
   return useMemo(() => {
-    let extra: Niche[] = []
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) extra = parsed.filter((n) => n?.id && n?.nombre)
-      } catch { /* JSON inválido: sólo los de fábrica */ }
-    }
-    const conocidos = new Set(DEFAULT_NICHES.map((n) => n.id))
-    const propios = extra.filter((n) => !conocidos.has(n.id))
-    // "Otros" se saca y se vuelve a poner al final: es el cajón de sastre y
-    // debe quedar después de los nichos que el usuario acaba de crear.
-    const base = DEFAULT_NICHES.filter((n) => n.id !== 'otros')
-    const otros = DEFAULT_NICHES.filter((n) => n.id === 'otros')
-    return [...base, ...propios, ...otros]
-  }, [raw])
+    if (!data?.length) return DEFAULT_NICHES
+    // "Otros" al final pase lo que pase: es el cajón de sastre y tiene que
+    // quedar después de lo que hayas creado tú, tenga el `orden` que tenga.
+    const otros = data.filter((n) => n.id === 'otros')
+    return [...data.filter((n) => n.id !== 'otros'), ...otros]
+  }, [data])
+}
+
+/** Los nichos que creó el importador y aún no has revisado (bandeja). */
+export function useNichosPendientes(): Niche[] {
+  const nichos = useNichos()
+  return useMemo(() => nichos.filter((n) => n.pendiente), [nichos])
+}
+
+/** Cuántos leads vivos hay por nicho. Sirve para saber qué se está fusionando. */
+export function useConteoNichos() {
+  return useQuery({
+    queryKey: ['nichos', 'conteos'],
+    queryFn: () => nichosService.conteos(),
+    staleTime: 60_000,
+  })
 }
 
 /** Convierte un nombre libre en un id estable y seguro para la BD. */
 export function idDeNicho(nombre: string): string {
   return nombre
     .normalize('NFD')
-    .replace(new RegExp('[̀-ͯ]', 'g'), '')
+    .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
@@ -973,32 +995,50 @@ export function idDeNicho(nombre: string): string {
 
 /** Crea un nicho nuevo y lo deja disponible para siempre. Devuelve su id. */
 export function useAgregarNicho() {
-  const { data: cfg } = useConfig()
-  const update = useUpdateConfig()
+  const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (p: { nombre: string; emoji?: string; color?: string }) => {
+    mutationFn: async (p: { nombre: string; emoji?: string; color?: string; grupo?: string }) => {
       const nombre = p.nombre.trim()
       const id = idDeNicho(nombre)
       if (!id) throw new Error('El nombre del nicho no es válido')
-
-      const actuales = (() => {
-        try {
-          const parsed = JSON.parse(cfg?.[CLAVE_NICHOS] ?? '[]')
-          return Array.isArray(parsed) ? (parsed as Niche[]) : []
-        } catch { return [] }
-      })()
-
-      const existe = DEFAULT_NICHES.some((n) => n.id === id) || actuales.some((n) => n.id === id)
-      if (!existe) {
-        const nuevo: Niche = {
-          id, nombre,
-          emoji: p.emoji?.trim() || '🏷️',
-          color: p.color || '#94a3b8',
-          grupo: 'Mis categorías',
-        }
-        await update.mutateAsync({ clave: CLAVE_NICHOS, valor: JSON.stringify([...actuales, nuevo]) })
-      }
+      // `upsert` con el id como clave: si ya existía, esto no lo pisa con
+      // valores por defecto — se manda sólo lo que el usuario escribió.
+      await nichosService.guardar({
+        id, nombre,
+        emoji: p.emoji?.trim() || '🏷️',
+        color: p.color || '#94a3b8',
+        grupo: p.grupo || 'Mis categorías',
+        origen: 'usuario',
+        // Nace revisado: lo acabas de escribir tú, no lo adivinó nadie.
+        pendiente: false,
+      })
       return id
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['nichos'] }) },
+  })
+}
+
+/** Edita un nicho existente (nombre, emoji, color, grupo, orden, revisado). */
+export function useGuardarNicho() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (n: Partial<Niche> & { id: string }) => nichosService.guardar(n),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['nichos'] }) },
+  })
+}
+
+/**
+ * Mueve todos los leads de un nicho a otro y borra el de origen. Además deja
+ * aprendido el alias, así que la próxima importación con ese mismo texto de
+ * Google ya cae en el sitio bueno sin que tengas que repetir la corrección.
+ */
+export function useFusionarNichos() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: { desde: string; hacia: string }) => nichosService.fusionar(p.desde, p.hacia),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['nichos'] })
+      qc.invalidateQueries({ queryKey: ['leads'] })
     },
   })
 }

@@ -64,6 +64,12 @@ export const PIPELINE_STAGES = [
  * puede añadir los suyos desde el propio formulario (se guardan en `settings`,
  * clave `nichos_personalizados`; ver `useNichos` en hooks/useData.ts).
  *
+ * DESDE LA 0033 esta lista es la SEMILLA del catálogo, no el catálogo. El
+ * catálogo vivo es la tabla `nichos` de Supabase: el importador de Apify
+ * normaliza el nicho en SQL y no puede leer un array de TypeScript. Esto se
+ * queda como red — si la consulta falla, el desplegable pinta esto en vez de
+ * quedarse vacío.
+ *
  * Los `id` son estables: son lo que queda escrito en `leads.nicho`. Cambiar uno
  * huérfana los leads que ya lo tenían, así que se añaden, no se renombran.
  * "Otros" va siempre el último, y por eso vive fuera de los grupos.
@@ -74,6 +80,12 @@ export interface Niche {
   emoji: string
   color: string
   grupo: string
+  /** Posición dentro de su grupo. Sólo lo trae el catálogo de Supabase (0033). */
+  orden?: number
+  /** 'fabrica' | 'usuario' | 'auto'; 'auto' = lo creó el importador de Apify. */
+  origen?: 'fabrica' | 'usuario' | 'auto'
+  /** Creado automáticamente y aún sin revisar: sale en la bandeja de nichos nuevos. */
+  pendiente?: boolean
 }
 
 export const DEFAULT_NICHES: Niche[] = [

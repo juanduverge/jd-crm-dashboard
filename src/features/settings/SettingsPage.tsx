@@ -7,6 +7,7 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardHeader, CardTitle, Button, Input, Textarea, Badge, Skeleton } from '@/components/ui'
 import { useConfig, useUpdateConfig, useWorkflows, useEmailAliases } from '@/hooks/useData'
+import { NichosCard } from './NichosCard'
 import { crmApi } from '@/services/crmApi'
 import { n8nService } from '@/services/n8nService'
 import { config } from '@/lib/config'
@@ -188,6 +189,8 @@ export function SettingsPage() {
         </Card>
 
         {/* Estado de integraciones */}
+        <NichosCard />
+
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><Database className="h-4 w-4" /> Estado de integraciones</CardTitle></CardHeader>
           <div className="space-y-2">

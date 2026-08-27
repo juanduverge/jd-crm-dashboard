@@ -88,6 +88,17 @@ export function LeadsPage() {
   const [composeLead, setComposeLead] = useState<Lead | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+
+  // Orden congelado.
+  //
+  // Marcar 👍/👎/⭐ o borrar cambia el criterio de orden, así que la fila que
+  // acabas de tocar salta de sitio y pierdes dónde ibas. Al primer clic se
+  // guarda una foto del orden que había y la tabla se queda quieta: ves el
+  // icono cambiar sin que nada se mueva. La foto se tira sola en cuanto
+  // cambias de pestaña, de orden o de búsqueda —ahí sí quieres reordenar— y
+  // también a mano con el botón «Reordenar».
+  const [anclas, setAnclas] = useState<Map<string, number> | null>(null)
+  useEffect(() => { setAnclas(null) }, [tab, sort, search, fNicho, fScoreMin, fToque, smart])
   const deleteLead = useDeleteLead()
   const nichos = useNichos()
   const ultimaImportacion = useUltimaImportacion().data
@@ -157,6 +168,14 @@ export function LeadsPage() {
     // tramo sigue mandando el orden de columna que hayas elegido.
     const rel = new Map(res.map((l) => [l.id, relevanciaLead(l, search)]))
     res = [...res].sort((a, b) => {
+      // Con el orden congelado manda la foto: cada lead se queda donde
+      // estaba. Lo que llegue nuevo (una importación) no tiene ancla y cae al
+      // final, sin colarse en medio de lo que estabas revisando.
+      if (anclas) {
+        const aa = anclas.get(a.id) ?? Number.MAX_SAFE_INTEGER
+        const ba = anclas.get(b.id) ?? Number.MAX_SAFE_INTEGER
+        if (aa !== ba) return aa - ba
+      }
       // Lo marcado como «no me gusta» se hunde al final pase lo que pase: es
       // el sentido del botón. Manda por encima de la relevancia y del orden de
       // columna. (En la pestaña «No me gusta» son todos, así que no altera nada.)
@@ -172,7 +191,15 @@ export function LeadsPage() {
     })
     return res
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conPestana, fToque, hoy, sort, search])
+  }, [conPestana, fToque, hoy, sort, search, anclas])
+
+  // Congela el orden actual antes de tocar una marca. Si ya estaba congelado
+  // no se rehace la foto: si no, el segundo clic recolocaría todo lo del
+  // primero de golpe, que es justo lo que se quiere evitar.
+  const conOrdenQuieto = (accion: () => void) => {
+    if (!anclas) setAnclas(new Map(filtered.map((l, i) => [l.id, i])))
+    accion()
+  }
 
   const allSelected = filtered.length > 0 && filtered.every((l) => selectedIds.has(l.id))
 
@@ -198,7 +225,9 @@ export function LeadsPage() {
 
   const handleDelete = () => {
     if (!selectedIds.size) return
-    setConfirmDeleteOpen(true)
+    // Congelar antes de borrar: al quitar filas, las que quedan se quedan en
+    // su sitio en vez de recolocarse bajo el cursor.
+    conOrdenQuieto(() => setConfirmDeleteOpen(true))
   }
 
   const confirmDelete = async () => {
@@ -226,6 +255,11 @@ export function LeadsPage() {
             <Button variant="outline" size="sm" onClick={() => setShowFilters((v) => !v)}>
               <Filter className="h-4 w-4" /> Filtros
             </Button>
+            {anclas && (
+              <Button variant="outline" size="sm" onClick={() => setAnclas(null)} title="La lista está quieta desde que empezaste a marcar. Esto la vuelve a ordenar.">
+                <ArrowUpDown className="h-4 w-4" /> Reordenar
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} /> Sincronizar
             </Button>
@@ -402,7 +436,7 @@ export function LeadsPage() {
                       </td>
                       <td className="px-3 py-2.5">
                         <button
-                          onClick={() => toggleFavorito(l.id)}
+                          onClick={() => conOrdenQuieto(() => toggleFavorito(l.id))}
                           className={cn('flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-surface-2', l.favorito ? 'text-amber-400' : 'text-muted/50 hover:text-muted')}
                           title={l.favorito ? 'Quitar de favoritos' : 'Marcar como favorito'}
                         >
@@ -412,14 +446,14 @@ export function LeadsPage() {
                       <td className="px-3 py-2.5">
                         <div className="flex items-center gap-0.5">
                           <button
-                            onClick={() => toggleMeGusta(l.id)}
+                            onClick={() => conOrdenQuieto(() => toggleMeGusta(l.id))}
                             className={cn('flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-surface-2', l.meGusta ? 'text-emerald-400' : 'text-muted/50 hover:text-muted')}
                             title={l.meGusta ? 'Quitar el me gusta' : 'Me gusta'}
                           >
                             <ThumbsUp className={cn('h-4 w-4', l.meGusta && 'fill-emerald-400')} />
                           </button>
                           <button
-                            onClick={() => toggleDescartado(l.id)}
+                            onClick={() => conOrdenQuieto(() => toggleDescartado(l.id))}
                             className={cn('flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-surface-2', l.descartado ? 'text-rose-400' : 'text-muted/50 hover:text-muted')}
                             title={l.descartado ? 'Quitar el no me gusta' : 'No me gusta (lo manda al final)'}
                           >

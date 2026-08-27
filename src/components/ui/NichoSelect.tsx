@@ -14,7 +14,9 @@ import { useAgregarNicho, useNichos } from '@/hooks/useData'
  *
  * "Crear nueva categoría…" vive dentro del propio desplegable, en el momento en
  * que el usuario descubre que la suya falta, y lo que cree queda guardado para
- * siempre (tabla `settings`, clave `nichos_personalizados`).
+ * siempre en el catálogo (tabla `nichos`, migración 0033), que es el mismo que
+ * usa el importador de Apify al normalizar. Lo que crees aquí sirve también
+ * para clasificar lo que llegue después.
  */
 export function NichoSelect({
   value, onChange, id, className, permitirVacio = true,
