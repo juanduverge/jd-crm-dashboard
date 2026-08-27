@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-import { crmApi } from './crmApi'
+import { crmApi, type LeadSourceKey } from './crmApi'
 import { RESPONSABLE_POR_DEFECTO } from '@/lib/equipo'
 import type { Lead, Contact, ContactType, Note } from '@/types'
 
@@ -310,6 +310,18 @@ function rowToImport(r: any): LeadImport {
   }
 }
 
+export interface HistorialBusqueda {
+  /** Tal como se guardo: "dentistas / Miami". */
+  consulta: string
+  tipo: string
+  ciudad: string
+  fuente: LeadSourceKey
+  fecha: string
+  /** Leads nuevos que dejo (sumando las veces que se repitio). */
+  insertados: number
+  veces: number
+}
+
 export const leadsService = {
   /** Ultima importacion de Apify, para saber que paso con el lote completo. */
   async getUltimaImportacion(): Promise<LeadImport | null> {
@@ -321,6 +333,48 @@ export const leadsService = {
       .maybeSingle()
     if (error) throw error
     return data ? rowToImport(data) : null
+  },
+
+  /**
+   * Historial de busquedas de captacion, sin repetidas.
+   *
+   * Sale de `lead_imports`, que ya guarda cada lote con su `consulta` y su
+   * `fuente`: el historial existia, solo que no habia forma de verlo. Se
+   * agrupa por consulta+fuente y se queda la vez mas reciente, con cuantos
+   * leads nuevos dio — eso es lo que dice si vale la pena repetirla.
+   */
+  async getHistorialBusquedas(limite = 12): Promise<HistorialBusqueda[]> {
+    const { data, error } = await supabase
+      .from('lead_imports')
+      .select('created_at, fuente, consulta, recibidos, insertados')
+      // Se piden mas de los que se muestran porque muchas seran repetidas.
+      .not('consulta', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(200)
+    if (error) throw error
+    const vistas = new Map<string, HistorialBusqueda>()
+    for (const r of (data ?? []) as { created_at: string; fuente: string | null; consulta: string; recibidos: number | null; insertados: number | null }[]) {
+      const clave = `${r.fuente ?? ''}|${r.consulta.trim().toLowerCase()}`
+      const ya = vistas.get(clave)
+      if (ya) {
+        ya.veces += 1
+        ya.insertados += r.insertados ?? 0
+        continue
+      }
+      // "dentistas / Miami" -> tipo + ciudad, tal como lo arma n8n.
+      const [tipo, ...resto] = r.consulta.split('/')
+      vistas.set(clave, {
+        consulta: r.consulta.trim(),
+        tipo: tipo.trim(),
+        ciudad: resto.join('/').trim(),
+        fuente: (r.fuente ?? 'google_maps') as LeadSourceKey,
+        fecha: r.created_at,
+        insertados: r.insertados ?? 0,
+        veces: 1,
+      })
+      if (vistas.size >= limite) break
+    }
+    return [...vistas.values()]
   },
 
   /** Lee los leads activos de Supabase (incluye sus columnas de pipeline). */

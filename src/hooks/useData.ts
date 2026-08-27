@@ -860,6 +860,78 @@ export function useUpdateConfig() {
   })
 }
 
+/** Últimas búsquedas de captación, sin repetidas (sale de `lead_imports`). */
+export function useHistorialBusquedas() {
+  return useQuery({
+    queryKey: ['historial-busquedas'],
+    queryFn: () => leadsService.getHistorialBusquedas(),
+    staleTime: 60_000,
+  })
+}
+
+/** Una búsqueda guardada como plantilla, para repetirla sin volver a escribirla. */
+export interface BusquedaGuardada {
+  id: string
+  nombre: string
+  fuente: string
+  tipo: string
+  ciudad: string
+  max: number
+}
+
+export const CLAVE_BUSQUEDAS = 'busquedas_guardadas'
+
+/**
+ * Plantillas de búsqueda. Viven en `settings` y no en una tabla propia: son
+ * cuatro campos y un puñado de filas, y así no hace falta una migración para
+ * algo que es preferencia del usuario, no dato del negocio.
+ */
+export function useBusquedasGuardadas(): BusquedaGuardada[] {
+  const { data: cfg } = useConfig()
+  const raw = cfg?.[CLAVE_BUSQUEDAS]
+  return useMemo(() => {
+    if (!raw) return []
+    try {
+      const p = JSON.parse(raw)
+      return Array.isArray(p) ? (p as BusquedaGuardada[]).filter((b) => b?.id && b?.tipo) : []
+    } catch {
+      return []
+    }
+  }, [raw])
+}
+
+/** Guarda (o pisa, si repites nombre) una plantilla de búsqueda. */
+export function useGuardarBusqueda() {
+  const actualizar = useUpdateConfig()
+  const guardadas = useBusquedasGuardadas()
+  return useMutation({
+    mutationFn: async (b: Omit<BusquedaGuardada, 'id'> & { id?: string }) => {
+      const id = b.id ?? crypto.randomUUID()
+      // Mismo nombre = misma plantilla: es lo que espera cualquiera al
+      // "guardar" dos veces, en vez de acabar con tres iguales en la lista.
+      const resto = guardadas.filter(
+        (g) => g.id !== id && g.nombre.trim().toLowerCase() !== b.nombre.trim().toLowerCase(),
+      )
+      await actualizar.mutateAsync({
+        clave: CLAVE_BUSQUEDAS,
+        valor: JSON.stringify([...resto, { ...b, id }]),
+      })
+      return id
+    },
+  })
+}
+
+export function useBorrarBusqueda() {
+  const actualizar = useUpdateConfig()
+  const guardadas = useBusquedasGuardadas()
+  return useMutation({
+    mutationFn: (id: string) => actualizar.mutateAsync({
+      clave: CLAVE_BUSQUEDAS,
+      valor: JSON.stringify(guardadas.filter((g) => g.id !== id)),
+    }),
+  })
+}
+
 /**
  * Alias de remitente disponibles para componer/responder correos.
  * Se administran desde Configuración (clave "email_aliases" en la hoja config,
