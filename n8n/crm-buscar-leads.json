@@ -1,6 +1,11 @@
 {
+  "updatedAt": "2026-08-12T16:27:05.935Z",
+  "createdAt": "2026-08-12T15:56:43.844Z",
   "id": "jdFase1Captacion",
   "name": "CRM API · Captación de Prospectos (Apify, multifuente)",
+  "description": null,
+  "active": true,
+  "isArchived": false,
   "nodes": [
     {
       "parameters": {},
@@ -56,7 +61,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ---------------------------------------------------------------------------\n// Mapa de actores de Apify, uno por fuente.\n//\n// Antes este workflow tenia un IF binario \"Es Google Maps?\": cualquier otra\n// fuente caia en un noOp y la busqueda moria en silencio (el usuario veia\n// \"busqueda iniciada\" y no llegaba nada). Ahora cada fuente declara su actor\n// y como se le arma la entrada, y el nodo HTTP siguiente es uno solo.\n//\n// Para cambiar de actor: edita SOLO este mapa.\n//   actor      -> id del actor en Apify (usuario~nombre)\n//   confirmado -> false = todavia no verificado contra la cuenta de Apify.\n//                 Se lanza un error claro en vez de gastar creditos con un\n//                 actor que puede no existir o devolver otra forma de datos.\n// ---------------------------------------------------------------------------\nconst ACTORES = {\n  google_maps: {\n    actor: 'compass~crawler-google-places',\n    confirmado: true,\n    input: (q) => ({\n      searchStringsArray: [q.tipo],\n      locationQuery: q.ciudad,\n      maxCrawledPlacesPerSearch: q.max,\n      language: 'es',\n      scrapeContacts: true,\n      scrapePlaceDetailPage: true,\n    }),\n  },\n  google_web: {\n    actor: 'apify~google-search-scraper',\n    confirmado: true,\n    input: (q) => ({\n      queries: q.ciudad ? (q.tipo + ' ' + q.ciudad) : q.tipo,\n      resultsPerPage: Math.min(100, q.max),\n      maxPagesPerQuery: 1,\n      languageCode: 'es',\n    }),\n  },\n  instagram: {\n    actor: 'apify~instagram-scraper',\n    confirmado: true,\n    input: (q) => ({\n      // `searchType: user` + `resultsType: details` devuelve PERFILES, no\n      // publicaciones: un lead es una cuenta de negocio, no un post suelto.\n      search: q.ciudad ? (q.tipo + ' ' + q.ciudad) : q.tipo,\n      searchType: 'user',\n      resultsType: 'details',\n      resultsLimit: q.max,\n      searchLimit: q.max,\n    }),\n  },\n  facebook: {\n    actor: 'apify~facebook-pages-scraper',\n    confirmado: false,   // <-- confirmar el actor y su entrada en tu cuenta Apify\n    input: (q) => ({\n      searchQuery: q.ciudad ? (q.tipo + ' ' + q.ciudad) : q.tipo,\n      maxPages: q.max,\n    }),\n  },\n  linkedin: {\n    actor: 'harvestapi~linkedin-company-search',\n    confirmado: false,   // <-- LinkedIn no tiene actor oficial de Apify; confirmar cual usas\n    input: (q) => ({\n      searchQuery: q.tipo,\n      locations: q.ciudad ? [q.ciudad] : [],\n      maxItems: q.max,\n    }),\n  },\n};\n\nconst body = ($input.first().json.body) || $input.first().json || {};\n\nconst tipo = (body.tipo_negocio || 'real estate agency').toString().trim() || 'real estate agency';\n// La ciudad ya no se rellena por defecto: en redes sociales se busca por nicho\n// o hashtag sin ubicacion, y meter \"Miami, FL, USA\" a la fuerza sesgaba la\n// busqueda hacia un sitio que el usuario no habia pedido.\nconst ciudad = (body.ciudad || '').toString().trim();\n\nlet max = parseInt(body.max, 10);\nif (isNaN(max)) max = 20;\nmax = Math.min(50, Math.max(1, max));\n\nlet fuente = (body.fuente || 'google_maps').toString().trim();\nif (!ACTORES[fuente]) fuente = 'google_maps';\n\nconst cfg = ACTORES[fuente];\nif (!cfg.confirmado) {\n  throw new Error(\n    'Fuente \"' + fuente + '\": el actor de Apify \"' + cfg.actor + '\" aun no esta ' +\n    'confirmado. Verifica el id y la forma de su entrada en tu cuenta de Apify y ' +\n    'pon confirmado: true en el nodo \"Preparar Busqueda\". No se ha gastado ningun credito.'\n  );\n}\n\n// Google Maps SI necesita ubicacion: sin ella el actor rastrea el mundo entero.\nif (fuente === 'google_maps' && !ciudad) {\n  throw new Error('Google Maps requiere ciudad/ubicacion.');\n}\n\nconst actorInput = cfg.input({ tipo, ciudad, max });\n\nreturn [{ json: {\n  fuente,\n  actorId: cfg.actor,\n  actorInput,\n  consulta: ciudad ? (tipo + ' / ' + ciudad) : tipo,\n} }];"
+        "jsCode": "// ---------------------------------------------------------------------------\n// Mapa de actores de Apify, uno por fuente.\n//\n// Antes este workflow tenia un IF binario \"Es Google Maps?\": cualquier otra\n// fuente caia en un noOp y la busqueda moria en silencio (el usuario veia\n// \"busqueda iniciada\" y no llegaba nada). Ahora cada fuente declara su actor\n// y como se le arma la entrada, y el nodo HTTP siguiente es uno solo.\n//\n// Para cambiar de actor: edita SOLO este mapa.\n//   actor      -> id del actor en Apify (usuario~nombre)\n//   confirmado -> false = todavia no verificado contra la cuenta de Apify.\n//                 Se lanza un error claro en vez de gastar creditos con un\n//                 actor que puede no existir o devolver otra forma de datos.\n// ---------------------------------------------------------------------------\nconst ACTORES = {\n  google_maps: {\n    actor: 'compass~crawler-google-places',\n    confirmado: true,\n    input: (q) => ({\n      searchStringsArray: [q.tipo],\n      locationQuery: q.ciudad,\n      maxCrawledPlacesPerSearch: q.max,\n      language: 'es',\n      scrapeContacts: true,\n      scrapePlaceDetailPage: true,\n    }),\n  },\n  google_web: {\n    actor: 'apify~google-search-scraper',\n    confirmado: true,\n    input: (q) => ({\n      queries: q.ciudad ? (q.tipo + ' ' + q.ciudad) : q.tipo,\n      resultsPerPage: Math.min(100, q.max),\n      maxPagesPerQuery: 1,\n      languageCode: 'es',\n    }),\n  },\n  instagram: {\n    actor: 'apify~instagram-scraper',\n    confirmado: true,\n    input: (q) => ({\n      // `searchType: user` + `resultsType: details` devuelve PERFILES, no\n      // publicaciones: un lead es una cuenta de negocio, no un post suelto.\n      search: q.ciudad ? (q.tipo + ' ' + q.ciudad) : q.tipo,\n      searchType: 'user',\n      resultsType: 'details',\n      resultsLimit: q.max,\n      searchLimit: q.max,\n    }),\n  },\n  facebook: {\n    actor: 'apify~facebook-pages-scraper',\n    confirmado: false,   // <-- confirmar el actor y su entrada en tu cuenta Apify\n    input: (q) => ({\n      searchQuery: q.ciudad ? (q.tipo + ' ' + q.ciudad) : q.tipo,\n      maxPages: q.max,\n    }),\n  },\n  linkedin: {\n    actor: 'harvestapi~linkedin-company-search',\n    confirmado: false,   // <-- LinkedIn no tiene actor oficial de Apify; confirmar cual usas\n    input: (q) => ({\n      searchQuery: q.tipo,\n      locations: q.ciudad ? [q.ciudad] : [],\n      maxItems: q.max,\n    }),\n  },\n};\n\nconst body = ($input.first().json.body) || $input.first().json || {};\n\nconst tipo = (body.tipo_negocio || 'real estate agency').toString().trim() || 'real estate agency';\n// La ciudad ya no se rellena por defecto: en redes sociales se busca por nicho\n// o hashtag sin ubicacion, y meter \"Miami, FL, USA\" a la fuerza sesgaba la\n// busqueda hacia un sitio que el usuario no habia pedido.\nconst ciudad = (body.ciudad || '').toString().trim();\n\nlet max = parseInt(body.max, 10);\nif (isNaN(max)) max = 20;\nmax = Math.min(50, Math.max(1, max));\n\nlet fuente = (body.fuente || 'google_maps').toString().trim();\nif (!ACTORES[fuente]) fuente = 'google_maps';\n\nconst cfg = ACTORES[fuente];\nif (!cfg.confirmado) {\n  throw new Error(\n    'Fuente \"' + fuente + '\": el actor de Apify \"' + cfg.actor + '\" aun no esta ' +\n    'confirmado. Verifica el id y la forma de su entrada en tu cuenta de Apify y ' +\n    'pon confirmado: true en el nodo \"Preparar Busqueda\". No se ha gastado ningun credito.'\n  );\n}\n\n// Google Maps SI necesita ubicacion: sin ella el actor rastrea el mundo entero.\nif (fuente === 'google_maps' && !ciudad) {\n  throw new Error('Google Maps requiere ciudad/ubicacion.');\n}\n\nconst actorInput = cfg.input({ tipo, ciudad, max });\n\nreturn [{ json: {\n  fuente,\n  actorId: cfg.actor,\n  actorInput,\n  consulta: ciudad ? (tipo + ' / ' + ciudad) : tipo,\n  // `Log Busqueda` (search_logs) cuelga de este nodo y lee estos dos campos.\n  tipo_negocio: tipo,\n  ciudad,\n} }];"
       },
       "id": "f1-prep-0004",
       "name": "Preparar Busqueda",
@@ -97,7 +102,13 @@
         820,
         40
       ],
-      "notes": "importar_leads normaliza, deduplica por place_id/google_maps y devuelve {recibidos, insertados, actualizados, descartados}. Si recibidos=10 e insertados=1, el problema esta antes de Supabase. Requiere una credencial de tipo 'Supabase API' con la service_role."
+      "notes": "importar_leads normaliza, deduplica por place_id/google_maps y devuelve {recibidos, insertados, actualizados, descartados}. Si recibidos=10 e insertados=1, el problema esta antes de Supabase. Requiere una credencial de tipo 'Supabase API' con la service_role.",
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      }
     },
     {
       "parameters": {
@@ -116,9 +127,8 @@
       "parameters": {
         "workflowId": {
           "__rl": true,
-          "value": "np9xJ5KJUurABOvO",
-          "mode": "list",
-          "cachedResultName": "Fase 2 - Enriquecimiento de Contacto"
+          "value": "jdFase2Enriquec",
+          "mode": "list"
         },
         "options": {
           "waitForSubWorkflow": false
@@ -133,6 +143,49 @@
         40
       ],
       "notes": "Arranca el enriquecimiento en cuanto termina la captacion, sin esperarlo. Va en un workflow APARTE a proposito: si fuera un nodo mas de este, un fallo al descargar la web de un negocio tumbaria el lote entero de leads."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/search_logs",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ tipo_negocio: $json.tipo_negocio, ciudad: $json.ciudad }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "f1-log-busqueda",
+      "name": "Log Busqueda",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        60,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Registra cada busqueda en search_logs. Portado del workflow anterior. onError=continue: que no falle la captacion por no poder registrar."
     },
     {
       "parameters": {
@@ -157,8 +210,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "1AKzTIFkGuTF3MSG",
-          "name": "Apify - JDDeveloper"
+          "id": "PrIIHdnVnVTEaUFJ",
+          "name": "Apify - JDDeveloper (v2)"
         }
       }
     },
@@ -217,6 +270,11 @@
             "node": "Apify - Ejecutar Actor",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Log Busqueda",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
@@ -269,5 +327,445 @@
   "settings": {
     "executionOrder": "v1"
   },
-  "pinData": {}
+  "staticData": null,
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "82633188-6cfb-4a10-aef1-7261dc1002ef",
+  "activeVersionId": "82633188-6cfb-4a10-aef1-7261dc1002ef",
+  "versionCounter": 3,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "shared": [
+    {
+      "updatedAt": "2026-08-12T15:56:43.844Z",
+      "createdAt": "2026-08-12T15:56:43.844Z",
+      "role": "workflow:owner",
+      "workflowId": "jdFase1Captacion",
+      "projectId": "76qeraW7mGJbQvUS",
+      "project": {
+        "updatedAt": "2026-07-10T20:53:17.652Z",
+        "createdAt": "2026-07-10T20:02:48.826Z",
+        "id": "76qeraW7mGJbQvUS",
+        "name": "JD Developer <juanduvergedeveloper@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "26c17935-957f-49a1-ab8e-bc134fa0df2c"
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": {
+    "updatedAt": "2026-08-12T16:27:05.937Z",
+    "createdAt": "2026-08-12T16:27:05.937Z",
+    "versionId": "82633188-6cfb-4a10-aef1-7261dc1002ef",
+    "workflowId": "jdFase1Captacion",
+    "nodes": [
+      {
+        "parameters": {},
+        "id": "f1-manual-0001",
+        "name": "Ejecutar a mano (pruebas)",
+        "type": "n8n-nodes-base.manualTrigger",
+        "typeVersion": 1,
+        "position": [
+          -460,
+          40
+        ]
+      },
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "crm-buscar-leads",
+          "responseMode": "responseNode",
+          "options": {}
+        },
+        "id": "f1-webhook-0002",
+        "name": "Buscar Leads (Webhook)",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 2,
+        "position": [
+          -460,
+          240
+        ],
+        "webhookId": "crm-buscar-leads"
+      },
+      {
+        "parameters": {
+          "respondWith": "json",
+          "responseBody": "={{ JSON.stringify({ ok: true, message: \"Busqueda iniciada. Los prospectos apareceran en unos minutos.\" }) }}",
+          "options": {
+            "responseHeaders": {
+              "entries": [
+                {
+                  "name": "Access-Control-Allow-Origin",
+                  "value": "*"
+                }
+              ]
+            }
+          }
+        },
+        "id": "f1-respond-0003",
+        "name": "Respuesta Iniciada",
+        "type": "n8n-nodes-base.respondToWebhook",
+        "typeVersion": 1,
+        "position": [
+          -260,
+          240
+        ]
+      },
+      {
+        "parameters": {
+          "jsCode": "const body = ($input.first().json.body) || $input.first().json || {};\nconst tipo = (body.tipo_negocio || 'real estate agency').toString().trim() || 'real estate agency';\nconst ciudad = (body.ciudad || 'Miami, FL, USA').toString().trim() || 'Miami, FL, USA';\nlet max = parseInt(body.max, 10);\nif (isNaN(max)) max = 20;\nmax = Math.min(50, Math.max(1, max));\n\n// `google_web` sigue en la lista porque el CRM lo ofrece, pero su rama no\n// guarda nada (ver nodo \"Fuente No Disponible\"). Antes ejecutaba el actor de\n// Apify, pagaba los creditos y tiraba el resultado: eso ya no pasa.\nconst fuentesValidas = ['google_maps', 'google_web', 'linkedin', 'instagram', 'facebook'];\nlet fuente = (body.fuente || 'google_maps').toString().trim();\nif (!fuentesValidas.includes(fuente)) fuente = 'google_maps';\n\nreturn [{ json: {\n  searchStringsArray: [tipo],\n  locationQuery: ciudad,\n  maxCrawledPlacesPerSearch: max,\n  language: 'en',\n  tipo_negocio: tipo,\n  ciudad,\n  fuente,\n  consulta: `${tipo} / ${ciudad}`\n} }];"
+        },
+        "id": "f1-prep-0004",
+        "name": "Preparar Busqueda",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          -60,
+          140
+        ]
+      },
+      {
+        "parameters": {
+          "conditions": {
+            "options": {
+              "caseSensitive": true,
+              "leftValue": "",
+              "typeValidation": "strict",
+              "version": 3
+            },
+            "conditions": [
+              {
+                "id": "f1-cond-maps",
+                "leftValue": "={{ $json.fuente }}",
+                "rightValue": "google_maps",
+                "operator": {
+                  "type": "string",
+                  "operation": "equals"
+                }
+              }
+            ],
+            "combinator": "and"
+          },
+          "options": {}
+        },
+        "id": "f1-if-0005",
+        "name": "Es Google Maps?",
+        "type": "n8n-nodes-base.if",
+        "typeVersion": 2,
+        "position": [
+          160,
+          140
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://api.apify.com/v2/acts/compass~crawler-google-places/run-sync-get-dataset-items",
+          "authentication": "genericCredentialType",
+          "genericAuthType": "httpHeaderAuth",
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ searchStringsArray: $('Preparar Busqueda').item.json.searchStringsArray, locationQuery: $('Preparar Busqueda').item.json.locationQuery, maxCrawledPlacesPerSearch: $('Preparar Busqueda').item.json.maxCrawledPlacesPerSearch, language: $('Preparar Busqueda').item.json.language, scrapeContacts: true, scrapePlaceDetailPage: true }) }}",
+          "options": {
+            "timeout": 300000
+          }
+        },
+        "id": "f1-apify-0006",
+        "name": "Apify - Google Places",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          380,
+          40
+        ],
+        "credentials": {
+          "httpHeaderAuth": {
+            "id": "PrIIHdnVnVTEaUFJ",
+            "name": "Apify - JDDeveloper (v2)"
+          }
+        },
+        "notes": "scrapeContacts hace que el actor visite la web de cada negocio y devuelva emails[], instagrams[], facebooks[], linkedIns[], youtubes[], tiktoks[], twitters[] y pinterests[]. SIN ESTE FLAG no vienen: era la causa raiz de que el CRM no tuviera emails ni redes."
+      },
+      {
+        "parameters": {
+          "jsCode": "// Un unico paquete con el lote COMPLETO. Es deliberado: si se enviara item a\n// item, un fallo intermedio dejaria la mitad de los leads fuera y sin rastro\n// (el sintoma \"Apify dice 10 y el CRM guarda 1\"). Asi entra el lote entero o\n// falla el lote entero, y en ambos casos queda registrado en lead_imports.\nconst lote = $input.all().map(i => i.json);\nconst prep = $('Preparar Busqueda').first().json;\n\nreturn [{ json: {\n  p_lote: lote,\n  p_fuente: prep.fuente || 'google_maps',\n  p_consulta: prep.consulta\n} }];"
+        },
+        "id": "f1-pack-0007",
+        "name": "Empaquetar Lote",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          600,
+          40
+        ]
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/rpc/importar_leads",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify($json) }}",
+          "options": {
+            "timeout": 60000
+          }
+        },
+        "id": "f1-import-0008",
+        "name": "Importar a Supabase",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          820,
+          40
+        ],
+        "notes": "importar_leads normaliza, deduplica por place_id/google_maps y devuelve {recibidos, insertados, actualizados, descartados}. Si recibidos=10 e insertados=1, el problema esta antes de Supabase. Requiere una credencial de tipo 'Supabase API' con la service_role.",
+        "credentials": {
+          "supabaseApi": {
+            "id": "jdSupabaseSvcRole",
+            "name": "Supabase - JDDeveloper"
+          }
+        }
+      },
+      {
+        "parameters": {
+          "jsCode": "// El resultado del import es la prueba de si el lote llego completo. Se deja\n// visible en la ejecucion para no tener que abrir la base de datos.\nconst r = $json;\nconsole.log(`[captacion] recibidos=${r.recibidos} insertados=${r.insertados} actualizados=${r.actualizados} descartados=${r.descartados}`);\nif (r.descartados > 0) console.log('[captacion] descartados:', JSON.stringify(r.detalle));\nreturn [{ json: r }];"
+        },
+        "id": "f1-log-0009",
+        "name": "Registrar Resultado",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [
+          1040,
+          40
+        ]
+      },
+      {
+        "parameters": {
+          "workflowId": {
+            "__rl": true,
+            "value": "jdFase2Enriquec",
+            "mode": "list"
+          },
+          "options": {
+            "waitForSubWorkflow": false
+          }
+        },
+        "id": "f1-chain-0010",
+        "name": "Encadenar Enriquecimiento",
+        "type": "n8n-nodes-base.executeWorkflow",
+        "typeVersion": 1.2,
+        "position": [
+          1260,
+          40
+        ],
+        "notes": "Arranca el enriquecimiento en cuanto termina la captacion, sin esperarlo. Va en un workflow APARTE a proposito: si fuera un nodo mas de este, un fallo al descargar la web de un negocio tumbaria el lote entero de leads."
+      },
+      {
+        "parameters": {},
+        "id": "f1-noop-0011",
+        "name": "Fuente No Disponible",
+        "type": "n8n-nodes-base.noOp",
+        "typeVersion": 1,
+        "position": [
+          380,
+          260
+        ],
+        "notes": "google_web / linkedin / instagram / facebook no estan implementadas. Antes la rama de google_web SI ejecutaba el actor apify~google-search-scraper y descartaba el resultado sin guardarlo: creditos gastados a cambio de nada. Ahora no se llama a Apify hasta que la rama sepa guardar."
+      },
+      {
+        "parameters": {
+          "method": "POST",
+          "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/search_logs",
+          "authentication": "predefinedCredentialType",
+          "nodeCredentialType": "supabaseApi",
+          "sendHeaders": true,
+          "headerParameters": {
+            "parameters": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Prefer",
+                "value": "return=minimal"
+              }
+            ]
+          },
+          "sendBody": true,
+          "specifyBody": "json",
+          "jsonBody": "={{ JSON.stringify({ tipo_negocio: $json.tipo_negocio, ciudad: $json.ciudad }) }}",
+          "options": {
+            "timeout": 15000
+          }
+        },
+        "id": "f1-log-busqueda",
+        "name": "Log Busqueda",
+        "type": "n8n-nodes-base.httpRequest",
+        "typeVersion": 4.2,
+        "position": [
+          60,
+          300
+        ],
+        "credentials": {
+          "supabaseApi": {
+            "id": "jdSupabaseSvcRole",
+            "name": "Supabase - JDDeveloper"
+          }
+        },
+        "onError": "continueRegularOutput",
+        "notes": "Registra cada busqueda en search_logs. Portado del workflow anterior. onError=continue: que no falle la captacion por no poder registrar."
+      }
+    ],
+    "connections": {
+      "Ejecutar a mano (pruebas)": {
+        "main": [
+          [
+            {
+              "node": "Preparar Busqueda",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Buscar Leads (Webhook)": {
+        "main": [
+          [
+            {
+              "node": "Respuesta Iniciada",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Respuesta Iniciada": {
+        "main": [
+          [
+            {
+              "node": "Preparar Busqueda",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Preparar Busqueda": {
+        "main": [
+          [
+            {
+              "node": "Es Google Maps?",
+              "type": "main",
+              "index": 0
+            },
+            {
+              "node": "Log Busqueda",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Es Google Maps?": {
+        "main": [
+          [
+            {
+              "node": "Apify - Google Places",
+              "type": "main",
+              "index": 0
+            }
+          ],
+          [
+            {
+              "node": "Fuente No Disponible",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Apify - Google Places": {
+        "main": [
+          [
+            {
+              "node": "Empaquetar Lote",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Empaquetar Lote": {
+        "main": [
+          [
+            {
+              "node": "Importar a Supabase",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Importar a Supabase": {
+        "main": [
+          [
+            {
+              "node": "Registrar Resultado",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      },
+      "Registrar Resultado": {
+        "main": [
+          [
+            {
+              "node": "Encadenar Enriquecimiento",
+              "type": "main",
+              "index": 0
+            }
+          ]
+        ]
+      }
+    },
+    "nodeGroups": [],
+    "authors": "JD Developer",
+    "name": null,
+    "description": null,
+    "autosaved": false,
+    "workflowPublishHistory": [
+      {
+        "createdAt": "2026-08-12T16:27:05.991Z",
+        "id": 163,
+        "workflowId": "jdFase1Captacion",
+        "versionId": "82633188-6cfb-4a10-aef1-7261dc1002ef",
+        "event": "deactivated",
+        "userId": "26c17935-957f-49a1-ab8e-bc134fa0df2c"
+      },
+      {
+        "createdAt": "2026-08-12T16:27:06.017Z",
+        "id": 164,
+        "workflowId": "jdFase1Captacion",
+        "versionId": "82633188-6cfb-4a10-aef1-7261dc1002ef",
+        "event": "activated",
+        "userId": "26c17935-957f-49a1-ab8e-bc134fa0df2c"
+      }
+    ]
+  }
 }
