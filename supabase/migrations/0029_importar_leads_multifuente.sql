@@ -1,26 +1,33 @@
 -- =============================================================
 -- 0029_importar_leads_multifuente.sql — Captación desde redes sociales
 --
--- CONTEXTO: la 0025 construyó `importar_leads` pensando en un único actor de
+-- CONTEXTO: `importar_leads` nació en la 0025 pensando en un único actor de
 -- Apify (Google Places). Su clave de negocio es `place_id` y, en su defecto,
 -- la URL de Google Maps. Las fuentes que ahora abre el CRM —LinkedIn,
 -- Instagram, Facebook y la búsqueda web— NO devuelven ninguna de las dos.
 --
--- Sin esta migración, importar de esas fuentes cae al último recurso de la
--- 0025: casar por (empresa + ciudad). Eso significa que un perfil de
--- Instagram sin ciudad se duplica en cada búsqueda, y que dos negocios
--- homónimos de la misma ciudad se fusionan en uno. Es decir: la captación
--- desde redes "funciona" pero ensucia la base a cada pasada.
+-- Sin esta migración, importar de esas fuentes cae al último recurso: casar
+-- por (empresa + ciudad). Eso significa que un perfil de Instagram sin ciudad
+-- se duplica en cada búsqueda, y que dos negocios homónimos de la misma
+-- ciudad se fusionan en uno. Es decir: la captación desde redes "funciona"
+-- pero ensucia la base a cada pasada.
 --
 -- QUÉ HACE:
 --   1. `perfil_url`: la URL del perfil de origen (instagram.com/x,
 --      facebook.com/x, linkedin.com/company/x, o la web encontrada en
 --      Google). Es la clave de negocio natural de esas fuentes: única,
 --      estable y presente siempre.
---   2. Índice único parcial sobre ella, con el mismo criterio que la 0025
---      (`where deleted_at is null`, para no bloquear recaptar un archivado).
---   3. Reescribe `importar_leads` para usarla como clave y para mapear los
---      campos que sí traen las redes (seguidores, bio, handle).
+--   2. Índice único parcial sobre ella.
+--   3. Añade a `importar_leads` esa clave y los alias que usan los actores de
+--      redes (`fullName`, `username`, `businessEmail`, `externalUrl`…).
+--
+-- BASE DE PARTIDA: esta migración parte del cuerpo de la **0027**, no del de
+-- la 0025. Es importante: la 0026 añadió el mapeo de youtube/tiktok/twitter/
+-- pinterest y las columnas `*_source`, y la 0027 añadió el manejo de leads
+-- borrados. Reescribir la función desde la 0025 habría revertido ambas cosas
+-- en silencio — y perder la 0027 significa reintroducir el 409 de clave
+-- duplicada que tumba el lote entero (hay 114 leads borrados de 151, así que
+-- el choque es casi seguro en cualquier búsqueda repetida).
 --
 -- Compatible hacia atrás: Google Maps sigue entrando exactamente igual.
 -- =============================================================
@@ -40,9 +47,9 @@ comment on column leads.seguidores is
 comment on column leads.bio is
   'Biografía/descripción del perfil social. Suele contener el email de contacto.';
 
--- Deduplicar antes de crear el índice: si ya se importó algo con perfil_url
--- por otra vía, el índice fallaría. Misma convención que la 0025: se archiva
--- el más nuevo y se conserva el original con su historial.
+-- Deduplicar antes de crear el índice, por si ya hubiera valores por otra vía.
+-- Misma convención que la 0025: se archiva el más nuevo y se conserva el
+-- original, que es el que tiene el historial colgando.
 with dup as (
   select id,
          row_number() over (
@@ -62,6 +69,10 @@ update leads l
  where dup.id = l.id
    and dup.n > 1;
 
+-- Parcial sobre `deleted_at is null`: a diferencia del de google_maps, aquí
+-- sí se excluyen los borrados a propósito. La comprobación de "borrado
+-- previamente" de la 0027 los intercepta antes de llegar al INSERT, así que
+-- el índice no necesita verlos.
 create unique index if not exists uq_leads_perfil_url
   on leads (lower(trim(perfil_url)))
   where perfil_url is not null and trim(perfil_url) <> '' and deleted_at is null;
@@ -70,18 +81,22 @@ create unique index if not exists uq_leads_perfil_url
 /**
  * importar_leads — inserta o actualiza un lote completo de prospectos.
  *
- * Sin cambios en el contrato con n8n:
+ * Contrato con n8n sin cambios:
  *   { "p_lote": <array>, "p_fuente": "instagram", "p_consulta": "..." }
  *
- * Lo que cambia respecto a la 0025:
- *   - Acepta `profileUrl` / `perfil_url` como clave de negocio, con
- *     prioridad place_id > perfil_url > URL de Maps > (empresa+ciudad).
- *   - Mapea los alias que usan los actores de redes: `username`/`handle`
- *     para el perfil, `fullName` para el nombre, `biography`/`bio`,
- *     `externalUrl`/`websiteUrl` para la web, `businessEmail` y
- *     `businessPhoneNumber` (Instagram sólo los da en cuentas de empresa).
+ * Cambios respecto a la 0027:
+ *   - `perfil_url` entra en la clave de negocio, con prioridad
+ *     place_id > perfil_url > URL de Maps > (empresa + ciudad).
+ *   - `url` deja de ir a ciegas a `google_maps`: en los actores de redes ese
+ *     campo es el perfil, no una ficha de Maps, y meterlo ahí apuntaba el
+ *     enlace "ver en Maps" de la ficha a una URL de Instagram.
+ *   - Alias de los actores sociales: `fullName`/`username` para el nombre,
+ *     `businessEmail`/`businessPhoneNumber` (Instagram sólo los expone en
+ *     cuentas de empresa), `externalUrl`/`websiteUrl` para la web,
+ *     `industry` para el nicho, y seguidores/bio.
  *
- * Sigue siendo idempotente y sigue sin pisar nunca lo escrito a mano.
+ * Se conserva intacto todo lo demás: el manejo de borrados de la 0027 y el
+ * mapeo de redes y `*_source` de la 0026.
  */
 create or replace function importar_leads(
   p_lote     jsonb,
@@ -102,7 +117,16 @@ declare
   v_perfil      text;
   v_emails      text[];
   v_telefonos   text[];
+  v_ig          text;
+  v_fb          text;
+  v_li          text;
+  v_yt          text;
+  v_tt          text;
+  v_tw          text;
+  v_pi          text;
+  v_tiene_redes boolean;
   v_id          uuid;
+  v_borrado     boolean;
   v_nueva       boolean;
 begin
   if p_lote is null or jsonb_typeof(p_lote) <> 'array' then
@@ -113,9 +137,8 @@ begin
   for it in select * from jsonb_array_elements(p_lote) loop
     v_recibidos := v_recibidos + 1;
 
-    -- `empresa` es not null: sin nombre no hay lead. En redes el nombre
-    -- puede venir como `fullName` (perfil) o `username` (si no hay nombre
-    -- real); se acepta el handle antes que descartar el prospecto.
+    -- En redes el nombre puede venir como `fullName` (perfil) o `username`
+    -- (si no hay nombre real): se acepta el handle antes que descartar.
     v_empresa := apify_txt(it, 'title', 'name', 'empresa', 'businessName',
                                'fullName', 'companyName', 'username');
     if v_empresa is null then
@@ -126,47 +149,54 @@ begin
 
     v_place  := apify_txt(it, 'placeId', 'place_id', 'placeID');
     v_maps   := apify_txt(it, 'googleMaps', 'google_maps', 'placeUrl', 'searchPageUrl');
-    v_perfil := apify_txt(it, 'profileUrl', 'perfil_url', 'pageUrl', 'linkedinUrl', 'profile_url');
+    v_perfil := apify_txt(it, 'profileUrl', 'perfil_url', 'pageUrl', 'profile_url');
 
     -- `url` es ambiguo entre actores: en Google Places es la ficha de Maps,
-    -- en los de redes es el perfil. Se asigna según la fuente en vez de
-    -- meterlo a ciegas en `google_maps` (que dispararía el enlace "ver en
-    -- Maps" de la ficha hacia una URL de Instagram).
-    if p_fuente = 'google_maps' then
+    -- en los de redes es el perfil. Se decide por la fuente del lote.
+    if coalesce(p_fuente, 'google_maps') = 'google_maps' then
       v_maps := coalesce(v_maps, apify_txt(it, 'url'));
     else
       v_perfil := coalesce(v_perfil, apify_txt(it, 'url'));
     end if;
 
-    select array_agg(distinct lower(e)) into v_emails
-      from (
-        select jsonb_array_elements_text(coalesce(it -> 'emails', '[]'::jsonb)) as e
-        union
-        select apify_txt(it, 'email', 'emailContacto', 'businessEmail')
-         where apify_txt(it, 'email', 'emailContacto', 'businessEmail') is not null
-      ) s where e is not null and e <> '';
+    -- Con `scrapeContacts` estos llegan en plural; sin él, sólo el escalar.
+    v_emails    := apify_lista(it, 'emails', 'email', 'emailContacto', 'businessEmail');
+    v_telefonos := apify_lista(it, 'phones', 'phone', 'telefono', 'phoneUnformatted', 'businessPhoneNumber');
 
-    select array_agg(distinct t) into v_telefonos
-      from (
-        select jsonb_array_elements_text(coalesce(it -> 'phones', '[]'::jsonb)) as t
-        union select apify_txt(it, 'phone', 'telefono', 'businessPhoneNumber')
-               where apify_txt(it, 'phone', 'telefono', 'businessPhoneNumber') is not null
-        union select apify_txt(it, 'phoneUnformatted')
-               where apify_txt(it, 'phoneUnformatted') is not null
-      ) s where t is not null and t <> '';
+    v_ig := (apify_lista(it, 'instagrams', 'instagram', 'instagramUrl'))[1];
+    v_fb := (apify_lista(it, 'facebooks', 'facebook', 'facebookUrl'))[1];
+    v_li := (apify_lista(it, 'linkedIns', 'linkedIn', 'linkedin', 'linkedinUrl'))[1];
+    v_yt := (apify_lista(it, 'youtubes', 'youtube', 'youtubeUrl'))[1];
+    v_tt := (apify_lista(it, 'tiktoks', 'tiktok', 'tiktokUrl'))[1];
+    v_tw := (apify_lista(it, 'twitters', 'twitter', 'twitterUrl', 'x'))[1];
+    v_pi := (apify_lista(it, 'pinterests', 'pinterest'))[1];
+    v_tiene_redes := coalesce(v_ig, v_fb, v_li, v_yt, v_tt, v_tw, v_pi) is not null;
 
-    -- Clave de negocio, por orden de fiabilidad.
-    select l.id into v_id
+    -- 0027: la búsqueda NO filtra por deleted_at, porque el índice único
+    -- tampoco los ve. Si hay un activo y un borrado, gana el activo.
+    select l.id, (l.deleted_at is not null)
+      into v_id, v_borrado
       from leads l
-     where l.deleted_at is null
-       and ( (v_place  is not null and l.place_id = v_place)
+     where ( (v_place  is not null and l.place_id = v_place)
           or (v_perfil is not null and lower(trim(l.perfil_url)) = lower(trim(v_perfil)))
           or (v_maps   is not null and lower(trim(l.google_maps)) = lower(trim(v_maps)))
           or (v_place is null and v_perfil is null and v_maps is null
               and lower(l.empresa) = lower(v_empresa)
               and coalesce(lower(l.ciudad), '') = coalesce(lower(apify_txt(it, 'city', 'ciudad')), '')) )
-     order by l.created_at asc
+     order by l.deleted_at nulls first, l.created_at asc
      limit 1;
+
+    -- RESUCITAR: para que un lead borrado vuelva al reencontrarlo, sustituye
+    -- este bloque por:  update leads set deleted_at = null where id = v_id;
+    -- y deja que siga al UPDATE de abajo.
+    if v_id is not null and v_borrado then
+      v_descartados := v_descartados + 1;
+      v_detalle := v_detalle || jsonb_build_object(
+        'motivo', 'borrado previamente',
+        'lead_id', v_id,
+        'empresa', v_empresa);
+      continue;
+    end if;
 
     v_nueva := v_id is null;
 
@@ -174,8 +204,9 @@ begin
       insert into leads (
         empresa, place_id, google_maps, perfil_url, nicho, categoria, ciudad, pais, codigo_pais,
         direccion, telefono, telefono_2, telefonos, email, emails, web,
-        instagram, facebook, linkedin, rating_google, num_resenas,
-        latitud, longitud, horario, seguidores, bio, fuente
+        instagram, facebook, linkedin, youtube, tiktok, twitter, pinterest,
+        rating_google, num_resenas, latitud, longitud, horario, seguidores, bio, fuente,
+        email_source, phone_source, social_source
       ) values (
         v_empresa, v_place, v_maps, v_perfil,
         apify_txt(it, 'nicho', 'categoryName', 'category', 'industry'),
@@ -190,9 +221,7 @@ begin
         v_emails[1],
         v_emails,
         apify_txt(it, 'website', 'web', 'url_website', 'externalUrl', 'websiteUrl'),
-        apify_txt(it, 'instagram', 'instagramUrl'),
-        apify_txt(it, 'facebook', 'facebookUrl'),
-        apify_txt(it, 'linkedIn', 'linkedin', 'linkedinUrl'),
+        v_ig, v_fb, v_li, v_yt, v_tt, v_tw, v_pi,
         apify_num(it, 'totalScore', 'rating', 'ratingGoogle'),
         coalesce(apify_num(it, 'reviewsCount', 'numResenas', 'userRatingCount'), 0)::int,
         apify_num(it, 'lat', 'latitude'),
@@ -200,7 +229,10 @@ begin
         it -> 'openingHours',
         apify_num(it, 'followersCount', 'followers', 'seguidores')::int,
         apify_txt(it, 'biography', 'bio', 'description', 'descripcion'),
-        coalesce(p_fuente, 'google_maps')
+        coalesce(p_fuente, 'google_maps'),
+        case when v_emails[1] is not null then 'apify_contacts' end,
+        case when v_telefonos[1] is not null then 'apify_places' end,
+        case when v_tiene_redes then 'apify_contacts' end
       )
       returning id into v_id;
       v_insertados := v_insertados + 1;
@@ -220,9 +252,13 @@ begin
         email         = coalesce(l.email, v_emails[1]),
         emails        = (select array_agg(distinct x) from unnest(coalesce(l.emails,'{}'::text[]) || coalesce(v_emails,'{}'::text[])) x),
         web           = coalesce(l.web, apify_txt(it, 'website', 'web', 'externalUrl', 'websiteUrl')),
-        instagram     = coalesce(l.instagram, apify_txt(it, 'instagram', 'instagramUrl')),
-        facebook      = coalesce(l.facebook, apify_txt(it, 'facebook', 'facebookUrl')),
-        linkedin      = coalesce(l.linkedin, apify_txt(it, 'linkedIn', 'linkedin', 'linkedinUrl')),
+        instagram     = coalesce(l.instagram, v_ig),
+        facebook      = coalesce(l.facebook, v_fb),
+        linkedin      = coalesce(l.linkedin, v_li),
+        youtube       = coalesce(l.youtube,   v_yt),
+        tiktok        = coalesce(l.tiktok,    v_tt),
+        twitter       = coalesce(l.twitter,   v_tw),
+        pinterest     = coalesce(l.pinterest, v_pi),
         bio           = coalesce(l.bio, apify_txt(it, 'biography', 'bio', 'description', 'descripcion')),
         -- Datos vivos: se refrescan en cada pasada.
         rating_google = coalesce(apify_num(it, 'totalScore', 'rating'), l.rating_google),
@@ -231,6 +267,12 @@ begin
         latitud       = coalesce(l.latitud, apify_num(it, 'lat', 'latitude')),
         longitud      = coalesce(l.longitud, apify_num(it, 'lng', 'longitude')),
         horario       = coalesce(l.horario, it -> 'openingHours'),
+        email_source  = case when l.email is null and l.email_contacto is null and v_emails[1] is not null
+                             then 'apify_contacts' else l.email_source end,
+        phone_source  = case when l.telefono is null and v_telefonos[1] is not null
+                             then 'apify_places' else l.phone_source end,
+        social_source = case when coalesce(l.instagram, l.facebook, l.linkedin) is null and v_tiene_redes
+                             then 'apify_contacts' else l.social_source end,
         updated_at    = now()
       where l.id = v_id;
       v_actualizados := v_actualizados + 1;
