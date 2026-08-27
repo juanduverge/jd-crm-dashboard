@@ -30,9 +30,18 @@
 --      atrás con el historial entero de `lead_imports`, así que arranca ya
 --      sabiendo todo lo capturado desde el primer día.
 --
+-- LA REGLA, tal y como la pidió Juan: "no quiero que nada se repita". Basta
+-- con que Apify haya devuelto un negocio UNA vez para que no vuelva a ocupar
+-- sitio en una búsqueda posterior — esté vivo en la lista, en la Papelera,
+-- vaciado de la Papelera, o no haya llegado nunca a ser lead. El histórico
+-- entero se rellena con `omitir = true`.
+--
+-- La puerta de salida, para cuando quieras que uno concreto vuelva a entrar:
+--   delete from captacion_vistos where empresa ilike '%loquesea%';
+--
 -- Los borrados de la Papelera (soft delete) los sigue interceptando la 0027
--- mirando `leads.deleted_at`; esta migración cubre el borrado DEFINITIVO, con
--- un trigger que marca la huella como omitible antes de que la fila se vaya.
+-- mirando `leads.deleted_at`, que además explica mejor el motivo; esta
+-- migración cubre todo lo demás.
 --
 -- PARTE DE LA 0029 (perfil_url y fuentes sociales). Aplícalas en orden.
 -- =============================================================
@@ -92,11 +101,10 @@ create table if not exists captacion_vistos (
   consulta     text,
   lead_id      uuid references leads(id) on delete set null,
   -- `omitir` = "no lo vuelvas a meter aunque no esté en `leads`".
-  -- Sólo se pone a true cuando consta que el negocio llegó a tu lista y
-  -- después se borró para siempre. Un item que Apify devolvió pero que nunca
-  -- llegó a ser lead se queda en false: nunca lo viste, así que merece otra
-  -- oportunidad de entrar.
-  omitir       boolean not null default false,
+  -- Por defecto true: la regla que pidió Juan es "no quiero que nada se
+  -- repita". Basta con que Apify lo haya devuelto una vez para que no vuelva
+  -- a ocupar sitio en una búsqueda, esté o no en la lista.
+  omitir       boolean not null default true,
   primera_vez  timestamptz not null default now(),
   ultima_vez   timestamptz not null default now(),
   veces        int not null default 1
@@ -105,7 +113,7 @@ create table if not exists captacion_vistos (
 comment on table captacion_vistos is
   'Huella de todo lo que Apify ha devuelto alguna vez, aunque el lead ya no exista. Es el historial que consulta importar_leads para no repetir capturas.';
 comment on column captacion_vistos.omitir is
-  'true = ya estuvo en la lista y se borró definitivamente; no debe volver. Bórrale la fila para permitir que vuelva a entrar.';
+  'true = ya se capturó alguna vez y no debe volver a entrar en una búsqueda. Para dejarlo entrar otra vez: delete from captacion_vistos where huella = ...';
 
 create index if not exists ix_captacion_vistos_lead on captacion_vistos (lead_id);
 
@@ -150,10 +158,12 @@ agrupadas as (
 insert into captacion_vistos (huella, empresa, fuente, consulta, lead_id, omitir, primera_vez, ultima_vez, veces)
 select a.huella, a.empresa, a.fuente, a.consulta,
        l.id,
-       -- Nunca `true` en el relleno: no hay forma de saber si un item huérfano
-       -- se borró de verdad o si es víctima del fallo que motiva esta
-       -- migración. Ante la duda, se le deja volver a entrar.
-       false,
+       -- true para TODO el histórico, incluidos los huérfanos que no casan con
+       -- ningún lead actual. Es la regla pedida: nada que Apify haya devuelto
+       -- alguna vez vuelve a salir en una búsqueda. El precio es que si algo se
+       -- perdió por el fallo de los 19 "actualizados", se queda fuera; para
+       -- recuperar uno concreto, bórrale la fila de `captacion_vistos`.
+       true,
        a.primera_vez, a.ultima_vez, a.veces
   from agrupadas a
   -- LATERAL con `limit 1` y no un LEFT JOIN a secas: si una huella casara con
@@ -174,9 +184,9 @@ on conflict (huella) do nothing;
 -- --- 4. El borrado definitivo deja rastro ----------------------
 /**
  * Cuando una fila de `leads` se borra de verdad (vaciar Papelera), el
- * `on delete set null` de arriba dejaría la huella sin dueño y con
- * `omitir = false`: el negocio volvería a entrar en la siguiente búsqueda,
- * que es justo lo que no se quiere. Este trigger lo marca antes.
+ * `on delete set null` de arriba dejaría la huella sin dueño. Con `omitir`
+ * ya en true no volvería a entrar de todos modos, pero el trigger deja el
+ * vínculo limpio y hace explícito el caso en vez de depender del default.
  */
 create or replace function marcar_visto_borrado() returns trigger as $$
 begin
@@ -198,9 +208,9 @@ create trigger trg_marcar_visto_borrado
  * Se llama para TODOS los items recorridos, entren o no en `leads`: la gracia
  * de la memoria es precisamente recordar también lo que no entró.
  *
- * `omitir` no se toca aquí nunca: sólo lo pone a true el trigger de borrado
- * definitivo. Y `lead_id` se conserva si ya lo había — un descarte posterior
- * no debe borrar el vínculo con el lead que sí llegó a crearse.
+ * `omitir` no se toca aquí: nace en true por el default de la tabla y ya no
+ * cambia. Y `lead_id` se conserva si ya lo había — un descarte posterior no
+ * debe borrar el vínculo con el lead que sí llegó a crearse.
  */
 create or replace function anotar_visto(
   p_huella   text,
@@ -358,7 +368,7 @@ begin
         v_descartados := v_descartados + 1;
         v_detalle := v_detalle || jsonb_build_object(
           'resultado', 'descartado',
-          'motivo', 'borrado definitivamente el ' || to_char(v_visto.ultima_vez, 'DD/MM/YYYY') ||
+          'motivo', 'ya lo capturaste el ' || to_char(v_visto.primera_vez, 'DD/MM/YYYY') ||
                     coalesce(' (búsqueda: ' || v_visto.consulta || ')', ''),
           'empresa', v_empresa);
         perform anotar_visto(v_huella, v_empresa, p_fuente, p_consulta, null);

@@ -495,8 +495,8 @@ function ResumenImportacion({ resumen }: { resumen: LeadImport | null }) {
             Descartados por: {resumen.motivos.map((m) => `${m.motivo} (${m.cantidad})`).join(', ')}.
             {resumen.motivos.some((m) => m.motivo === 'borrado previamente') &&
               ' Los que borraste antes no vuelven a entrar; restáuralos desde la Papelera si los quieres.'}
-            {resumen.motivos.some((m) => m.motivo.startsWith('borrado definitivamente')) &&
-              ' Los que vaciaste de la Papelera tampoco vuelven, aunque ya no estén en la lista.'}
+            {resumen.motivos.some((m) => m.motivo.startsWith('ya lo capturaste')) &&
+              ' Lo que Apify ya te habia devuelto alguna vez no vuelve a salir, aunque no llegara a tu lista.'}
           </p>
         )}
         {/* El caso que dejaba a Juan mirando "20 encontrados, 1 lead" sin
