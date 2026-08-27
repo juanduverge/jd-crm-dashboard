@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star, Calendar, Clock, Gauge, Youtube, Twitter, Music2, Pin } from 'lucide-react'
+import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star, ThumbsUp, ThumbsDown, Calendar, Clock, Gauge, Youtube, Twitter, Music2, Pin } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge, Skeleton } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn, htmlToText } from '@/lib/utils'
@@ -55,6 +55,8 @@ export function LeadDrawer({
   const [composeOpen, setComposeOpen] = useState(false)
   const patchLocal = useLeadsStore((s) => s.patchLocal)
   const toggleFavorito = useLeadsStore((s) => s.toggleFavorito)
+  const toggleMeGusta = useLeadsStore((s) => s.toggleMeGusta)
+  const toggleDescartado = useLeadsStore((s) => s.toggleDescartado)
   useEffect(() => { setSelectedEmail(undefined) }, [lead?.id])
   if (!lead) return null
   const sc = scoreColor(lead.score)
@@ -135,6 +137,20 @@ export function LeadDrawer({
               title={lead.favorito ? 'Quitar de favoritos' : 'Marcar como favorito'}
             >
               <Star className={cn('h-4 w-4', lead.favorito && 'fill-amber-400')} />
+            </button>
+            <button
+              onClick={() => toggleMeGusta(lead.id)}
+              className={cn('btn-ghost', lead.meGusta ? 'text-emerald-400' : 'text-muted/50')}
+              title={lead.meGusta ? 'Quitar el me gusta' : 'Me gusta'}
+            >
+              <ThumbsUp className={cn('h-4 w-4', lead.meGusta && 'fill-emerald-400')} />
+            </button>
+            <button
+              onClick={() => toggleDescartado(lead.id)}
+              className={cn('btn-ghost', lead.descartado ? 'text-rose-400' : 'text-muted/50')}
+              title={lead.descartado ? 'Quitar el no me gusta' : 'No me gusta (lo manda al final)'}
+            >
+              <ThumbsDown className={cn('h-4 w-4', lead.descartado && 'fill-rose-400')} />
             </button>
             <button onClick={onClose} className="btn-ghost"><X className="h-4 w-4" /></button>
           </div>

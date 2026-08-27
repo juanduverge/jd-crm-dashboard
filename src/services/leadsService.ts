@@ -49,6 +49,8 @@ interface LeadRow {
   etiquetas: string[] | null
   screenshot_url: string | null
   favorito: boolean
+  me_gusta: boolean
+  descartado: boolean
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -186,6 +188,8 @@ function rowToLead(row: LeadRow): Lead {
     proximoSeguimiento: row.proximo_seguimiento ?? undefined,
     ultimaAccion: row.updated_at,
     favorito: row.favorito,
+    meGusta: row.me_gusta ?? false,
+    descartado: row.descartado ?? false,
     // Archivo / cierre (migración 0013).
     cerradoEn: row.cerrado_en ?? undefined,
     motivoCierre: row.motivo_cierre ?? undefined,
@@ -233,6 +237,8 @@ function leadPatchToRow(patch: Partial<Lead>): Record<string, unknown> {
   if (patch.etiquetas !== undefined) row.etiquetas = patch.etiquetas
   if (patch.screenshotUrl !== undefined) row.screenshot_url = patch.screenshotUrl
   if (patch.favorito !== undefined) row.favorito = patch.favorito
+  if (patch.meGusta !== undefined) row.me_gusta = patch.meGusta
+  if (patch.descartado !== undefined) row.descartado = patch.descartado
   // Pipeline (columnas denormalizadas en `leads`; ver migración 0008 y pipelineService.ts).
   if (patch.estado !== undefined) row.estado = patch.estado
   if (patch.prioridad !== undefined) row.prioridad = patch.prioridad
@@ -348,6 +354,18 @@ export const leadsService = {
 
   async toggleFavorito(id: string, favorito: boolean): Promise<void> {
     const { error } = await supabase.from('leads').update({ favorito }).eq('id', id)
+    if (error) throw error
+  },
+
+  /**
+   * Guarda el par me gusta / no me gusta. Van juntos en un solo UPDATE porque
+   * son excluyentes: dar «me gusta» a un lead descartado tiene que limpiar el
+   * descarte en la misma escritura, o una de las dos banderas quedaria colgada
+   * en Supabase si la segunda peticion fallara. `favorito` no se toca aqui:
+   * es otra cosa y tiene su propio boton (ver migracion 0032).
+   */
+  async setPreferencia(id: string, meGusta: boolean, descartado: boolean): Promise<void> {
+    const { error } = await supabase.from('leads').update({ me_gusta: meGusta, descartado }).eq('id', id)
     if (error) throw error
   },
 

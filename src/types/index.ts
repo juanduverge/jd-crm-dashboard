@@ -83,6 +83,10 @@ export interface Lead {
   proximoSeguimiento?: string
   fechaUltimoMovimiento?: string   // ISO; cuándo entró a la etapa actual (para "días en columna")
   favorito?: boolean          // Marcado como favorito (col Favorito en pipeline)
+  // Juicio sobre el lead, independiente de `favorito` (migracion 0032): un lead
+  // puede estar en favoritos porque hay que gestionarlo aunque no guste.
+  meGusta?: boolean           // "Me gusta"
+  descartado?: boolean        // "No me gusta": sigue vivo y buscable, pero se ordena el ultimo
   // Archivo / cierre (ver migración 0013). Un lead está archivado cuando
   // `estado` es 'ganado' o 'perdido'; estos campos guardan el contexto del
   // cierre y permiten reactivarlo a su etapa previa sin perder historial.

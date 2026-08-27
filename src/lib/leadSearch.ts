@@ -127,6 +127,8 @@ export const CAMPOS_BUSQUEDA: CampoBusqueda[] = [
   { claves: ['valor', 'importe'], etiqueta: 'Valor estimado', tipo: 'numero', valor: (l) => l.valorEstimado },
   { claves: ['probabilidad'], etiqueta: 'Probabilidad', tipo: 'numero', valor: (l) => l.probabilidad },
   { claves: ['favorito', 'fav'], etiqueta: 'Favorito', tipo: 'bool', valor: (l) => l.favorito },
+  { claves: ['megusta', 'like'], etiqueta: 'Me gusta', tipo: 'bool', valor: (l) => l.meGusta },
+  { claves: ['descartado', 'nomegusta'], etiqueta: 'No me gusta', tipo: 'bool', valor: (l) => l.descartado },
 
   // --- Puntuación y diagnóstico ---
   { claves: ['score', 'puntuacion'], etiqueta: 'Score', tipo: 'numero', valor: (l) => l.score },

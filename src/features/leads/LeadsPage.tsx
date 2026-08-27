@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   Plus, Download, RefreshCw, Trash2, Search, ArrowUpDown, Mail, MessageCircle,
-  Eye, Filter, X, Sparkles, Star,
+  Eye, Filter, X, Sparkles, Star, ThumbsUp, ThumbsDown,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Select, Badge, Skeleton, EmptyState } from '@/components/ui'
@@ -25,7 +25,7 @@ import type { Lead } from '@/types'
 import type { LeadImport } from '@/services/leadsService'
 import { formToLeadPatch, type LeadFormValues } from './leadSchema'
 
-type SortKey = 'empresa' | 'score' | 'ciudad' | 'valorEstimado' | 'estado' | 'favorito' | 'fechaCaptura' | 'actualizado'
+type SortKey = 'empresa' | 'score' | 'ciudad' | 'valorEstimado' | 'estado' | 'favorito' | 'meGusta' | 'fechaCaptura' | 'actualizado'
 
 /** Fecha corta legible (ej. "14 jul 2026"); vacío si no hay valor o no parsea. */
 function fmtShort(v?: string): string {
@@ -35,10 +35,12 @@ function fmtShort(v?: string): string {
   return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-/** Pestañas rápidas por estado (Todos + Favoritos + etapas del pipeline). */
-const STATE_TABS: { key: 'todos' | 'favoritos' | Lead['estado']; label: string }[] = [
+/** Pestañas rápidas por estado (Todos + favoritos + preferencia + etapas). */
+const STATE_TABS: { key: 'todos' | 'favoritos' | 'megusta' | 'descartados' | Lead['estado']; label: string }[] = [
   { key: 'todos', label: 'Todos' },
   { key: 'favoritos', label: 'Favoritos' },
+  { key: 'megusta', label: 'Me gusta' },
+  { key: 'descartados', label: 'No me gusta' },
   ...PIPELINE_STAGES.map((s) => ({ key: s.id as Lead['estado'], label: s.label })),
 ]
 
@@ -53,13 +55,13 @@ const SMART_PILLS: { key: 'prioridad' | 'conIA' | 'sinIA' | 'sinResponsable'; la
 export function LeadsPage() {
   const { isLoading, isError, refetch, isFetching } = useLeads()
   const leads = useLeadsStore((s) => s.leads)
-  const { addLead, updateLead, removeLeads, moveStage, selectedIds, toggleSelect, selectAll, clearSelection, toggleFavorito } = useLeadsStore()
+  const { addLead, updateLead, removeLeads, moveStage, selectedIds, toggleSelect, selectAll, clearSelection, toggleFavorito, toggleMeGusta, toggleDescartado } = useLeadsStore()
 
   const [search, setSearch] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [fNicho, setFNicho] = useState('')
   const [fScoreMin, setFScoreMin] = useState(0)
-  const [tab, setTab] = useState<'todos' | 'favoritos' | Lead['estado']>('todos')
+  const [tab, setTab] = useState<'todos' | 'favoritos' | 'megusta' | 'descartados' | Lead['estado']>('todos')
   const [fToque, setFToque] = useState('')
   const [smart, setSmart] = useState<'' | 'prioridad' | 'conIA' | 'sinIA' | 'sinResponsable'>('')
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'score', dir: 'desc' })
@@ -104,7 +106,12 @@ export function LeadsPage() {
 
   // Conteos por pestaña, calculados sobre la base (respetan búsqueda/filtros).
   const counts = useMemo(() => {
-    const c: Record<string, number> = { todos: base.length, favoritos: base.filter((l) => l.favorito).length }
+    const c: Record<string, number> = {
+      todos: base.length,
+      favoritos: base.filter((l) => l.favorito).length,
+      megusta: base.filter((l) => l.meGusta).length,
+      descartados: base.filter((l) => l.descartado).length,
+    }
     for (const s of PIPELINE_STAGES) c[s.id] = base.filter((l) => l.estado === s.id).length
     return c
   }, [base])
@@ -125,7 +132,11 @@ export function LeadsPage() {
   // aplicadas, para que sus números coincidan con la tabla resultante.
   const conPestana = useMemo(
     () => base.filter((l) =>
-      (tab === 'todos' ? true : tab === 'favoritos' ? l.favorito : l.estado === tab) &&
+      (tab === 'todos' ? true
+        : tab === 'favoritos' ? l.favorito
+        : tab === 'megusta' ? l.meGusta
+        : tab === 'descartados' ? l.descartado
+        : l.estado === tab) &&
       smartMatch(l),
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -137,6 +148,7 @@ export function LeadsPage() {
     let res = conPestana.filter((l) => pasaFiltroToque(l, fToque, hoy))
     const sortVal = (l: Lead): string | number => {
       if (sort.key === 'favorito') return l.favorito ? 1 : 0
+      if (sort.key === 'meGusta') return l.meGusta ? 1 : 0
       if (sort.key === 'actualizado') return l.fechaUltimoMovimiento || l.ultimaAccion || ''
       return l[sort.key] ?? ''
     }
@@ -145,6 +157,11 @@ export function LeadsPage() {
     // tramo sigue mandando el orden de columna que hayas elegido.
     const rel = new Map(res.map((l) => [l.id, relevanciaLead(l, search)]))
     res = [...res].sort((a, b) => {
+      // Lo marcado como «no me gusta» se hunde al final pase lo que pase: es
+      // el sentido del botón. Manda por encima de la relevancia y del orden de
+      // columna. (En la pestaña «No me gusta» son todos, así que no altera nada.)
+      const dd = Number(!!a.descartado) - Number(!!b.descartado)
+      if (dd !== 0) return dd
       const dr = (rel.get(b.id) ?? 0) - (rel.get(a.id) ?? 0)
       if (dr !== 0) return dr
       const av = sortVal(a)
@@ -361,6 +378,7 @@ export function LeadsPage() {
                     <input type="checkbox" checked={allSelected} onChange={(e) => e.target.checked ? selectAll(filtered.map((l) => l.id)) : clearSelection()} className="accent-primary-400" />
                   </th>
                   <Th onClick={() => toggleSort('favorito')}><span className="sr-only">Favorito</span><Star className="h-3.5 w-3.5" /></Th>
+                  <Th onClick={() => toggleSort('meGusta')}><span className="sr-only">Me gusta / No me gusta</span><ThumbsUp className="h-3.5 w-3.5" /></Th>
                   <Th onClick={() => toggleSort('empresa')}>Empresa</Th>
                   <th className="px-3 py-3 text-left font-medium">Contacto</th>
                   <Th onClick={() => toggleSort('ciudad')}>Ciudad</Th>
@@ -378,7 +396,7 @@ export function LeadsPage() {
                   const sc = scoreColor(l.score)
                   const niche = nichos.find((n) => n.id === l.nicho)
                   return (
-                    <tr key={l.id} className="border-b border-border last:border-0 hover:bg-surface-2/60">
+                    <tr key={l.id} className={cn('border-b border-border last:border-0 hover:bg-surface-2/60', l.descartado && 'opacity-60')}>
                       <td className="px-3 py-2.5">
                         <input type="checkbox" checked={selectedIds.has(l.id)} onChange={() => toggleSelect(l.id)} className="accent-primary-400" />
                       </td>
@@ -390,6 +408,24 @@ export function LeadsPage() {
                         >
                           <Star className={cn('h-4 w-4', l.favorito && 'fill-amber-400')} />
                         </button>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            onClick={() => toggleMeGusta(l.id)}
+                            className={cn('flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-surface-2', l.meGusta ? 'text-emerald-400' : 'text-muted/50 hover:text-muted')}
+                            title={l.meGusta ? 'Quitar el me gusta' : 'Me gusta'}
+                          >
+                            <ThumbsUp className={cn('h-4 w-4', l.meGusta && 'fill-emerald-400')} />
+                          </button>
+                          <button
+                            onClick={() => toggleDescartado(l.id)}
+                            className={cn('flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-surface-2', l.descartado ? 'text-rose-400' : 'text-muted/50 hover:text-muted')}
+                            title={l.descartado ? 'Quitar el no me gusta' : 'No me gusta (lo manda al final)'}
+                          >
+                            <ThumbsDown className={cn('h-4 w-4', l.descartado && 'fill-rose-400')} />
+                          </button>
+                        </div>
                       </td>
                       <td className="max-w-[200px] px-3 py-2.5">
                         <button onClick={() => setDrawerLeadId(l.id)} className="block max-w-full truncate font-medium text-fg hover:text-primary-600" title={l.empresa}>{l.empresa}</button>

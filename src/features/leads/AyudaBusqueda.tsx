@@ -22,6 +22,7 @@ const EJEMPLOS: { q: string; que: string }[] = [
   { q: 'email:vacio', que: 'Sin email' },
   { q: 'web:tiene ssl:no', que: 'Con web pero sin SSL' },
   { q: 'favorito:si -perdido', que: 'Favoritos, excluyendo perdidos' },
+  { q: 'megusta:si descartado:no', que: 'Los que te gustan, sin descartados' },
   { q: 'seguimiento:hoy', que: 'Con seguimiento para hoy' },
 ]
 

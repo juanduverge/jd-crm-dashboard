@@ -52,6 +52,10 @@ const persist = {
   favorito(lead: Lead) {
     leadsService.toggleFavorito(lead.id, !!lead.favorito).catch(fallo(lead.id, 'el favorito'))
   },
+  preferencia(lead: Lead) {
+    leadsService.setPreferencia(lead.id, !!lead.meGusta, !!lead.descartado)
+      .catch(fallo(lead.id, 'el me gusta / no me gusta'))
+  },
   update(lead: Lead, prevEstado?: Lead['estado']) {
     // Campos propios del lead -> Supabase.
     leadsService.updateLead(lead.id, {
@@ -94,6 +98,8 @@ interface LeadsState {
   updateLead: (id: string, patch: Partial<Lead>) => void
   patchLocal: (id: string, patch: Partial<Lead>) => void
   toggleFavorito: (id: string) => void
+  toggleMeGusta: (id: string) => void
+  toggleDescartado: (id: string) => void
   removeLeads: (ids: string[]) => void
   moveStage: (id: string, estado: Lead['estado']) => void
   toggleSelect: (id: string) => void
@@ -152,11 +158,34 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
       return merged
     }) })
   },
+  /** Favorito: marca de trabajo, independiente del me gusta / no me gusta. */
   toggleFavorito: (id) => {
     const leads = get().leads.map((l) => (l.id === id ? { ...l, favorito: !l.favorito } : l))
     set({ leads, dirty: { ...get().dirty, [id]: Date.now() } })
     const updated = leads.find((l) => l.id === id)
     if (updated) persist.favorito(updated)
+  },
+  /**
+   * «Me gusta». Limpia el «no me gusta»: son las dos caras del mismo juicio y
+   * dejarlos convivir daria una fila marcada a la vez como buena y como
+   * descartada, imposible de ordenar. No toca `favorito`.
+   */
+  toggleMeGusta: (id) => {
+    const leads = get().leads.map((l) =>
+      l.id === id ? { ...l, meGusta: !l.meGusta, descartado: l.meGusta ? l.descartado : false } : l,
+    )
+    set({ leads, dirty: { ...get().dirty, [id]: Date.now() } })
+    const updated = leads.find((l) => l.id === id)
+    if (updated) persist.preferencia(updated)
+  },
+  /** «No me gusta»: baja el lead al final de la lista y quita el me gusta si lo tenia. */
+  toggleDescartado: (id) => {
+    const leads = get().leads.map((l) =>
+      l.id === id ? { ...l, descartado: !l.descartado, meGusta: l.descartado ? l.meGusta : false } : l,
+    )
+    set({ leads, dirty: { ...get().dirty, [id]: Date.now() } })
+    const updated = leads.find((l) => l.id === id)
+    if (updated) persist.preferencia(updated)
   },
   removeLeads: (ids) => {
     const set2 = new Set(ids)
