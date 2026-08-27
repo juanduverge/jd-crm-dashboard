@@ -168,19 +168,20 @@ export function LeadsPage() {
     // tramo sigue mandando el orden de columna que hayas elegido.
     const rel = new Map(res.map((l) => [l.id, relevanciaLead(l, search)]))
     res = [...res].sort((a, b) => {
-      // Con el orden congelado manda la foto: cada lead se queda donde
-      // estaba. Lo que llegue nuevo (una importación) no tiene ancla y cae al
-      // final, sin colarse en medio de lo que estabas revisando.
+      // Lo marcado como «no me gusta» se hunde al final pase lo que pase: es
+      // el sentido del botón, y por eso va incluso por delante del orden
+      // congelado — el 👎 SÍ mueve la fila, en el acto. Quitarlo la devuelve a
+      // su sitio de antes, que para eso sigue teniendo su ancla.
+      const dd = Number(!!a.descartado) - Number(!!b.descartado)
+      if (dd !== 0) return dd
+      // El resto se queda quieto: con el orden congelado manda la foto, para
+      // que marcar ⭐/👍 o borrar no te recoloque la lista bajo el cursor. Lo
+      // que llegue nuevo (una importación) no tiene ancla y cae al final.
       if (anclas) {
         const aa = anclas.get(a.id) ?? Number.MAX_SAFE_INTEGER
         const ba = anclas.get(b.id) ?? Number.MAX_SAFE_INTEGER
         if (aa !== ba) return aa - ba
       }
-      // Lo marcado como «no me gusta» se hunde al final pase lo que pase: es
-      // el sentido del botón. Manda por encima de la relevancia y del orden de
-      // columna. (En la pestaña «No me gusta» son todos, así que no altera nada.)
-      const dd = Number(!!a.descartado) - Number(!!b.descartado)
-      if (dd !== 0) return dd
       const dr = (rel.get(b.id) ?? 0) - (rel.get(a.id) ?? 0)
       if (dr !== 0) return dr
       const av = sortVal(a)

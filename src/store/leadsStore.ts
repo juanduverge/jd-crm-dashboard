@@ -180,12 +180,32 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   },
   /** «No me gusta»: baja el lead al final de la lista y quita el me gusta si lo tenia. */
   toggleDescartado: (id) => {
+    const antes = get().leads.find((l) => l.id === id)
+    const marcando = !antes?.descartado
+    const now = new Date().toISOString()
+    // Un «no me gusta» es una decisión sobre el negocio, no sólo un gusto: el
+    // lead se cierra como perdido y desaparece del pipeline activo. No se
+    // pisan los cierres que ya existen —si estaba ganado, ganado se queda; eso
+    // se corrige a mano, no de un clic.
+    const cierra = marcando && antes && antes.estado !== 'perdido' && antes.estado !== 'ganado'
     const leads = get().leads.map((l) =>
-      l.id === id ? { ...l, descartado: !l.descartado, meGusta: l.descartado ? l.meGusta : false } : l,
+      l.id === id
+        ? {
+            ...l,
+            descartado: !l.descartado,
+            meGusta: l.descartado ? l.meGusta : false,
+            ...(cierra ? { estado: 'perdido' as const, fechaUltimoMovimiento: now } : {}),
+          }
+        : l,
     )
     set({ leads, dirty: { ...get().dirty, [id]: Date.now() } })
     const updated = leads.find((l) => l.id === id)
-    if (updated) persist.preferencia(updated)
+    if (updated) {
+      persist.preferencia(updated)
+      // Quitar el 👎 no lo devuelve a su etapa anterior: no se sabe cuál era y
+      // adivinarla sería peor. Lo sacas del perdido moviéndolo tú.
+      if (cierra) persist.move(updated)
+    }
   },
   removeLeads: (ids) => {
     const set2 = new Set(ids)
