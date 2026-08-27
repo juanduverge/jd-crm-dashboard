@@ -2,6 +2,9 @@ node_modules/
 .env
 .env.local
 .env.*.local
+# Cualquier variante de .env (backups, .env.prod, etc.): son secretos.
+.env.*
+!.env.example
 dist/
 dist-ssr/
 .DS_Store
