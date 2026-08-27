@@ -1,0 +1,273 @@
+{
+  "id": "jdFase1Captacion",
+  "name": "CRM API · Captación de Prospectos (Apify, multifuente)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f1-manual-0001",
+      "name": "Ejecutar a mano (pruebas)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crm-buscar-leads",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f1-webhook-0002",
+      "name": "Buscar Leads (Webhook)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        240
+      ],
+      "webhookId": "crm-buscar-leads"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, message: \"Busqueda iniciada. Los prospectos apareceran en unos minutos.\" }) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "f1-respond-0003",
+      "name": "Respuesta Iniciada",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---------------------------------------------------------------------------\n// Mapa de actores de Apify, uno por fuente.\n//\n// Antes este workflow tenia un IF binario \"Es Google Maps?\": cualquier otra\n// fuente caia en un noOp y la busqueda moria en silencio (el usuario veia\n// \"busqueda iniciada\" y no llegaba nada). Ahora cada fuente declara su actor\n// y como se le arma la entrada, y el nodo HTTP siguiente es uno solo.\n//\n// Para cambiar de actor: edita SOLO este mapa.\n//   actor      -> id del actor en Apify (usuario~nombre)\n//   confirmado -> false = todavia no verificado contra la cuenta de Apify.\n//                 Se lanza un error claro en vez de gastar creditos con un\n//                 actor que puede no existir o devolver otra forma de datos.\n// ---------------------------------------------------------------------------\nconst ACTORES = {\n  google_maps: {\n    actor: 'compass~crawler-google-places',\n    confirmado: true,\n    input: (q) => ({\n      searchStringsArray: [q.tipo],\n      locationQuery: q.ciudad,\n      maxCrawledPlacesPerSearch: q.max,\n      language: 'es',\n      scrapeContacts: true,\n      scrapePlaceDetailPage: true,\n    }),\n  },\n  google_web: {\n    actor: 'apify~google-search-scraper',\n    confirmado: true,\n    input: (q) => ({\n      queries: q.ciudad ? (q.tipo + ' ' + q.ciudad) : q.tipo,\n      resultsPerPage: Math.min(100, q.max),\n      maxPagesPerQuery: 1,\n      languageCode: 'es',\n    }),\n  },\n  instagram: {\n    actor: 'apify~instagram-scraper',\n    confirmado: true,\n    input: (q) => ({\n      // `searchType: user` + `resultsType: details` devuelve PERFILES, no\n      // publicaciones: un lead es una cuenta de negocio, no un post suelto.\n      search: q.ciudad ? (q.tipo + ' ' + q.ciudad) : q.tipo,\n      searchType: 'user',\n      resultsType: 'details',\n      resultsLimit: q.max,\n      searchLimit: q.max,\n    }),\n  },\n  facebook: {\n    actor: 'apify~facebook-pages-scraper',\n    confirmado: false,   // <-- confirmar el actor y su entrada en tu cuenta Apify\n    input: (q) => ({\n      searchQuery: q.ciudad ? (q.tipo + ' ' + q.ciudad) : q.tipo,\n      maxPages: q.max,\n    }),\n  },\n  linkedin: {\n    actor: 'harvestapi~linkedin-company-search',\n    confirmado: false,   // <-- LinkedIn no tiene actor oficial de Apify; confirmar cual usas\n    input: (q) => ({\n      searchQuery: q.tipo,\n      locations: q.ciudad ? [q.ciudad] : [],\n      maxItems: q.max,\n    }),\n  },\n};\n\nconst body = ($input.first().json.body) || $input.first().json || {};\n\nconst tipo = (body.tipo_negocio || 'real estate agency').toString().trim() || 'real estate agency';\n// La ciudad ya no se rellena por defecto: en redes sociales se busca por nicho\n// o hashtag sin ubicacion, y meter \"Miami, FL, USA\" a la fuerza sesgaba la\n// busqueda hacia un sitio que el usuario no habia pedido.\nconst ciudad = (body.ciudad || '').toString().trim();\n\nlet max = parseInt(body.max, 10);\nif (isNaN(max)) max = 20;\nmax = Math.min(50, Math.max(1, max));\n\nlet fuente = (body.fuente || 'google_maps').toString().trim();\nif (!ACTORES[fuente]) fuente = 'google_maps';\n\nconst cfg = ACTORES[fuente];\nif (!cfg.confirmado) {\n  throw new Error(\n    'Fuente \"' + fuente + '\": el actor de Apify \"' + cfg.actor + '\" aun no esta ' +\n    'confirmado. Verifica el id y la forma de su entrada en tu cuenta de Apify y ' +\n    'pon confirmado: true en el nodo \"Preparar Busqueda\". No se ha gastado ningun credito.'\n  );\n}\n\n// Google Maps SI necesita ubicacion: sin ella el actor rastrea el mundo entero.\nif (fuente === 'google_maps' && !ciudad) {\n  throw new Error('Google Maps requiere ciudad/ubicacion.');\n}\n\nconst actorInput = cfg.input({ tipo, ciudad, max });\n\nreturn [{ json: {\n  fuente,\n  actorId: cfg.actor,\n  actorInput,\n  consulta: ciudad ? (tipo + ' / ' + ciudad) : tipo,\n} }];"
+      },
+      "id": "f1-prep-0004",
+      "name": "Preparar Busqueda",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -60,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/rpc/importar_leads",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "f1-import-0008",
+      "name": "Importar a Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        40
+      ],
+      "notes": "importar_leads normaliza, deduplica por place_id/google_maps y devuelve {recibidos, insertados, actualizados, descartados}. Si recibidos=10 e insertados=1, el problema esta antes de Supabase. Requiere una credencial de tipo 'Supabase API' con la service_role."
+    },
+    {
+      "parameters": {
+        "jsCode": "// El resultado del import es la prueba de si el lote llego completo. Se deja\n// visible en la ejecucion para no tener que abrir la base de datos.\nconst r = $json;\nconsole.log(`[captacion] recibidos=${r.recibidos} insertados=${r.insertados} actualizados=${r.actualizados} descartados=${r.descartados}`);\nif (r.descartados > 0) console.log('[captacion] descartados:', JSON.stringify(r.detalle));\nreturn [{ json: r }];"
+      },
+      "id": "f1-log-0009",
+      "name": "Registrar Resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        40
+      ]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "np9xJ5KJUurABOvO",
+          "mode": "list",
+          "cachedResultName": "Fase 2 - Enriquecimiento de Contacto"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "id": "f1-chain-0010",
+      "name": "Encadenar Enriquecimiento",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        1260,
+        40
+      ],
+      "notes": "Arranca el enriquecimiento en cuanto termina la captacion, sin esperarlo. Va en un workflow APARTE a proposito: si fuera un nodo mas de este, un fallo al descargar la web de un negocio tumbaria el lote entero de leads."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.apify.com/v2/acts/{{ $json.actorId }}/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.actorInput) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "f1-apify-actor",
+      "name": "Apify - Ejecutar Actor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        380,
+        40
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "1AKzTIFkGuTF3MSG",
+          "name": "Apify - JDDeveloper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ---------------------------------------------------------------------------\n// Cada actor de Apify devuelve una forma distinta. `importar_leads` (Supabase)\n// entiende alias, pero no puede adivinar que en Instagram el nombre del\n// negocio esta en `fullName` y la web en `externalUrl`, ni desanidar los\n// `organicResults` de la busqueda web.\n//\n// Aqui se traduce cada fuente al vocabulario canonico que espera la funcion:\n//   title, website, phone, email, city, address, profileUrl,\n//   followersCount, biography, category\n//\n// Lo que no se reconoce se deja pasar tal cual: la funcion tiene sus propios\n// alias y es preferible que llegue de mas a que se pierda.\n// ---------------------------------------------------------------------------\nconst prep = $('Preparar Busqueda').first().json;\nconst fuente = prep.fuente || 'google_maps';\nconst crudo = $input.all().map((i) => i.json);\n\nconst limpio = (v) => (v === null || v === undefined || v === '' ? undefined : v);\n\nfunction deGoogleWeb(items) {\n  // El actor devuelve UN item por consulta con `organicResults` dentro.\n  const salida = [];\n  for (const it of items) {\n    for (const r of it.organicResults || []) {\n      if (!r.title) continue;\n      salida.push({\n        title: r.title,\n        website: r.url,\n        profileUrl: r.url,\n        biography: limpio(r.description),\n      });\n    }\n  }\n  return salida;\n}\n\nfunction deInstagram(items) {\n  return items\n    .filter((it) => it.username || it.fullName)\n    .map((it) => {\n      const perfil = it.url || ('https://www.instagram.com/' + it.username + '/');\n      return {\n        title: it.fullName || it.username,\n        profileUrl: perfil,\n        instagram: perfil,\n        website: limpio(it.externalUrl),\n        // Instagram solo expone email/telefono en cuentas de empresa; cuando\n        // no los da, suelen estar escritos en la bio y los rescata la Fase 2.\n        email: limpio(it.businessEmail),\n        phone: limpio(it.businessPhoneNumber),\n        biography: limpio(it.biography),\n        followersCount: it.followersCount,\n        category: limpio(it.businessCategoryName),\n      };\n    });\n}\n\nfunction deFacebook(items) {\n  return items\n    .filter((it) => it.title || it.name)\n    .map((it) => ({\n      title: it.title || it.name,\n      profileUrl: it.pageUrl || it.url,\n      facebook: it.pageUrl || it.url,\n      website: limpio(it.website),\n      phone: limpio(it.phone),\n      email: limpio(it.email),\n      address: limpio(it.address),\n      city: limpio(it.city),\n      biography: limpio(it.intro || it.info),\n      followersCount: it.followers || it.likes,\n      category: limpio(Array.isArray(it.categories) ? it.categories[0] : it.categories),\n    }));\n}\n\nfunction deLinkedIn(items) {\n  return items\n    .filter((it) => it.name || it.companyName || it.title)\n    .map((it) => ({\n      title: it.name || it.companyName || it.title,\n      profileUrl: it.linkedinUrl || it.url,\n      linkedin: it.linkedinUrl || it.url,\n      website: limpio(it.websiteUrl || it.website),\n      city: limpio(it.location || it.locality),\n      category: limpio(it.industry),\n      biography: limpio(it.description || it.tagline),\n      followersCount: it.followerCount || it.followersCount,\n    }));\n}\n\nconst traductores = {\n  google_maps: (items) => items,   // el vocabulario canonico ES el suyo\n  google_web: deGoogleWeb,\n  instagram: deInstagram,\n  facebook: deFacebook,\n  linkedin: deLinkedIn,\n};\n\nconst lote = (traductores[fuente] || ((x) => x))(crudo);\n\n// Un lote vacio NO es un error, pero tampoco puede pasar desapercibido: se\n// deja constancia en el log y se sigue, para que `importar_leads` registre la\n// busqueda en `lead_imports` con recibidos=0. Asi \"no llego nada\" queda\n// distinguible de \"no se ejecuto nada\".\nconsole.log('[captacion] fuente=' + fuente + ' crudo=' + crudo.length + ' normalizados=' + lote.length);\n\n// Un unico paquete con el lote COMPLETO (igual que antes \"Empaquetar Lote\"):\n// si se enviara item a item, un fallo intermedio dejaria la mitad de los leads\n// fuera y sin rastro. Asi entra el lote entero o falla el lote entero, y en\n// ambos casos queda registrado en lead_imports.\nreturn [{ json: {\n  p_lote: lote,\n  p_fuente: fuente,\n  p_consulta: prep.consulta,\n} }];"
+      },
+      "id": "f1-normalizar",
+      "name": "Normalizar Lote",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        600,
+        40
+      ]
+    }
+  ],
+  "connections": {
+    "Ejecutar a mano (pruebas)": {
+      "main": [
+        [
+          {
+            "node": "Preparar Busqueda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Leads (Webhook)": {
+      "main": [
+        [
+          {
+            "node": "Respuesta Iniciada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respuesta Iniciada": {
+      "main": [
+        [
+          {
+            "node": "Preparar Busqueda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar Busqueda": {
+      "main": [
+        [
+          {
+            "node": "Apify - Ejecutar Actor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Importar a Supabase": {
+      "main": [
+        [
+          {
+            "node": "Registrar Resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Resultado": {
+      "main": [
+        [
+          {
+            "node": "Encadenar Enriquecimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify - Ejecutar Actor": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Lote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Lote": {
+      "main": [
+        [
+          {
+            "node": "Importar a Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

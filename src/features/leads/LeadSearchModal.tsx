@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import toast from 'react-hot-toast'
-import { Search, Sparkles, Info, Lock } from 'lucide-react'
+import { Search, Sparkles, Info } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button, Input } from '@/components/ui'
 import { crmApi, type LeadSourceKey } from '@/services/crmApi'
@@ -12,12 +12,64 @@ const SUGERENCIAS = [
   'clínicas dentales', 'gimnasios', 'salones de belleza', 'talleres mecánicos',
 ]
 
-const FUENTES: { id: LeadSourceKey; label: string; disabled?: boolean; note?: string }[] = [
-  { id: 'google_maps', label: 'Google Maps' },
-  { id: 'google_web', label: 'Google (búsqueda web)' },
-  { id: 'linkedin', label: 'LinkedIn', disabled: true, note: 'Experimental — próximamente' },
-  { id: 'instagram', label: 'Instagram', disabled: true, note: 'Experimental — próximamente' },
-  { id: 'facebook', label: 'Facebook', disabled: true, note: 'Experimental — próximamente' },
+interface Fuente {
+  id: LeadSourceKey
+  label: string
+  /** Qué captura esta fuente — se muestra arriba al seleccionarla. */
+  descripcion: string
+  /** Qué se busca en el campo "tipo de negocio". */
+  placeholderTipo: string
+  /** Qué se busca en el campo de ubicación. */
+  labelUbicacion: string
+  placeholderUbicacion: string
+  /** Las redes pueden buscarse solo por nicho/hashtag, sin ciudad. */
+  ubicacionOpcional?: boolean
+}
+
+const FUENTES: Fuente[] = [
+  {
+    id: 'google_maps',
+    label: 'Google Maps',
+    descripcion: 'Busca negocios reales en Google Maps (vía Apify) y los agrega a tus Leads con diagnóstico web automático.',
+    placeholderTipo: 'ej. restaurantes, abogados, real estate agency…',
+    labelUbicacion: 'Ciudad / ubicación',
+    placeholderUbicacion: 'ej. Miami, FL, USA',
+  },
+  {
+    id: 'google_web',
+    label: 'Google (búsqueda web)',
+    descripcion: 'Rastrea resultados de Google y extrae los sitios web de negocios que coinciden con el nicho.',
+    placeholderTipo: 'ej. "immigration lawyer" site web',
+    labelUbicacion: 'Ciudad / ubicación',
+    placeholderUbicacion: 'ej. Miami, FL, USA',
+  },
+  {
+    id: 'linkedin',
+    label: 'LinkedIn',
+    descripcion: 'Captura empresas y perfiles profesionales de LinkedIn. Devuelve cargo y web corporativa; el teléfono rara vez está disponible.',
+    placeholderTipo: 'ej. immigration law firm, marketing agency…',
+    labelUbicacion: 'Ubicación (opcional)',
+    placeholderUbicacion: 'ej. Miami, FL, USA',
+    ubicacionOpcional: true,
+  },
+  {
+    id: 'instagram',
+    label: 'Instagram',
+    descripcion: 'Captura cuentas de negocio por hashtag o palabra clave. Devuelve perfil, bio y web del enlace; el email depende de que esté en la bio.',
+    placeholderTipo: 'ej. #abogadosmiami, dentista, barbershop…',
+    labelUbicacion: 'Ubicación (opcional)',
+    placeholderUbicacion: 'ej. Miami, FL, USA',
+    ubicacionOpcional: true,
+  },
+  {
+    id: 'facebook',
+    label: 'Facebook',
+    descripcion: 'Captura páginas de negocio de Facebook. Suele traer teléfono, dirección y web, igual que una ficha de Maps.',
+    placeholderTipo: 'ej. restaurantes, clínicas dentales…',
+    labelUbicacion: 'Ciudad / ubicación',
+    placeholderUbicacion: 'ej. Miami, FL, USA',
+    ubicacionOpcional: true,
+  },
 ]
 
 export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -27,8 +79,14 @@ export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () 
   const [fuente, setFuente] = useState<LeadSourceKey>('google_maps')
   const [sending, setSending] = useState(false)
 
+  const fuenteActiva = FUENTES.find((f) => f.id === fuente) ?? FUENTES[0]
+
   const submit = async () => {
-    if (!tipo.trim() || !ciudad.trim()) {
+    if (!tipo.trim()) {
+      toast.error('Indica el tipo de negocio o nicho a buscar')
+      return
+    }
+    if (!fuenteActiva.ubicacionOpcional && !ciudad.trim()) {
       toast.error('Completa tipo de negocio y ciudad')
       return
     }
@@ -64,7 +122,7 @@ export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () 
       <div className="space-y-4">
         <div className="flex items-start gap-2 rounded-xl bg-primary-50 p-3 text-xs text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
           <Sparkles className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>Busca negocios reales en Google Maps (vía Apify) y los agrega a tus Leads con diagnóstico web automático.</p>
+          <p>{fuenteActiva.descripcion}</p>
         </div>
 
         <div>
@@ -74,26 +132,18 @@ export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () 
               <button
                 key={f.id}
                 type="button"
-                disabled={f.disabled}
-                title={f.note}
-                onClick={() => !f.disabled && setFuente(f.id)}
+                onClick={() => setFuente(f.id)}
                 className={cn(
                   'flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors',
-                  f.disabled
-                    ? 'cursor-not-allowed border-border/60 text-muted/50'
-                    : fuente === f.id
-                      ? 'border-primary-400 bg-primary-400 text-white'
-                      : 'border-border text-muted hover:text-fg',
+                  fuente === f.id
+                    ? 'border-primary-400 bg-primary-400 text-white'
+                    : 'border-border text-muted hover:text-fg',
                 )}
               >
-                {f.disabled && <Lock className="h-3 w-3" />}
                 {f.label}
               </button>
             ))}
           </div>
-          {FUENTES.find((f) => f.id === fuente)?.note && (
-            <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">{FUENTES.find((f) => f.id === fuente)?.note}</p>
-          )}
         </div>
 
         <div>
@@ -101,7 +151,7 @@ export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () 
           <Input
             value={tipo}
             onChange={(e) => setTipo(e.target.value)}
-            placeholder="ej. restaurantes, abogados, real estate agency…"
+            placeholder={fuenteActiva.placeholderTipo}
             list="sugerencias-nicho"
           />
           <datalist id="sugerencias-nicho">
@@ -110,11 +160,11 @@ export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () 
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-muted">Ciudad / ubicación</label>
+          <label className="mb-1 block text-xs font-medium text-muted">{fuenteActiva.labelUbicacion}</label>
           <Input
             value={ciudad}
             onChange={(e) => setCiudad(e.target.value)}
-            placeholder="ej. Miami, FL, USA"
+            placeholder={fuenteActiva.placeholderUbicacion}
           />
         </div>
 

@@ -25,6 +25,7 @@ Supabase (ver `docs/ARQUITECTURA.md`). El cliente los consume vía
 | `crm-sheets-write.json` | `POST /webhook/crm-sheets-write` | CRM API · Escritura + Scoring IA | 🟠 Vivo **parcial**. 87 nodos; solo la rama `puntuar_lead`/`analizar_lead` (Claude) se usa. El resto (pipeline/lead/campaign/config/contacto/nota CRUD a Sheets) está sin consumidores. |
 | `crm-web-lead.json` | `POST /webhook/crm-web-lead` | CRM API · Intake Formulario Web | ✅ Vivo (intake). ⚠️ En este export guarda en **Google Sheets**; verificar si en vivo ya escribe a Supabase (`web_leads`). |
 | `crm-tarea.json` | `POST /webhook/crm-tarea` | CRM API · Tareas (LEGACY) | 🔴 Huérfano. El dashboard usa `tasksService`/Supabase; nada llama a `/crm-tarea`. |
+| `crm-buscar-leads.json` | `POST /webhook/crm-buscar-leads` | CRM API · Captación de Prospectos (Apify, multifuente) | 🟠 **Pendiente de importar en n8n.** Sustituye a `fase1-captacion-apify.json`. Añade una rama por fuente (Maps, Google web, Instagram, Facebook, LinkedIn); Facebook y LinkedIn están marcados `confirmado: false` hasta verificar el actor de Apify. |
 
 ### Workflows vivos SIN backup en el repo (exportar)
 
@@ -35,7 +36,6 @@ carpeta con el mismo criterio de nombres:
 |---------|------------------|-----------|
 | `POST /webhook/crm-generate-ai` | `crm-generate-ai.json` | Genera outreach con Claude. |
 | `POST /webhook/crm-send-reply` | `crm-send-reply.json` | Envía email (SMTP). |
-| `POST /webhook/crm-buscar-leads` | `crm-buscar-leads.json` | Captación (Apify). |
 
 ---
 
