@@ -10,6 +10,11 @@ interface UiState {
   density: Density
   lang: 'es' | 'en'
   commandOpen: boolean
+  /**
+   * Menú lateral desplegado sobre el contenido en móvil. Es un estado de
+   * sesión, no una preferencia: al recargar siempre se empieza cerrado.
+   */
+  mobileNavOpen: boolean
   /** Grupos del menú lateral abiertos, por id. Persiste con el resto de la UI. */
   navGroups: Record<string, boolean>
   toggleTheme: () => void
@@ -18,6 +23,7 @@ interface UiState {
   setDensity: (d: Density) => void
   setLang: (l: 'es' | 'en') => void
   setCommandOpen: (v: boolean) => void
+  setMobileNavOpen: (v: boolean) => void
   toggleNavGroup: (id: string) => void
   setNavGroup: (id: string, open: boolean) => void
 }
@@ -30,6 +36,7 @@ export const useUiStore = create<UiState>()(
       density: 'comfortable',
       lang: 'es',
       commandOpen: false,
+      mobileNavOpen: false,
       navGroups: { metas: true },
       toggleTheme: () => {
         const next = get().theme === 'light' ? 'dark' : 'light'
@@ -44,6 +51,11 @@ export const useUiStore = create<UiState>()(
       setDensity: (d) => set({ density: d }),
       setLang: (l) => set({ lang: l }),
       setCommandOpen: (v) => set({ commandOpen: v }),
+      setMobileNavOpen: (v) => {
+        set({ mobileNavOpen: v })
+        // Con el menú encima, el fondo no debe seguir desplazándose.
+        document.body.classList.toggle('nav-abierto', v)
+      },
       toggleNavGroup: (id) =>
         set({ navGroups: { ...get().navGroups, [id]: !get().navGroups[id] } }),
       setNavGroup: (id, open) =>
@@ -51,7 +63,18 @@ export const useUiStore = create<UiState>()(
     }),
     // `version` + `merge` no hacen falta: zustand fusiona lo persistido sobre el
     // estado inicial, así que `navGroups` ausente en localStorage cae al default.
-    { name: 'jd-crm-ui' },
+    {
+      name: 'jd-crm-ui',
+      // Lo que se guarda son preferencias. Abrir el CRM y encontrarse el menú
+      // móvil o la paleta abiertos porque así los dejaste ayer no es una.
+      partialize: (s) => ({
+        theme: s.theme,
+        sidebarCollapsed: s.sidebarCollapsed,
+        density: s.density,
+        lang: s.lang,
+        navGroups: s.navGroups,
+      }),
+    },
   ),
 )
 

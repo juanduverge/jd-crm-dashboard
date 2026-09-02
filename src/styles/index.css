@@ -101,3 +101,97 @@
     @apply transition-colors duration-100 hover:bg-surface-2;
   }
 }
+
+/* ============================================================
+   TÁCTIL Y PANTALLAS PEQUEÑAS
+   El CRM se usa tanto desde el móvil como desde el escritorio.
+   Aquí vive lo que cambia por el tamaño y por el tipo de dedo,
+   no por la marca: áreas de toque, muescas del teléfono y las
+   alturas que el navegador móvil no calcula bien con `vh`.
+   ============================================================ */
+@layer base {
+  :root {
+    /* Muescas y barra de gestos. Sin `viewport-fit=cover` valen 0, así que
+       usarlas en escritorio no resta nada. */
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    /* Alto de la barra superior: lo comparten el layout y los paneles que
+       se anclan debajo de ella. */
+    --topbar-h: 3.5rem;
+  }
+
+  @media (min-width: 768px) {
+    :root { --topbar-h: 4rem; }
+  }
+
+  /* El destello gris de Android al tocar riñe con los estados propios. */
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    /* Nada debe empujar la página a lo ancho en el móvil. */
+    overflow-x: hidden;
+  }
+
+  /* iOS hace zoom al enfocar un campo de menos de 16px y deja la página
+     descolocada al salir. A partir de 16px no lo hace. */
+  @media (max-width: 767px) {
+    input, select, textarea { font-size: 16px; }
+  }
+
+  /* Con el menú móvil abierto el fondo no debe seguir haciendo scroll. */
+  body.nav-abierto {
+    overflow: hidden;
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  @media (pointer: coarse) {
+    /* En táctil la barra ocupa sin servir: el dedo arrastra el contenido. */
+    ::-webkit-scrollbar { width: 0; height: 0; }
+  }
+}
+
+@layer components {
+  /* Amplía el área de toque a 44px sin tocar el tamaño visible: los iconos
+     de 28px de las tablas siguen viéndose igual, pero se dejan pulsar. */
+  .tap {
+    position: relative;
+  }
+  @media (pointer: coarse) {
+    .tap::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 100%;
+      height: 100%;
+      min-width: 44px;
+      min-height: 44px;
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
+@layer utilities {
+  /* Alto real de la ventana del móvil: `vh` cuenta la barra del navegador
+     aunque esté tapando el contenido, `dvh` no. */
+  .h-dvh { height: 100dvh; }
+  .min-h-dvh { min-height: 100dvh; }
+  .max-h-dvh { max-height: 100dvh; }
+
+  .pt-safe { padding-top: var(--safe-top); }
+  .pb-safe { padding-bottom: var(--safe-bottom); }
+  .px-safe { padding-left: var(--safe-left); padding-right: var(--safe-right); }
+  .mb-safe { margin-bottom: var(--safe-bottom); }
+
+  /* Carruseles de filtros: se arrastran, no necesitan barra a la vista. */
+  .sin-barra { scrollbar-width: none; -ms-overflow-style: none; }
+  .sin-barra::-webkit-scrollbar { display: none; }
+
+  /* Un carrusel horizontal no debe arrastrar la página detrás al llegar
+     al final, ni disparar el «atrás» por gesto del navegador. */
+  .scroll-aislado { overscroll-behavior-x: contain; }
+}

@@ -259,7 +259,7 @@ function CampaignDetail({
           </div>
 
           <div className="space-y-5 p-5">
-            <div className="grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-4">
               <div><p className="text-base font-bold text-fg">{campaign.totalLeads}</p><p className="text-muted">Leads</p></div>
               <div><p className="text-base font-bold text-fg">{campaign.enviados}</p><p className="text-muted">Enviados</p></div>
               <div><p className="text-base font-bold text-fg">{campaign.respondieron}</p><p className="text-muted">Respuestas</p></div>

@@ -147,7 +147,7 @@ export function LeadForm({
         </Field>
 
         <SectionTitle>Puntuación</SectionTitle>
-        <div className="sm:col-span-2 grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:col-span-2 sm:grid-cols-3">
           <div>
             <span className="mb-1 block text-xs font-medium text-muted">Puntuación IA</span>
             <div className="flex h-10 items-center rounded-lg border border-border bg-surface-2 px-3 text-sm font-semibold text-fg">

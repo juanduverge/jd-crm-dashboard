@@ -60,7 +60,7 @@ export function CommandPalette() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-24 animate-fade-in"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-3 pt-[max(4rem,var(--safe-top))] animate-fade-in sm:p-4 sm:pt-24"
       onClick={() => setOpen(false)}
     >
       <div
@@ -77,7 +77,7 @@ export function CommandPalette() {
             className="flex-1 bg-transparent py-4 text-sm outline-none placeholder:text-muted"
           />
         </div>
-        <div className="max-h-80 overflow-y-auto p-2">
+        <div className="max-h-[55dvh] overflow-y-auto overscroll-contain p-2 sm:max-h-80">
           {results.length === 0 && (
             <p className="px-3 py-6 text-center text-sm text-muted">Sin resultados</p>
           )}

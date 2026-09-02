@@ -19,6 +19,7 @@ import { scoreColor, formatCurrency, downloadCSV, cn } from '@/lib/utils'
 import { crearFiltroLeads, relevanciaLead } from '@/lib/leadSearch'
 import { AyudaBusqueda } from './AyudaBusqueda'
 import { TouchFilterBar } from '@/components/TouchFilterBar'
+import { useEsMovil } from '@/hooks/useMediaQuery'
 import { pasaFiltroToque } from '@/lib/touches'
 import { today } from '@/lib/followUps'
 import type { Lead } from '@/types'
@@ -53,6 +54,9 @@ const SMART_PILLS: { key: 'prioridad' | 'conIA' | 'sinIA' | 'sinResponsable'; la
 ]
 
 export function LeadsPage() {
+  // Tabla o tarjetas, nunca las dos: pintar las dos listas y esconder una con
+  // CSS duplicaría el trabajo de React en una lista que puede tener miles.
+  const esMovil = useEsMovil()
   const { isLoading, isError, refetch, isFetching } = useLeads()
   const leads = useLeadsStore((s) => s.leads)
   const { addLead, updateLead, removeLeads, moveStage, selectedIds, toggleSelect, selectAll, clearSelection, toggleFavorito, toggleMeGusta, toggleDescartado } = useLeadsStore()
@@ -313,7 +317,7 @@ export function LeadsPage() {
         </div>
 
         {/* Pestañas rápidas por estado (un clic cambia la vista, estilo Pipeline) */}
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-1 sin-barra scroll-aislado sm:-mx-1 sm:px-1">
           {STATE_TABS.map((t) => {
             const active = tab === t.key
             const isFav = t.key === 'favoritos'
@@ -322,7 +326,7 @@ export function LeadsPage() {
                 key={t.key}
                 onClick={() => setTab(t.key)}
                 className={cn(
-                  'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+                  'inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
                   active
                     ? isFav
                       ? 'border-amber-400 bg-amber-400/10 text-amber-500'
@@ -349,7 +353,7 @@ export function LeadsPage() {
                 key={p.key}
                 onClick={() => setSmart((v) => (v === p.key ? '' : p.key))}
                 className={cn(
-                  'inline-flex shrink-0 items-center rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
+                  'inline-flex min-h-[34px] shrink-0 items-center rounded-full border px-3 py-1 text-[11px] font-medium transition-colors',
                   active ? 'border-primary-400 bg-primary-400/10 text-primary-600 dark:text-primary-300' : 'border-border text-muted hover:text-fg',
                 )}
               >
@@ -364,15 +368,15 @@ export function LeadsPage() {
         <TouchFilterBar leads={conPestana} value={fToque} onChange={setFToque} />
 
         {showFilters && (
-          <div className="card flex flex-wrap items-end gap-3 p-3">
+          <div className="card flex flex-col items-stretch gap-3 p-3 sm:flex-row sm:flex-wrap sm:items-end">
             <label className="text-xs text-muted">Nicho
-              <Select className="mt-1 w-44" value={fNicho} onChange={(e) => setFNicho(e.target.value)}>
+              <Select className="mt-1 w-full sm:w-44" value={fNicho} onChange={(e) => setFNicho(e.target.value)}>
                 <option value="">Todos</option>
                 {nichos.map((n) => <option key={n.id} value={n.id}>{n.emoji} {n.nombre}</option>)}
               </Select>
             </label>
             <label className="text-xs text-muted">Score mínimo: {fScoreMin}
-              <input type="range" min={0} max={100} value={fScoreMin} onChange={(e) => setFScoreMin(+e.target.value)} className="mt-2 block w-44 accent-primary-400" />
+              <input type="range" min={0} max={100} value={fScoreMin} onChange={(e) => setFScoreMin(+e.target.value)} className="mt-2 block w-full accent-primary-400 sm:w-44" />
             </label>
             <Button variant="ghost" size="sm" onClick={() => { setFNicho(''); setFScoreMin(0) }}>
               <X className="h-4 w-4" /> Limpiar
@@ -383,8 +387,8 @@ export function LeadsPage() {
 
       {/* Barra de acciones bulk */}
       {selectedIds.size > 0 && (
-        <div className="mb-3 flex items-center gap-3 rounded-xl border border-primary-200 bg-primary-50 px-4 py-2 dark:bg-primary-400/10">
-          <span className="text-sm font-medium text-primary-700 dark:text-primary-300">{selectedIds.size} seleccionado(s)</span>
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2 dark:bg-primary-400/10 sm:gap-3 sm:px-4">
+          <span className="w-full text-sm font-medium text-primary-700 dark:text-primary-300 sm:w-auto">{selectedIds.size} seleccionado(s)</span>
           <Button size="sm" variant="outline" onClick={() => toast('Campaña creada con leads seleccionados (Fase 2)')}>🎯 Crear campaña</Button>
           <Button size="sm" variant="danger" onClick={handleDelete}><Trash2 className="h-4 w-4" /> Eliminar</Button>
           <Button size="sm" variant="ghost" onClick={clearSelection}>Cancelar</Button>
@@ -404,8 +408,30 @@ export function LeadsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState icon={<Search className="h-8 w-8" />} title="Sin leads" description="Ajusta los filtros o agrega tu primer lead." action={<Button onClick={() => setFormOpen(true)}><Plus className="h-4 w-4" /> Agregar lead</Button>} />
       ) : (
+        /* Móvil: una tabla de trece columnas no cabe en un teléfono, y
+           arrastrarla a lo ancho para leer una fila es peor que no verla. Cada
+           lead pasa a ser una tarjeta con lo que se mira de un vistazo —quién
+           es, qué puntúa, en qué etapa está— y el resto queda en la ficha. */
+        esMovil ? (
+        <ul className="space-y-2">
+          {filtered.map((l) => (
+            <TarjetaLead
+              key={l.id}
+              lead={l}
+              nicho={nichos.find((n) => n.id === l.nicho)}
+              seleccionado={selectedIds.has(l.id)}
+              onSeleccionar={() => toggleSelect(l.id)}
+              onAbrir={() => setDrawerLeadId(l.id)}
+              onFavorito={() => conOrdenQuieto(() => toggleFavorito(l.id))}
+              onMeGusta={() => conOrdenQuieto(() => toggleMeGusta(l.id))}
+              onDescartar={() => conOrdenQuieto(() => toggleDescartado(l.id))}
+              onEmail={() => setComposeLead(l)}
+            />
+          ))}
+        </ul>
+        ) : (
         <div className="card overflow-hidden p-0">
-          <div className="max-h-[calc(100vh-16rem)] overflow-auto">
+          <div className="max-h-[calc(100dvh-16rem)] overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 border-b border-border bg-surface-2 text-xs text-muted">
                 <tr>
@@ -499,6 +525,7 @@ export function LeadsPage() {
             </table>
           </div>
         </div>
+        )
       )}
 
       <LeadForm open={formOpen} onClose={() => { setFormOpen(false); setEditing(null) }} onSubmit={handleSubmit} initial={editing} />
@@ -525,6 +552,166 @@ export function LeadsPage() {
         warning="También se eliminará su registro en Pipeline. Sus notas y tareas asociadas permanecerán, pero quedarán sin lead visible mientras esté en la Papelera."
       />
     </div>
+  )
+}
+
+/** Franja de color del borde izquierdo de la tarjeta, por tramo de score. */
+function espinaScore(score: number): string {
+  if (score <= 40) return 'bg-red-400'
+  if (score <= 70) return 'bg-amber-400'
+  return 'bg-green-500'
+}
+
+/**
+ * Un lead en el móvil.
+ *
+ * La tabla ordena por columnas; aquí ordena la jerarquía: la franja de color
+ * y el número dicen cuánto vale el lead sin leer nada, el nombre dice quién
+ * es, y debajo va lo que decide el siguiente paso (etapa, ciudad, contacto).
+ * Las marcas 👍/👎/⭐ están donde cae el pulgar, con área de toque completa.
+ */
+function TarjetaLead({
+  lead: l,
+  nicho,
+  seleccionado,
+  onSeleccionar,
+  onAbrir,
+  onFavorito,
+  onMeGusta,
+  onDescartar,
+  onEmail,
+}: {
+  lead: Lead
+  nicho?: { emoji: string; nombre: string }
+  seleccionado: boolean
+  onSeleccionar: () => void
+  onAbrir: () => void
+  onFavorito: () => void
+  onMeGusta: () => void
+  onDescartar: () => void
+  onEmail: () => void
+}) {
+  const sc = scoreColor(l.score)
+  const contacto = l.email || l.telefono
+  const etapa = PIPELINE_STAGES.find((s) => s.id === l.estado)?.label
+
+  return (
+    <li
+      className={cn(
+        'card relative flex overflow-hidden p-0',
+        seleccionado && 'ring-2 ring-primary-400',
+        l.descartado && 'opacity-60',
+      )}
+    >
+      <span aria-hidden className={cn('w-1 shrink-0', espinaScore(l.score))} />
+
+      <div className="min-w-0 flex-1 p-3">
+        <div className="flex items-start gap-2">
+          <button
+            onClick={onAbrir}
+            className="min-w-0 flex-1 text-left"
+            aria-label={`Abrir ficha de ${l.empresa}`}
+          >
+            <p className="truncate font-semibold text-fg">{l.empresa}</p>
+            <p className="mt-0.5 truncate text-xs text-muted">
+              {[l.ciudad, nicho && `${nicho.emoji} ${nicho.nombre}`].filter(Boolean).join(' · ') || '—'}
+            </p>
+          </button>
+
+          <span
+            className={cn(
+              'flex h-9 w-11 shrink-0 items-center justify-center rounded-lg text-sm font-bold tabular-nums',
+              sc.bg,
+              sc.text,
+            )}
+            title={`Score ${sc.label}`}
+          >
+            {l.score}
+          </span>
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          {etapa && <Badge>{etapa}</Badge>}
+          {l.valorEstimado ? (
+            <Badge className="bg-primary-50 text-primary-600 dark:bg-primary-400/15 dark:text-primary-300">
+              {formatCurrency(l.valorEstimado)}
+            </Badge>
+          ) : null}
+          {contacto && <span className="min-w-0 truncate text-xs text-muted">{contacto}</span>}
+        </div>
+
+        <div className="mt-2.5 flex items-center gap-1 border-t border-border pt-2">
+          <button
+            onClick={onFavorito}
+            aria-pressed={!!l.favorito}
+            title={l.favorito ? 'Quitar de favoritos' : 'Marcar como favorito'}
+            className={cn(
+              'tap flex h-10 w-10 items-center justify-center rounded-lg',
+              l.favorito ? 'text-amber-400' : 'text-muted/60',
+            )}
+          >
+            <Star className={cn('h-5 w-5', l.favorito && 'fill-amber-400')} />
+          </button>
+          <button
+            onClick={onMeGusta}
+            aria-pressed={!!l.meGusta}
+            title={l.meGusta ? 'Quitar el me gusta' : 'Me gusta'}
+            className={cn(
+              'tap flex h-10 w-10 items-center justify-center rounded-lg',
+              l.meGusta ? 'text-emerald-400' : 'text-muted/60',
+            )}
+          >
+            <ThumbsUp className={cn('h-5 w-5', l.meGusta && 'fill-emerald-400')} />
+          </button>
+          <button
+            onClick={onDescartar}
+            aria-pressed={!!l.descartado}
+            title={l.descartado ? 'Quitar el no me gusta' : 'No me gusta (lo manda al final)'}
+            className={cn(
+              'tap flex h-10 w-10 items-center justify-center rounded-lg',
+              l.descartado ? 'text-rose-400' : 'text-muted/60',
+            )}
+          >
+            <ThumbsDown className={cn('h-5 w-5', l.descartado && 'fill-rose-400')} />
+          </button>
+
+          <span className="flex-1" />
+
+          {l.email && (
+            <button
+              onClick={onEmail}
+              title="Email"
+              className="tap flex h-10 w-10 items-center justify-center rounded-lg text-muted"
+            >
+              <Mail className="h-5 w-5" />
+            </button>
+          )}
+          {l.whatsapp && (
+            <a
+              href={`https://wa.me/${l.whatsapp.replace(/\D/g, '')}`}
+              target="_blank"
+              rel="noreferrer"
+              title="WhatsApp"
+              className="tap flex h-10 w-10 items-center justify-center rounded-lg text-muted"
+            >
+              <MessageCircle className="h-5 w-5" />
+            </a>
+          )}
+          <label
+            className="tap flex h-10 w-10 items-center justify-center rounded-lg"
+            title="Seleccionar"
+          >
+            <span className="sr-only">Seleccionar {l.empresa}</span>
+            <input
+              type="checkbox"
+              checked={seleccionado}
+              onChange={onSeleccionar}
+              className="h-[18px] w-[18px] accent-primary-400"
+            />
+          </label>
+        </div>
+      </div>
+    </li>
   )
 }
 

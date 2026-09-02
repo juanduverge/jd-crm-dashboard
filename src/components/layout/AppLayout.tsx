@@ -1,6 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Sidebar } from './Sidebar'
+import { Sidebar, MobileNav } from './Sidebar'
 import { Topbar } from './Topbar'
 import { CommandPalette } from './CommandPalette'
 import { FollowUpsBanner } from './FollowUpsBanner'
@@ -8,11 +8,13 @@ import { FollowUpsBanner } from './FollowUpsBanner'
 export function AppLayout() {
   const location = useLocation()
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div className="flex min-h-dvh bg-bg">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
-        <main className="flex-1 px-4 py-5 md:px-6 lg:px-8">
+        {/* `pb` generoso abajo: en el móvil la barra de gestos se come la
+            última fila si el contenido termina justo en el borde. */}
+        <main className="flex-1 px-3 pb-[calc(2rem+var(--safe-bottom))] pt-4 sm:px-4 sm:py-5 md:px-6 lg:px-8">
           {/* Fuera de AnimatePresence: el aviso no debe re-animarse en cada
               cambio de ruta, tiene que sentirse persistente hasta atenderlo. */}
           <FollowUpsBanner />
@@ -30,6 +32,7 @@ export function AppLayout() {
           </AnimatePresence>
         </main>
       </div>
+      <MobileNav />
       <CommandPalette />
     </div>
   )

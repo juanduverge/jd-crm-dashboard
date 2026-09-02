@@ -151,7 +151,7 @@ export function MessagesPage() {
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
           {/* Lista de conversaciones */}
-          <div className="card flex flex-col p-0 lg:h-[calc(100vh-13rem)]">
+          <div className="card flex flex-col p-0 lg:h-[calc(100dvh-13rem)]">
             <div className="border-b border-border p-3">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted" />
@@ -203,7 +203,7 @@ export function MessagesPage() {
           </div>
 
           {/* Hilo de conversación */}
-          <div className="card flex flex-col p-4 lg:h-[calc(100vh-13rem)]">
+          <div className="card flex flex-col p-4 lg:h-[calc(100dvh-13rem)]">
             {!selected ? (
               <EmptyState icon={<MessageSquare className="h-8 w-8" />} title="Selecciona una conversación" />
             ) : (
