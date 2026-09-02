@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Bell, Mail, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useInbox, useSearchLog } from '@/hooks/useData'
+import { useInbox, useUltimasBusquedas } from '@/hooks/useData'
 import { cn } from '@/lib/utils'
 
 const SEEN_STORAGE_KEY = 'jd-crm-notif-seen-at'
@@ -22,7 +22,7 @@ interface NotifEvent {
 
 export function NotificationBell() {
   const { data: emails } = useInbox()
-  const { data: searches } = useSearchLog()
+  const { data: searches } = useUltimasBusquedas()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [seenAt, setSeenAt] = useState(() => loadSeenAt())
@@ -40,17 +40,14 @@ export function NotificationBell() {
         onClick: () => navigate('/inbox'),
       }))
 
-    const searchEvents: NotifEvent[] = (searches ?? [])
-      .slice(-8)
-      .reverse()
-      .map((s, i) => ({
-        id: `search-${s.fecha ?? i}-${i}`,
-        type: 'search',
-        title: 'Búsqueda de leads iniciada',
-        subtitle: `${s.tipo_negocio || s['Tipo Negocio'] || '—'} · ${s.ciudad || s.Ciudad || '—'}`,
-        time: new Date((s.fecha || '').toString().replace(' ', 'T')).getTime() || 0,
-        onClick: () => navigate('/leads'),
-      }))
+    const searchEvents: NotifEvent[] = (searches ?? []).map((s) => ({
+      id: `search-${s.id}`,
+      type: 'search',
+      title: 'Búsqueda de leads iniciada',
+      subtitle: `${s.tipo || '—'} · ${s.ciudad || '—'}`,
+      time: new Date(s.fecha).getTime() || 0,
+      onClick: () => navigate('/leads'),
+    }))
 
     return [...msgEvents, ...searchEvents].sort((a, b) => b.time - a.time).slice(0, 10)
   }, [emails, searches, navigate])

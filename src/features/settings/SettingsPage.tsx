@@ -70,8 +70,8 @@ export function SettingsPage() {
     }
   }
 
-  const sheetsPing = useQuery({
-    queryKey: ['integration-sheets-ping'],
+  const hookPing = useQuery({
+    queryKey: ['integration-hook-ping'],
     queryFn: () => crmApi.ping(),
     refetchInterval: 30_000,
   })
@@ -200,7 +200,7 @@ export function SettingsPage() {
               loading={n8nPing.isLoading}
               detalle={n8nPing.data && !n8nPing.data.ok ? n8nPing.data.detalle : undefined}
             />
-            <StatusRow label="CRM API (webhooks Sheets)" ok={sheetsPing.data} loading={sheetsPing.isLoading} />
+            <StatusRow label="CRM API (webhooks)" ok={hookPing.data} loading={hookPing.isLoading} />
             <StatusRow
               label="Envío de emails"
               ok={wfByName('envío de emails')?.active ?? wfByName('envio')?.active}

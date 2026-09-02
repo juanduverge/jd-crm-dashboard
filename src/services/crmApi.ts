@@ -8,7 +8,6 @@ import { config } from '@/lib/config'
  * (ver los `*Service` que importan `@/lib/supabaseClient`).
  *
  * Superficie viva:
- *   - readSheet('search_log')  historial de búsquedas (única hoja aún leída)
  *   - generateWithAI / puntuarLead / analizarLead   IA vía Claude
  *   - sendReply                 envío de email (SMTP)
  *   - buscarLeads               captación de prospectos (Apify)
@@ -26,9 +25,6 @@ const http = axios.create({
     ...(config.n8n.hookToken ? { 'X-CRM-TOKEN': config.n8n.hookToken } : {}),
   },
 })
-
-/** Hojas aún leídas vía webhook (el resto migró a tablas Supabase). */
-export type SheetTab = 'search_log' | 'config'
 
 export interface GenerateAIPayload {
   nicho: string
@@ -71,23 +67,9 @@ export interface BuscarLeadsPayload {
   fuente?: LeadSourceKey
 }
 
-/** Normaliza la respuesta del webhook de lectura ({rows: [...]}). */
-function rowsFromResponse(data: any): Record<string, string>[] {
-  if (!data) return []
-  if (Array.isArray(data.rows)) return data.rows
-  if (Array.isArray(data)) return data as Record<string, string>[]
-  return []
-}
-
 export const crmApi = {
   enabled() {
     return !!config.n8n.hookBase
-  },
-
-  /** Lee una hoja completa como objetos. Lanza si el webhook no responde. */
-  async readSheet(tab: SheetTab): Promise<Record<string, string>[]> {
-    const { data } = await http.get('/crm-sheets-read', { params: { sheet: tab } })
-    return rowsFromResponse(data)
   },
 
   /** Puntuación IA bajo demanda: Claude califica la oportunidad de venta (0-100) y la guarda. Independiente del análisis. */
@@ -96,7 +78,7 @@ export const crmApi = {
     pageSpeedMovil?: number; pageSpeedDesktop?: number; tieneSSL?: boolean
     ratingGoogle?: number; numResenas?: number
   }): Promise<{ ok: boolean; scoreIA: number }> {
-    const { data } = await http.post('/crm-sheets-write', { action: 'puntuar_lead', ...payload }, { timeout: 60000 })
+    const { data } = await http.post('/crm-lead-ia', { action: 'puntuar_lead', ...payload }, { timeout: 60000 })
     return data
   },
 
@@ -106,7 +88,7 @@ export const crmApi = {
     pageSpeedMovil?: number; pageSpeedDesktop?: number; tieneSSL?: boolean
     ratingGoogle?: number; numResenas?: number; diagnosticoIA?: string; notas?: string
   }): Promise<{ ok: boolean; scoreIA: number; observaciones: string; recomendaciones: string; oportunidades: string; errores: string }> {
-    const { data } = await http.post('/crm-sheets-write', { action: 'analizar_lead', ...payload }, { timeout: 60000 })
+    const { data } = await http.post('/crm-lead-ia', { action: 'analizar_lead', ...payload }, { timeout: 60000 })
     return data
   },
 
@@ -128,10 +110,11 @@ export const crmApi = {
     return data
   },
 
-  /** Comprueba si el CRM API (webhooks) responde. */
+  /** Comprueba si el CRM API (webhooks) responde. Endpoint dedicado sin efectos
+   *  secundarios: workflow "CRM API - Ping", que solo devuelve { ok: true }. */
   async ping(): Promise<boolean> {
     try {
-      await http.get('/crm-sheets-read', { params: { sheet: 'config' }, timeout: 6000 })
+      await http.get('/crm-ping', { timeout: 6000 })
       return true
     } catch {
       return false

@@ -191,11 +191,16 @@ export function useMarkInboxRead() {
   })
 }
 
-/** Historial de búsquedas de leads disparadas (hoja "search_log"), para notificaciones. */
-export function useSearchLog() {
+/**
+ * Ultimas busquedas de leads disparadas, para la campana de notificaciones.
+ * Lee de `lead_imports` en Supabase. Antes iba contra la hoja "search_log" de
+ * Google Sheets vía webhook: ese sondeo cada 30 s llevaba meses fallando (la
+ * credencial OAuth de Google caduco) y era el 99% de los errores de n8n.
+ */
+export function useUltimasBusquedas() {
   return useQuery({
-    queryKey: ['search_log'],
-    queryFn: () => crmApi.readSheet('search_log'),
+    queryKey: ['ultimas-busquedas'],
+    queryFn: () => leadsService.getUltimasBusquedas(8),
     refetchInterval: 30_000,
     retry: 1,
   })

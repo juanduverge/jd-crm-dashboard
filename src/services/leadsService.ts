@@ -322,6 +322,17 @@ export interface HistorialBusqueda {
   veces: number
 }
 
+/** Una busqueda concreta tal como ocurrio, para la campana de notificaciones. */
+export interface UltimaBusqueda {
+  id: string
+  consulta: string
+  tipo: string
+  ciudad: string
+  fuente: LeadSourceKey
+  fecha: string
+  insertados: number
+}
+
 export const leadsService = {
   /** Ultima importacion de Apify, para saber que paso con el lote completo. */
   async getUltimaImportacion(): Promise<LeadImport | null> {
@@ -375,6 +386,34 @@ export const leadsService = {
       if (vistas.size >= limite) break
     }
     return [...vistas.values()]
+  },
+
+  /**
+   * Ultimas busquedas en orden cronologico, SIN deduplicar: la campana de
+   * notificaciones quiere los eventos tal cual pasaron, no el resumen por
+   * consulta que arma `getHistorialBusquedas`.
+   */
+  async getUltimasBusquedas(limite = 8): Promise<UltimaBusqueda[]> {
+    const { data, error } = await supabase
+      .from('lead_imports')
+      .select('id, created_at, fuente, consulta, insertados')
+      .not('consulta', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(limite)
+    if (error) throw error
+    return (data ?? []).map((r) => {
+      const row = r as { id: string; created_at: string; fuente: string | null; consulta: string; insertados: number | null }
+      const [tipo, ...resto] = row.consulta.split('/')
+      return {
+        id: String(row.id),
+        consulta: row.consulta.trim(),
+        tipo: tipo.trim(),
+        ciudad: resto.join('/').trim(),
+        fuente: (row.fuente ?? 'google_maps') as LeadSourceKey,
+        fecha: row.created_at,
+        insertados: row.insertados ?? 0,
+      }
+    })
   },
 
   /** Lee los leads activos de Supabase (incluye sus columnas de pipeline). */
