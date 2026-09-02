@@ -1,19 +1,20 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
-  Legend, PieChart, Pie, Cell,
 } from 'recharts'
-import { Activity, Workflow, AlertTriangle, CheckCircle2, XCircle, Mail, MessageCircle, UserPlus, CalendarCheck, GitBranch } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Card, CardHeader, CardTitle, Skeleton, Badge } from '@/components/ui'
+import { Card, CardHeader, CardTitle, Skeleton } from '@/components/ui'
 import { KpiCard } from './KpiCard'
 import { ConversionFunnel } from '@/components/charts/ConversionFunnel'
 import { CHART_SERIES, BrandTooltip, ChartGradients, axisTick, gridProps } from '@/components/charts/chartTheme'
-import { useLeads, useActivity, useWorkflows, useMessages, useNichos } from '@/hooks/useData'
+import { useLeads, useMessages, useNichos } from '@/hooks/useData'
 
 import { formatCurrency, cn } from '@/lib/utils'
 import type { Kpi, Lead } from '@/types'
 import { crmApi } from '@/services/crmApi'
+import { daysInStage, isStale } from '@/lib/pipeline'
 
 const NICHE_COLORS = CHART_SERIES
 
@@ -29,12 +30,15 @@ function buildKpis(leads: Lead[]): Kpi[] {
   const contactados = leads.filter((l) => l.estado !== 'nuevo').length
   const tasaResp = contactados ? (respondieron / contactados) * 100 : 0
 
+  // Eran seis: «Total leads», «Leads activos» y «Contactados» son tres
+  // recuentos de la misma lista, y seis cajas idénticas en fila no dicen cuál
+  // mirar primero. Quedan las cuatro que responden a una pregunta distinta
+  // cada una: cuánto hay en juego, cuántos vivos, si el contacto funciona y
+  // cuántos han cerrado.
   return [
-    { key: 'total', label: 'Total leads', value: leads.length, format: 'number' },
-    { key: 'activos', label: 'Leads activos', value: activos, format: 'number' },
-    { key: 'contactados', label: 'Contactados', value: contactados, format: 'number' },
-    { key: 'resp', label: 'Tasa de respuesta', value: tasaResp, format: 'percent' },
     { key: 'pipeline', label: 'Pipeline activo', value: pipelineUsd, format: 'currency' },
+    { key: 'activos', label: 'Leads activos', value: activos, format: 'number' },
+    { key: 'resp', label: 'Tasa de respuesta', value: tasaResp, format: 'percent' },
     { key: 'cerrados', label: 'Clientes cerrados', value: ganados, format: 'number' },
   ]
 }
@@ -48,16 +52,9 @@ const FUNNEL_STAGES: { key: string; label: string; match: (l: Lead) => boolean; 
   { key: 'w', label: 'Cliente', match: (l) => l.estado === 'ganado', color: '#16a34a' },
 ]
 
-const activityIcon = {
-  email: Mail, whatsapp: MessageCircle, lead: UserPlus,
-  workflow: GitBranch, pipeline: GitBranch, meeting: CalendarCheck,
-}
-
 export function DashboardPage() {
   const { leads, isLoading, isError: leadsError } = useLeads()
-  const { data: activity, isError: activityError } = useActivity()
   const { data: messages } = useMessages()
-  const { data: workflows, isError: wfError } = useWorkflows()
   const nichos = useNichos()
 
   const kpis = useMemo(() => buildKpis(leads), [leads])
@@ -70,10 +67,9 @@ export function DashboardPage() {
   const nicheData = useMemo(() => {
     const counts = new Map<string, number>()
     leads.forEach((l) => counts.set(l.nicho || 'otros', (counts.get(l.nicho || 'otros') || 0) + 1))
-    return [...counts.entries()].map(([k, v]) => ({
-      name: nichos.find((n) => n.id === k)?.nombre || k,
-      value: v,
-    }))
+    return [...counts.entries()]
+      .map(([k, v]) => ({ name: nichos.find((n) => n.id === k)?.nombre || k, value: v }))
+      .sort((a, b) => b.value - a.value)
   }, [leads, nichos])
 
   const activityTrend = useMemo(() => {
@@ -93,9 +89,18 @@ export function DashboardPage() {
     return [...byDay.values()]
   }, [messages])
   const hasTrendData = activityTrend.some((d) => d.enviados > 0 || d.respuestas > 0)
+  const totalEnviados = activityTrend.reduce((s, d) => s + d.enviados, 0)
+  const totalRespuestas = activityTrend.reduce((s, d) => s + d.respuestas, 0)
 
+  // Se llamaba «Necesitan atención» y era, literalmente, los seis primeros
+  // leads abiertos en el orden en que llegaban del servidor. Ahora manda el
+  // dato que justifica el título: los días parados en la misma etapa.
   const needAttention = useMemo(
-    () => leads.filter((l) => !['ganado', 'perdido', 'nuevo'].includes(l.estado)).slice(0, 6),
+    () =>
+      leads
+        .filter((l) => !['ganado', 'perdido', 'nuevo'].includes(l.estado))
+        .sort((a, b) => daysInStage(b) - daysInStage(a))
+        .slice(0, 6),
     [leads],
   )
 
@@ -113,9 +118,9 @@ export function DashboardPage() {
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {isLoading
-          ? Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-28" />)
+          ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28" />)
           : kpis.map((k, i) => <KpiCard key={k.key} kpi={k} index={i} />)}
       </div>
 
@@ -128,39 +133,37 @@ export function DashboardPage() {
 
         <Card>
           <CardHeader><CardTitle>Leads por nicho</CardTitle></CardHeader>
-          <div className="relative h-72">
-            <div className="pointer-events-none absolute inset-x-0 top-[38%] z-10 -translate-y-1/2 text-center">
-              <p className="text-2xl font-bold tabular-nums text-fg">{nicheData.reduce((s, d) => s + d.value, 0)}</p>
-              <p className="text-[11px] text-muted">leads</p>
-            </div>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={nicheData} dataKey="value" nameKey="name" innerRadius={54} outerRadius={86} paddingAngle={3} cornerRadius={6} stroke="rgb(var(--surface))" strokeWidth={2} animationDuration={700} animationBegin={100}>
-                  {nicheData.map((_, i) => <Cell key={i} fill={NICHE_COLORS[i % NICHE_COLORS.length]} />)}
-                </Pie>
-                <Tooltip content={<BrandTooltip />} cursor={false} />
-                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+          {/* Era un donut con leyenda. Con ocho nichos la leyenda se parte en
+              tres líneas y hay que emparejar color con texto para leer un
+              simple ranking. Una barra por nicho, ordenadas, se lee de un
+              vistazo y no miente sobre el orden. */}
+          <NichoRanking data={nicheData} />
         </Card>
       </div>
 
       {/* Actividad 30 días */}
       <Card className="mt-6">
-        <CardHeader><CardTitle>Actividad — últimos 30 días</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>Actividad — últimos 30 días</CardTitle>
+          {/* La leyenda de recharts era una fila de texto de 11px flotando
+              bajo el gráfico, sin cifras. Aquí sube a la cabecera y trae el
+              total de cada serie: se lee el resultado antes que la forma. */}
+          <div className="flex shrink-0 items-center gap-4">
+            <LeyendaSerie color="#ff7448" label="Enviados" value={totalEnviados} />
+            <LeyendaSerie color="#6248ff" label="Respuestas" value={totalRespuestas} />
+          </div>
+        </CardHeader>
         {!hasTrendData ? (
           <p className="t-hint py-10 text-center text-xs">Sin mensajes registrados en los últimos 30 días.</p>
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={activityTrend} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+              <AreaChart data={activityTrend} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
                 <ChartGradients />
                 <CartesianGrid {...gridProps} vertical={false} />
                 <XAxis dataKey="dia" tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} minTickGap={24} />
-                <YAxis tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} allowDecimals={false} width={40} />
+                <YAxis tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} allowDecimals={false} width={34} />
                 <Tooltip content={<BrandTooltip />} cursor={{ stroke: 'rgb(var(--muted))', strokeDasharray: '3 3' }} />
-                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
                 <Area type="monotone" dataKey="enviados" stroke="#ff7448" strokeWidth={2.5} fill="url(#gradCoralArea)" name="Enviados" animationDuration={800} activeDot={{ r: 4, strokeWidth: 2, stroke: 'rgb(var(--surface))' }} />
                 <Area type="monotone" dataKey="respuestas" stroke="#6248ff" strokeWidth={2.5} fill="url(#gradVioletArea)" name="Respuestas" animationDuration={800} activeDot={{ r: 4, strokeWidth: 2, stroke: 'rgb(var(--surface))' }} />
               </AreaChart>
@@ -169,71 +172,76 @@ export function DashboardPage() {
         )}
       </Card>
 
-      {/* Sección inferior */}
-      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Feed actividad */}
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Activity className="h-4 w-4" /> Actividad reciente</CardTitle></CardHeader>
-          {activityError ? (
-            <p className="t-hint py-6 text-center text-xs">No se pudo cargar la actividad reciente.</p>
-          ) : !activity?.length ? (
-            <p className="t-hint py-6 text-center text-xs">Sin actividad reciente.</p>
-          ) : (
-            <div className="space-y-3">
-              {activity.map((e) => {
-                const Icon = activityIcon[e.type] ?? Activity
-                return (
-                  <div key={e.id} className="group flex gap-3 rounded-lg px-1.5 py-1 row-hover">
-                    <div className="mt-0.5 rounded-lg bg-surface-2 p-1.5 text-primary-500 transition-colors group-hover:bg-primary-400 group-hover:text-white"><Icon className="h-3.5 w-3.5" /></div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-fg" title={e.title}>{e.title}</p>
-                      {e.detail && <p className="truncate text-xs text-muted" title={e.detail}>{e.detail}</p>}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </Card>
-
-        {/* Workflows n8n */}
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Workflow className="h-4 w-4" /> Workflows n8n</CardTitle></CardHeader>
-          {wfError ? (
-            <p className="t-hint py-6 text-center text-xs">
-              No se pudo conectar a n8n.<br />Verifica que esté corriendo en localhost:5678.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {(workflows ?? []).slice(0, 6).map((w) => (
-                <div key={w.id} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
-                  <span className="min-w-0 flex-1 truncate text-sm text-fg" title={w.name}>{w.name}</span>
-                  <span className={cn('shrink-0', w.active ? 'badge-ok' : 'badge-neutral')}>
-                    {w.active ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                    {w.active ? 'Activo' : 'Pausado'}
-                  </span>
-                </div>
-              ))}
-              {!workflows?.length && <p className="t-hint py-6 text-center text-xs">Sin workflows.</p>}
-            </div>
-          )}
-        </Card>
-
-        {/* Necesitan atención */}
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Necesitan atención</CardTitle></CardHeader>
-          <div className="space-y-2">
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Necesitan atención</CardTitle>
+          <Link to="/pipeline" className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary-600 hover:underline">
+            Ver pipeline <ArrowRight className="h-3 w-3" />
+          </Link>
+        </CardHeader>
+        {!needAttention.length ? (
+          <p className="t-hint py-6 text-center">Todo al día.</p>
+        ) : (
+          <div className="-mx-1.5 grid gap-0.5 sm:grid-cols-2">
             {needAttention.map((l) => (
-              <div key={l.id} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
+              // Antes eran filas muertas: te decían qué mirar y no había forma
+              // de llegar hasta ello.
+              <Link
+                key={l.id}
+                to={`/pipeline?lead=${l.id}`}
+                className="flex items-center gap-3 rounded-lg px-1.5 py-2 row-hover"
+              >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-fg" title={l.empresa}>{l.empresa}</p>
-                  <p className="truncate text-xs text-muted">{l.estado} · {formatCurrency(l.valorEstimado || 0)}</p>
+                  <p className="truncate text-sm font-medium text-fg" title={l.empresa}>{l.empresa}</p>
+                  <p className="truncate text-xs capitalize text-muted">{l.estado} · {formatCurrency(l.valorEstimado || 0)}</p>
                 </div>
-              </div>
+                <span className={cn('shrink-0 text-xs tabular-nums', isStale(l) ? 'font-semibold text-[rgb(var(--danger))]' : 'text-muted')}>
+                  {daysInStage(l)}d
+                </span>
+              </Link>
             ))}
-            {!needAttention.length && <p className="t-hint py-6 text-center text-xs">Todo al día</p>}
           </div>
-        </Card>
+        )}
+      </Card>
+    </div>
+  )
+}
+
+function LeyendaSerie({ color, label, value }: { color: string; label: string; value: number }) {
+  return (
+    <span className="flex items-baseline gap-1.5">
+      <span className="h-2 w-2 shrink-0 translate-y-[-1px] rounded-full" style={{ background: color }} />
+      <span className="text-xs text-muted">{label}</span>
+      <span className="text-xs font-semibold tabular-nums text-fg">{value}</span>
+    </span>
+  )
+}
+
+function NichoRanking({ data }: { data: { name: string; value: number }[] }) {
+  const total = data.reduce((s, d) => s + d.value, 0)
+  if (!total) return <p className="t-hint py-10 text-center">Todavía no hay leads clasificados por nicho.</p>
+  const max = data[0]?.value || 1
+  return (
+    <div>
+      <p className="t-num text-2xl leading-none">{total}</p>
+      <p className="t-eyebrow mt-1">leads en total</p>
+      <div className="mt-4 space-y-2.5">
+        {data.slice(0, 7).map((d, i) => (
+          <div key={d.name}>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="truncate text-[0.8125rem] text-fg" title={d.name}>{d.name}</span>
+              <span className="shrink-0 text-xs tabular-nums text-muted">
+                {d.value} · {Math.round((d.value / total) * 100)}%
+              </span>
+            </div>
+            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-2">
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${(d.value / max) * 100}%`, background: NICHE_COLORS[i % NICHE_COLORS.length] }}
+              />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   )

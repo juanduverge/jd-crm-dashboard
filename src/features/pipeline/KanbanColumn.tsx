@@ -46,7 +46,7 @@ export function KanbanColumn({ stage, leads, onOpen, onAdd, onDelete, onEdit }: 
   const subdividir = ETAPAS_CON_TOQUES.includes(stage.id) && cards.length > 0
 
   return (
-    <div className="flex w-72 shrink-0 flex-col">
+    <div className="flex w-[85vw] max-w-[18rem] shrink-0 snap-start flex-col sm:w-72 sm:snap-align-none">
       <div className="mb-2 flex items-center justify-between gap-2 rounded-xl border border-border bg-surface px-3 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: stage.color }} />

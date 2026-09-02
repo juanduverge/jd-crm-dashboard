@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
@@ -7,6 +8,7 @@ import {
 } from '@dnd-kit/core'
 import { LayoutGrid, List, Filter, RefreshCw, X, TrendingUp, AlertTriangle } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { useEsMovil } from '@/hooks/useMediaQuery'
 import { Button, Select, Badge, Skeleton } from '@/components/ui'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { useLeads, useDeleteLead, useNichos } from '@/hooks/useData'
@@ -39,7 +41,14 @@ export function PipelinePage() {
   const deleteLead = useDeleteLead()
   const nichos = useNichos()
 
-  const [view, setView] = useState<'kanban' | 'list'>('kanban')
+  // Un tablero de cinco columnas de 288px en una pantalla de 360 es arrastrar
+  // a ciegas: nunca ves dos etapas a la vez y el scroll vertical de cada
+  // columna pelea con el horizontal del tablero. En el telefono se entra por
+  // la lista; el kanban sigue estando a un toque para quien lo quiera.
+  const esMovil = useEsMovil()
+  const [view, setView] = useState<'kanban' | 'list'>(
+    () => (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'list' : 'kanban'),
+  )
   const [showFilters, setShowFilters] = useState(false)
   const [fNicho, setFNicho] = useState('')
   const [fPrioridad, setFPrioridad] = useState('')
@@ -49,7 +58,17 @@ export function PipelinePage() {
   // pregunta que más se hace en el tablero ("¿a quién le toca hoy?").
   const [fToque, setFToque] = useState('')
   const [activeLead, setActiveLead] = useState<Lead | null>(null)
-  const [drawerLeadId, setDrawerLeadId] = useState<string | null>(null)
+  // El Resumen enlaza aquí con ?lead=<id> desde «Necesitan atención»: llegas
+  // con la ficha ya abierta en vez de tener que buscarla en el tablero.
+  const [params, setParams] = useSearchParams()
+  const [drawerLeadId, setDrawerLeadId] = useState<string | null>(() => params.get('lead'))
+  const cerrarDrawer = () => {
+    setDrawerLeadId(null)
+    if (params.get('lead')) {
+      params.delete('lead')
+      setParams(params, { replace: true })
+    }
+  }
   const drawerLead = drawerLeadId ? (leads.find((l) => l.id === drawerLeadId) ?? null) : null
   const [formStage, setFormStage] = useState<LeadStatus | null>(null)
   const [editing, setEditing] = useState<Lead | null>(null)
@@ -102,18 +121,21 @@ export function PipelinePage() {
     [baseFiltrada, fToque, hoy],
   )
 
-  const fc = useMemo(() => forecast(filtered), [filtered])
-  // `filtered` ya solo contiene abiertos, así que el total es directo.
+  // Las métricas se calculan sobre `baseFiltrada`, no sobre `filtered`: la
+  // píldora de toque es una forma de mirar el pipeline, no de redefinirlo.
+  // Antes, pulsar «Touch 2» dejaba el forecast del mes en $0 y parecía que la
+  // pantalla se había roto.
+  const fc = useMemo(() => forecast(baseFiltrada), [baseFiltrada])
   const totalOpen = useMemo(
-    () => filtered.reduce((s, l) => s + (l.valorEstimado || 0), 0),
-    [filtered],
+    () => baseFiltrada.reduce((s, l) => s + (l.valorEstimado || 0), 0),
+    [baseFiltrada],
   )
   // El ganado sale del archivo, no del tablero: ahí ya no hay leads cerrados.
   const ganado = useMemo(
     () => archivados.filter((l) => l.estado === 'ganado').reduce((s, l) => s + (l.valorEstimado || 0), 0),
     [archivados],
   )
-  const staleCount = useMemo(() => filtered.filter(isStale).length, [filtered])
+  const staleCount = useMemo(() => baseFiltrada.filter(isStale).length, [baseFiltrada])
 
   const onDragStart = (e: DragStartEvent) => setActiveLead((e.active.data.current?.lead as Lead) ?? null)
   const onDragEnd = (e: DragEndEvent) => {
@@ -170,14 +192,14 @@ export function PipelinePage() {
     <div>
       <PageHeader
         title="Pipeline"
-        subtitle={`${filtered.length} leads · ${formatCurrency(totalOpen)} en juego`}
+        subtitle={fToque ? `${filtered.length} de ${baseFiltrada.length} leads` : `${baseFiltrada.length} leads · ${formatCurrency(totalOpen)} en juego`}
         actions={
           <>
-            <div className="flex overflow-hidden rounded-lg border border-border">
-              <button onClick={() => setView('kanban')} className={cn('flex items-center gap-1 px-3 py-1.5 text-xs', view === 'kanban' ? 'bg-primary-400 text-white' : 'hover:bg-surface-2')}>
+            <div className="flex shrink-0 overflow-hidden rounded-xl border border-border">
+              <button onClick={() => setView('kanban')} className={cn('flex min-h-[38px] items-center gap-1.5 px-3 text-xs font-medium transition-colors', view === 'kanban' ? 'bg-primary-400 text-white' : 'hover:bg-surface-2')}>
                 <LayoutGrid className="h-3.5 w-3.5" /> Kanban
               </button>
-              <button onClick={() => setView('list')} className={cn('flex items-center gap-1 px-3 py-1.5 text-xs', view === 'list' ? 'bg-primary-400 text-white' : 'hover:bg-surface-2')}>
+              <button onClick={() => setView('list')} className={cn('flex min-h-[38px] items-center gap-1.5 px-3 text-xs font-medium transition-colors', view === 'list' ? 'bg-primary-400 text-white' : 'hover:bg-surface-2')}>
                 <List className="h-3.5 w-3.5" /> Lista
               </button>
             </div>
@@ -195,12 +217,12 @@ export function PipelinePage() {
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetricCard label="Forecast del mes" value={formatCurrency(fc)} icon={<TrendingUp className="h-4 w-4" />} accent="text-primary-500" />
         <MetricCard label="Pipeline abierto" value={formatCurrency(totalOpen)} />
-        <MetricCard label="Cerrado ganado" value={formatCurrency(ganado)} accent="text-green-500" />
+        <MetricCard label="Cerrado ganado" value={formatCurrency(ganado)} accent="text-[rgb(var(--ok))]" />
         <MetricCard
           label="Leads estancados"
           value={`${staleCount}`}
           icon={staleCount ? <AlertTriangle className="h-4 w-4" /> : undefined}
-          accent={staleCount ? 'text-red-500' : undefined}
+          accent={staleCount ? 'text-[rgb(var(--danger))]' : undefined}
         />
       </div>
 
@@ -213,29 +235,29 @@ export function PipelinePage() {
       />
 
       {showFilters && (
-        <div className="card mb-4 flex flex-wrap items-end gap-3 p-3">
-          <label className="text-xs text-muted">Nicho
-            <Select className="mt-1 w-40" value={fNicho} onChange={(e) => setFNicho(e.target.value)}>
+        <div className="card mb-4 grid grid-cols-1 gap-3 p-3 sm:flex sm:flex-wrap sm:items-end">
+          <label className="t-label text-xs font-medium text-muted">Nicho
+            <Select className="mt-1 w-full sm:w-40" value={fNicho} onChange={(e) => setFNicho(e.target.value)}>
               <option value="">Todos</option>
               {nichos.map((n) => <option key={n.id} value={n.id}>{n.emoji} {n.nombre}</option>)}
             </Select>
           </label>
-          <label className="text-xs text-muted">Prioridad
-            <Select className="mt-1 w-32" value={fPrioridad} onChange={(e) => setFPrioridad(e.target.value)}>
+          <label className="t-label text-xs font-medium text-muted">Prioridad
+            <Select className="mt-1 w-full sm:w-32" value={fPrioridad} onChange={(e) => setFPrioridad(e.target.value)}>
               <option value="">Todas</option>
               <option value="alta">Alta</option>
               <option value="media">Media</option>
               <option value="baja">Baja</option>
             </Select>
           </label>
-          <label className="text-xs text-muted">Vendedor
-            <Select className="mt-1 w-36" value={fResponsable} onChange={(e) => setFResponsable(e.target.value)}>
+          <label className="t-label text-xs font-medium text-muted">Vendedor
+            <Select className="mt-1 w-full sm:w-36" value={fResponsable} onChange={(e) => setFResponsable(e.target.value)}>
               <option value="">Todos</option>
               {responsables.map((r) => <option key={r} value={r}>{r}</option>)}
             </Select>
           </label>
-          <label className="text-xs text-muted">Valor mínimo: {formatCurrency(fValorMin)}
-            <input type="range" min={0} max={10000} step={500} value={fValorMin} onChange={(e) => setFValorMin(+e.target.value)} className="mt-2 block w-44 accent-primary-400" />
+          <label className="t-label text-xs font-medium text-muted">Valor mínimo: {formatCurrency(fValorMin)}
+            <input type="range" min={0} max={10000} step={500} value={fValorMin} onChange={(e) => setFValorMin(+e.target.value)} className="mt-2 block w-full accent-primary-400 sm:w-44" />
           </label>
           <Button variant="ghost" size="sm" onClick={clearFilters}><X className="h-4 w-4" /> Limpiar</Button>
         </div>
@@ -247,10 +269,27 @@ export function PipelinePage() {
           <Button size="sm" onClick={() => refetch()}><RefreshCw className="h-4 w-4" /> Reintentar</Button>
         </div>
       ) : isLoading ? (
-        <div className="flex gap-3">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-96 w-72" />)}</div>
+        <div className="flex gap-3 overflow-hidden">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-96 w-[85vw] shrink-0 sm:w-72" />)}</div>
+      ) : !filtered.length ? (
+        // Un filtro sin resultados dejaba columnas vacías y todo a cero, sin
+        // una sola palabra que explicara por qué. Ahora lo dice y ofrece la
+        // salida en el mismo sitio donde te has quedado atascado.
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-10 text-center">
+          <p className="t-card">Ningún lead con este filtro</p>
+          <p className="t-hint max-w-sm">
+            {fToque
+              ? 'El pipeline tiene leads, pero ninguno está en este punto de la secuencia.'
+              : 'Ajusta los filtros o añade una oportunidad para empezar.'}
+          </p>
+          {(fToque || fNicho || fPrioridad || fResponsable || fValorMin > 0) && (
+            <Button variant="outline" size="sm" onClick={() => { setFToque(''); clearFilters() }}>
+              <X className="h-4 w-4" /> Quitar filtros
+            </Button>
+          )}
+        </div>
       ) : view === 'kanban' ? (
         <DndContext sensors={sensors} collisionDetection={collisionDetection} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-          <HScrollBoard className="max-h-[calc(100dvh-15rem)] overflow-y-auto">
+          <HScrollBoard className="max-h-[calc(100dvh-15rem)] overflow-y-auto snap-x snap-mandatory sm:snap-none">
             <div className="flex gap-3 pb-3">
               {OPEN_STAGES.map((stage) => (
                 <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={(l) => setDrawerLeadId(l.id)} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} />
@@ -262,7 +301,7 @@ export function PipelinePage() {
           <DragOverlay>{activeLead ? <div className="w-64"><KanbanCard lead={activeLead} onOpen={() => {}} /></div> : null}</DragOverlay>
         </DndContext>
       ) : (
-        <ListView leads={filtered} onOpen={(l) => setDrawerLeadId(l.id)} />
+        <ListView leads={filtered} onOpen={(l) => setDrawerLeadId(l.id)} esMovil={esMovil} />
       )}
 
       <LeadForm
@@ -273,8 +312,8 @@ export function PipelinePage() {
       />
       <LeadDrawer
         lead={drawerLead}
-        onClose={() => setDrawerLeadId(null)}
-        onEdit={(l) => { setDrawerLeadId(null); setEditing(l) }}
+        onClose={() => cerrarDrawer()}
+        onEdit={(l) => { cerrarDrawer(); setEditing(l) }}
         onMoveStage={(id, estado) => { moveStage(id, estado); toast.success('Etapa actualizada') }}
       />
       <ConfirmDeleteModal
@@ -299,26 +338,63 @@ export function PipelinePage() {
 function MetricCard({ label, value, icon, accent }: { label: string; value: string; icon?: React.ReactNode; accent?: string }) {
   return (
     <div className="card p-3">
-      <p className="flex items-center gap-1 text-xs text-muted">{icon}{label}</p>
-      <p className={cn('mt-1 text-xl font-bold text-fg', accent)}>{value}</p>
+      <p className="t-eyebrow flex items-center gap-1.5 truncate" title={label}>{icon}{label}</p>
+      <p className={cn('t-num mt-1.5 text-lg leading-none sm:text-xl', accent)}>{value}</p>
     </div>
   )
 }
 
-function ListView({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => void }) {
+function ListView({ leads, onOpen, esMovil }: { leads: Lead[]; onOpen: (l: Lead) => void; esMovil: boolean }) {
   const sorted = [...leads].sort((a, b) => (b.valorEstimado || 0) - (a.valorEstimado || 0))
+
+  // Seis columnas no caben en 360px: la tabla obligaba a arrastrar de lado
+  // para leer el valor, que es justo el dato por el que se ordena. En el
+  // telefono cada oportunidad pasa a ser una tarjeta pulsable entera.
+  if (esMovil) {
+    return (
+      <div className="space-y-2">
+        {sorted.map((l) => {
+          const sc = scoreColor(l.score)
+          const stale = isStale(l)
+          return (
+            <button
+              key={l.id}
+              onClick={() => onOpen(l)}
+              className="card w-full p-3 text-left transition-colors active:bg-surface-2"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="t-card truncate">{l.empresa}</p>
+                  {l.ciudad && <p className="mt-0.5 truncate text-xs text-muted">{l.ciudad}</p>}
+                </div>
+                <span className={cn('shrink-0 rounded-md px-1.5 py-0.5 text-xs font-bold', sc.bg, sc.text)}>{l.score}</span>
+              </div>
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <Badge><span className="h-2 w-2 rounded-full" style={{ background: STAGE_BY_ID[l.estado]?.color }} /> {STAGE_BY_ID[l.estado]?.label}</Badge>
+                <span className="t-num text-sm">{l.valorEstimado ? formatCurrency(l.valorEstimado) : '—'}</span>
+                <span className={cn('ml-auto text-xs tabular-nums', stale ? 'font-semibold text-[rgb(var(--danger))]' : 'text-muted')}>
+                  {daysInStage(l)}d en etapa
+                </span>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <div className="card overflow-hidden p-0">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="border-b border-border bg-surface-2 text-xs text-muted">
+          <thead>
             <tr>
-              <th className="max-w-[220px] px-3 py-3 text-left font-medium">Empresa</th>
-              <th className="px-3 py-3 text-left font-medium">Etapa</th>
-              <th className="px-3 py-3 text-left font-medium">Score</th>
-              <th className="px-3 py-3 text-left font-medium">Valor</th>
-              <th className="px-3 py-3 text-left font-medium">Prioridad</th>
-              <th className="px-3 py-3 text-left font-medium">Días</th>
+              <th className="th max-w-[220px]">Empresa</th>
+              <th className="th">Etapa</th>
+              <th className="th">Score</th>
+              <th className="th">Valor</th>
+              <th className="th">Prioridad</th>
+              <th className="th">Días</th>
             </tr>
           </thead>
           <tbody>
@@ -327,17 +403,17 @@ function ListView({ leads, onOpen }: { leads: Lead[]; onOpen: (l: Lead) => void 
               const stale = isStale(l)
               return (
                 <tr key={l.id} className="border-b border-border last:border-0 hover:bg-surface-2/60">
-                  <td className="max-w-[220px] px-3 py-2.5">
+                  <td className="td max-w-[220px]">
                     <button onClick={() => onOpen(l)} className="block max-w-full truncate font-medium text-fg hover:text-primary-600" title={l.empresa}>{l.empresa}</button>
                     <p className="truncate text-xs text-muted" title={l.ciudad || undefined}>{l.ciudad}</p>
                   </td>
-                  <td className="px-3 py-2.5">
+                  <td className="td">
                     <Badge><span className="h-2 w-2 rounded-full" style={{ background: STAGE_BY_ID[l.estado]?.color }} /> {STAGE_BY_ID[l.estado]?.label}</Badge>
                   </td>
-                  <td className="px-3 py-2.5"><span className={cn('rounded-md px-1.5 py-0.5 text-xs font-bold', sc.bg, sc.text)}>{l.score}</span></td>
-                  <td className="px-3 py-2.5 font-medium text-fg">{l.valorEstimado ? formatCurrency(l.valorEstimado) : '—'}</td>
-                  <td className="px-3 py-2.5 capitalize text-muted">{l.prioridad || '—'}</td>
-                  <td className={cn('px-3 py-2.5', stale && 'font-semibold text-red-500')}>{daysInStage(l)}d</td>
+                  <td className="td"><span className={cn('rounded-md px-1.5 py-0.5 text-xs font-bold', sc.bg, sc.text)}>{l.score}</span></td>
+                  <td className="td font-medium">{l.valorEstimado ? formatCurrency(l.valorEstimado) : '—'}</td>
+                  <td className="td capitalize text-muted">{l.prioridad || '—'}</td>
+                  <td className={cn('td', stale && 'font-semibold text-[rgb(var(--danger))]')}>{daysInStage(l)}d</td>
                 </tr>
               )
             })}
