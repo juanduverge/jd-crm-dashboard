@@ -124,7 +124,7 @@ export function CampaignWizard({
   }
 
   return (
-    <Modal open={open} onClose={close} title="🎯 Nueva campaña" size="lg" footer={
+    <Modal open={open} onClose={close} title="Nueva campaña" size="lg" footer={
       <>
         {step > 0 && <Button variant="outline" onClick={() => setStep((s) => s - 1)}><ChevronLeft className="h-4 w-4" /> Atrás</Button>}
         <Button variant="ghost" onClick={close}>Cancelar</Button>

@@ -102,12 +102,12 @@ export function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="🏠 Resumen"
+        title="Resumen"
         subtitle={`JD Developer · ${crmApi.enabled() ? 'datos en vivo' : 'sin conexión a n8n'}`}
       />
 
       {leadsError && (
-        <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
+        <p className="aviso-error mb-4">
           No se pudo conectar con n8n para leer los leads. Verifica que el workflow "CRM API - Leer Sheets" esté activo.
         </p>
       )}
@@ -120,7 +120,7 @@ export function DashboardPage() {
       </div>
 
       {/* Sección media */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader><CardTitle>Embudo de conversión</CardTitle></CardHeader>
           <div className="min-h-[18rem]"><ConversionFunnel data={funnelData} /></div>
@@ -147,10 +147,10 @@ export function DashboardPage() {
       </div>
 
       {/* Actividad 30 días */}
-      <Card className="mt-4">
+      <Card className="mt-6">
         <CardHeader><CardTitle>Actividad — últimos 30 días</CardTitle></CardHeader>
         {!hasTrendData ? (
-          <p className="py-10 text-center text-xs text-muted">Sin mensajes registrados en los últimos 30 días.</p>
+          <p className="t-hint py-10 text-center text-xs">Sin mensajes registrados en los últimos 30 días.</p>
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
@@ -170,14 +170,14 @@ export function DashboardPage() {
       </Card>
 
       {/* Sección inferior */}
-      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Feed actividad */}
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><Activity className="h-4 w-4" /> Actividad reciente</CardTitle></CardHeader>
           {activityError ? (
-            <p className="py-6 text-center text-xs text-muted">No se pudo cargar la actividad reciente.</p>
+            <p className="t-hint py-6 text-center text-xs">No se pudo cargar la actividad reciente.</p>
           ) : !activity?.length ? (
-            <p className="py-6 text-center text-xs text-muted">Sin actividad reciente.</p>
+            <p className="t-hint py-6 text-center text-xs">Sin actividad reciente.</p>
           ) : (
             <div className="space-y-3">
               {activity.map((e) => {
@@ -200,7 +200,7 @@ export function DashboardPage() {
         <Card>
           <CardHeader><CardTitle className="flex items-center gap-2"><Workflow className="h-4 w-4" /> Workflows n8n</CardTitle></CardHeader>
           {wfError ? (
-            <p className="py-6 text-center text-xs text-muted">
+            <p className="t-hint py-6 text-center text-xs">
               No se pudo conectar a n8n.<br />Verifica que esté corriendo en localhost:5678.
             </p>
           ) : (
@@ -208,13 +208,13 @@ export function DashboardPage() {
               {(workflows ?? []).slice(0, 6).map((w) => (
                 <div key={w.id} className="flex items-center justify-between gap-2 rounded-lg border border-border px-3 py-2">
                   <span className="min-w-0 flex-1 truncate text-sm text-fg" title={w.name}>{w.name}</span>
-                  <Badge className={cn('shrink-0', w.active ? 'bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400' : 'bg-surface-2 text-muted')}>
+                  <span className={cn('shrink-0', w.active ? 'badge-ok' : 'badge-neutral')}>
                     {w.active ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-                    {w.active ? 'Activo' : 'Inactivo'}
-                  </Badge>
+                    {w.active ? 'Activo' : 'Pausado'}
+                  </span>
                 </div>
               ))}
-              {!workflows?.length && <p className="py-6 text-center text-xs text-muted">Sin workflows.</p>}
+              {!workflows?.length && <p className="t-hint py-6 text-center text-xs">Sin workflows.</p>}
             </div>
           )}
         </Card>
@@ -231,7 +231,7 @@ export function DashboardPage() {
                 </div>
               </div>
             ))}
-            {!needAttention.length && <p className="py-6 text-center text-xs text-muted">Todo al día 🎉</p>}
+            {!needAttention.length && <p className="t-hint py-6 text-center text-xs">Todo al día</p>}
           </div>
         </Card>
       </div>

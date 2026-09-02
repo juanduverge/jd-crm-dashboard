@@ -100,7 +100,7 @@ export function AnalyticsPage() {
   return (
     <div>
       <PageHeader
-        title="📊 Analíticas"
+        title="Analíticas"
         subtitle={`Reportes por campaña, nicho y canal · ${campaigns.length} campañas`}
       />
 

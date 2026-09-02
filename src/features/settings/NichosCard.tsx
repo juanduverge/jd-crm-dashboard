@@ -77,15 +77,16 @@ export function NichosCard() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Tags className="h-4 w-4" /> Nichos
-          {pendientes.length > 0 && (
-            <Badge className="bg-amber-500/15 text-amber-400">{pendientes.length} sin revisar</Badge>
-          )}
-        </CardTitle>
-      </CardHeader>
+    // La cabecera de la seccion ya dice "Nichos"; repetirlo dentro de la caja
+    // era ruido. Aqui solo queda lo que la cabecera no puede saber: si hay
+    // categorias nuevas esperando revision.
+    <Card className="p-0">
+      {pendientes.length > 0 && (
+        <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+          <Tags className="h-4 w-4 shrink-0 text-muted" />
+          <span className="badge-warn">{pendientes.length} sin revisar</span>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-2 p-4"><Skeleton className="h-8" /><Skeleton className="h-8" /><Skeleton className="h-8" /></div>

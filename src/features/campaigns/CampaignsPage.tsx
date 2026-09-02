@@ -88,7 +88,7 @@ export function CampaignsPage() {
   return (
     <div>
       <PageHeader
-        title="📣 Campañas"
+        title="Campañas"
         subtitle={`${campaigns.length} campañas · ${totals.activas} activas`}
         actions={<Button onClick={() => setWizardOpen(true)}><Plus className="h-4 w-4" /> Nueva campaña</Button>}
       />

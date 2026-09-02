@@ -36,32 +36,26 @@ export function KpiCard({ kpi, index }: { kpi: Kpi; index: number }) {
       transition={{ delay: index * 0.05, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
       className="group card relative overflow-hidden p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card-hover"
     >
-      {/* Acento coral lateral que aparece en hover */}
-      <span className="absolute inset-y-0 left-0 w-1 origin-top scale-y-0 bg-primary-400 transition-transform duration-200 group-hover:scale-y-100" />
+      {/* El icono iba en un cuadrado coral, seis veces seguidas en la misma
+          fila. Media pantalla de acento y ninguna cifra destacando. Ahora el
+          icono es un apunte gris arriba a la derecha y el numero manda. */}
+      <div className="flex items-start justify-between gap-2">
+        <p className="t-eyebrow min-w-0 truncate" title={kpi.label}>{kpi.label}</p>
+        <Icon className="h-4 w-4 shrink-0 text-muted/50" />
+      </div>
 
-      <div className="flex items-start justify-between">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-100 text-primary-600 transition-colors group-hover:bg-primary-400 group-hover:text-white dark:bg-primary-500/15 dark:text-primary-300">
-          <Icon className="h-[18px] w-[18px]" />
-        </div>
+      <div className="mt-2 flex items-baseline gap-2">
+        <p className="t-num text-[1.75rem] leading-none">{fmt(kpi.value)}</p>
         {kpi.change != null && (
-          <span
-            className={cn(
-              'inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold',
-              up ? 'bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400'
-                 : 'bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400',
-            )}
-          >
+          <span className={cn('inline-flex items-center gap-0.5 text-xs font-semibold tabular-nums', up ? 'text-[rgb(var(--ok))]' : 'text-[rgb(var(--danger))]')}>
             {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
             {Math.abs(kpi.change)}%
           </span>
         )}
       </div>
 
-      <p className="mt-3 text-2xl font-bold tracking-tight text-fg">{fmt(kpi.value)}</p>
-      <p className="mt-0.5 text-xs font-medium text-muted">{kpi.label}</p>
-
       {spark.length > 1 && (
-        <div className="mt-2 h-9">
+        <div className="mt-3 h-9">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={spark} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
               <defs>

@@ -6,15 +6,19 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
   return <div className={cn('card p-4', className)} {...props} />
 }
 export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('mb-5 flex items-center justify-between', className)} {...props} />
+  return <div className={cn('mb-4 flex min-h-[1.75rem] items-center justify-between gap-3', className)} {...props} />
 }
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn('text-sm font-semibold text-fg', className)} {...props} />
+  return <h3 className={cn('t-card', className)} {...props} />
+}
+/** Aclaración bajo el título de una tarjeta. Antes cada pantalla la escribía a mano. */
+export function CardDescription({ className, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+  return <p className={cn('t-hint -mt-2 mb-4', className)} {...props} />
 }
 
 /* ---------- Button ---------- */
 type Variant = 'primary' | 'outline' | 'ghost' | 'danger'
-type Size = 'sm' | 'md' | 'icon'
+type Size = 'sm' | 'md' | 'lg' | 'icon'
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
   size?: Size
@@ -28,7 +32,8 @@ const variantCls: Record<Variant, string> = {
 const sizeCls: Record<Size, string> = {
   sm: 'h-8 px-3 text-xs',
   md: 'h-9 px-4 text-sm',
-  icon: 'h-9 w-9',
+  lg: 'h-11 px-5 text-sm',
+  icon: 'h-9 w-9 shrink-0 p-0',
 }
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', ...props }, ref) => (
@@ -43,7 +48,7 @@ Button.displayName = 'Button'
 
 /* ---------- Input ---------- */
 export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, ...props }, ref) => <input ref={ref} className={cn('input', className)} {...props} />,
+  ({ className, ...props }, ref) => <input ref={ref} className={cn('input h-11 sm:h-9', className)} {...props} />,
 )
 Input.displayName = 'Input'
 
@@ -55,7 +60,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
 Textarea.displayName = 'Textarea'
 
 export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
-  ({ className, ...props }, ref) => <select ref={ref} className={cn('input', className)} {...props} />,
+  ({ className, ...props }, ref) => <select ref={ref} className={cn('input h-11 pr-8 sm:h-9', className)} {...props} />,
 )
 Select.displayName = 'Select'
 
@@ -98,10 +103,10 @@ export function EmptyState({
   action?: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border py-14 text-center">
-      {icon && <div className="mb-3 text-primary-400">{icon}</div>}
-      <p className="text-sm font-semibold text-fg">{title}</p>
-      {description && <p className="mt-1 max-w-sm text-xs text-muted">{description}</p>}
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border px-6 py-14 text-center">
+      {icon && <div className="mb-3 text-muted/60">{icon}</div>}
+      <p className="t-card">{title}</p>
+      {description && <p className="t-hint mt-1.5 max-w-sm">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   )

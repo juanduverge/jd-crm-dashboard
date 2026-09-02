@@ -253,7 +253,7 @@ export function LeadsPage() {
   return (
     <div>
       <PageHeader
-        title="👥 Leads"
+        title="Leads"
         subtitle={`${filtered.length} de ${leads.length} leads`}
         actions={
           <>
@@ -433,23 +433,23 @@ export function LeadsPage() {
         <div className="card overflow-hidden p-0">
           <div className="max-h-[calc(100dvh-16rem)] overflow-auto">
             <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10 border-b border-border bg-surface-2 text-xs text-muted">
+              <thead>
                 <tr>
-                  <th className="w-10 px-3 py-3">
+                  <th className="th w-10">
                     <input type="checkbox" checked={allSelected} onChange={(e) => e.target.checked ? selectAll(filtered.map((l) => l.id)) : clearSelection()} className="accent-primary-400" />
                   </th>
                   <Th onClick={() => toggleSort('favorito')}><span className="sr-only">Favorito</span><Star className="h-3.5 w-3.5" /></Th>
                   <Th onClick={() => toggleSort('meGusta')}><span className="sr-only">Me gusta / No me gusta</span><ThumbsUp className="h-3.5 w-3.5" /></Th>
                   <Th onClick={() => toggleSort('empresa')}>Empresa</Th>
-                  <th className="px-3 py-3 text-left font-medium">Contacto</th>
+                  <th className="th">Contacto</th>
                   <Th onClick={() => toggleSort('ciudad')}>Ciudad</Th>
-                  <th className="px-3 py-3 text-left font-medium">Nicho</th>
+                  <th className="th">Nicho</th>
                   <Th onClick={() => toggleSort('score')}>Score</Th>
                   <Th onClick={() => toggleSort('estado')}>Estado</Th>
                   <Th onClick={() => toggleSort('valorEstimado')}>Valor</Th>
                   <Th onClick={() => toggleSort('fechaCaptura')}>Creado</Th>
                   <Th onClick={() => toggleSort('actualizado')}>Actualizado</Th>
-                  <th className="px-3 py-3 text-right font-medium">Acciones</th>
+                  <th className="th text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -717,9 +717,10 @@ function TarjetaLead({
 
 function Th({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
-    <th className="px-3 py-3 text-left font-medium">
-      <button onClick={onClick} className="inline-flex items-center gap-1 hover:text-fg">
-        {children} <ArrowUpDown className="h-3 w-3" />
+    <th className="th">
+      <button onClick={onClick} className="group inline-flex items-center gap-1 transition-colors hover:text-fg">
+        {children}
+        <ArrowUpDown className="h-3 w-3 opacity-40 transition-opacity group-hover:opacity-100" />
       </button>
     </th>
   )

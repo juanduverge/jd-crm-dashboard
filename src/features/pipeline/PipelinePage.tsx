@@ -169,7 +169,7 @@ export function PipelinePage() {
   return (
     <div>
       <PageHeader
-        title="💰 Pipeline"
+        title="Pipeline"
         subtitle={`${filtered.length} leads · ${formatCurrency(totalOpen)} en juego`}
         actions={
           <>

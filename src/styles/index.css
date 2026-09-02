@@ -195,3 +195,102 @@
      al final, ni disparar el «atrás» por gesto del navegador. */
   .scroll-aislado { overscroll-behavior-x: contain; }
 }
+
+/* ============================================================
+   JERARQUÍA
+   El CRM entero estaba escrito en `text-sm` y `text-xs`: el
+   título de una tarjeta pesaba lo mismo que su contenido, así
+   que en escritorio no había dónde posar el ojo. Estas clases
+   son la escala; usarlas en vez de elegir un tamaño a mano es
+   lo que mantiene coherentes veinte pantallas.
+   ============================================================ */
+@layer components {
+  /* Título de pantalla. Uno por página. */
+  .t-page {
+    @apply text-xl font-bold tracking-tight text-fg sm:text-[1.75rem] sm:leading-tight;
+  }
+  /* Título de tarjeta o bloque. */
+  .t-card {
+    @apply text-[0.9375rem] font-semibold leading-snug tracking-tight text-fg;
+  }
+  /* Rótulo de sección dentro de una tarjeta, y encabezado de tabla. */
+  .t-eyebrow {
+    @apply text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted;
+  }
+  /* Etiqueta de campo de formulario. */
+  .t-label {
+    @apply block text-[0.8125rem] font-medium text-fg;
+  }
+  /* Texto de apoyo: ayudas, subtítulos, metadatos. */
+  .t-hint {
+    @apply text-[0.8125rem] leading-relaxed text-muted;
+  }
+  /* Cifras. `tabular-nums` evita que un KPI baile al actualizarse. */
+  .t-num {
+    @apply font-bold tabular-nums tracking-tight text-fg;
+  }
+}
+
+/* ============================================================
+   ESTADO
+   Verde, ámbar y rojo estaban escritos a mano en unos treinta
+   sitios, cada uno con su pareja para modo oscuro. Al primer
+   despiste dejaban de coincidir. Aquí se declaran una vez.
+   ============================================================ */
+@layer base {
+  :root {
+    --ok: 22 163 74;
+    --ok-soft: 220 252 231;
+    --warn: 217 119 6;
+    --warn-soft: 254 243 199;
+    --danger: 220 38 38;
+    --danger-soft: 254 226 226;
+  }
+  .dark {
+    --ok: 74 222 128;
+    --ok-soft: 22 101 52;
+    --warn: 251 191 36;
+    --warn-soft: 120 53 15;
+    --danger: 248 113 113;
+    --danger-soft: 127 29 29;
+  }
+}
+
+@layer components {
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+  /* El fondo va al 18% en oscuro y al 100% en claro con el mismo token:
+     un color plano sobre el fondo oscuro se vuelve un bloque de pintura. */
+  .badge-ok      { @apply badge; color: rgb(var(--ok));     background: rgb(var(--ok-soft) / 0.9); }
+  .badge-warn    { @apply badge; color: rgb(var(--warn));   background: rgb(var(--warn-soft) / 0.9); }
+  .badge-danger  { @apply badge; color: rgb(var(--danger)); background: rgb(var(--danger-soft) / 0.9); }
+  .badge-neutral { @apply badge bg-surface-2 text-muted; }
+  .dark .badge-ok      { background: rgb(var(--ok-soft) / 0.35); }
+  .dark .badge-warn    { background: rgb(var(--warn-soft) / 0.35); }
+  .dark .badge-danger  { background: rgb(var(--danger-soft) / 0.35); }
+
+  /* Aviso en línea (el error rojo que cada pantalla se pintaba a mano). */
+  .aviso-error {
+    @apply rounded-xl px-3 py-2 text-[0.8125rem];
+    color: rgb(var(--danger));
+    background: rgb(var(--danger-soft) / 0.55);
+    border: 1px solid rgb(var(--danger) / 0.25);
+  }
+}
+
+/* ============================================================
+   TABLAS
+   Mismas celdas en Leads, Archivo, Papelera y Pipeline, escritas
+   cuatro veces con paddings distintos.
+   ============================================================ */
+@layer components {
+  .th {
+    @apply sticky top-0 z-10 whitespace-nowrap bg-surface px-3 py-2.5 text-left;
+    @apply text-[0.6875rem] font-semibold uppercase tracking-[0.08em] text-muted;
+    box-shadow: inset 0 -1px 0 rgb(var(--border));
+  }
+  .td {
+    @apply px-3 py-2.5 text-sm text-fg align-middle;
+  }
+}
