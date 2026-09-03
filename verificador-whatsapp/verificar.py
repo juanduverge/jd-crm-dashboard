@@ -475,6 +475,14 @@ def pasada(limite=None):
     # la base de datos.
     veredictos = leer_veredictos()
 
+    # La RPC responde en singular ('confirmado'); el resumen cuenta en plural.
+    # Sin esta traducción los confirmados no se sumaban y la pasada informaba
+    # de cero aunque el CRM se estuviera llenando bien.
+    CLAVE = {
+        "confirmado": "confirmados",
+        "no_aparece": "no_aparece",
+        "sin_verificar": "sin_verificar",
+    }
     resumen = {"leads": 0, "confirmados": 0, "no_aparece": 0, "sin_verificar": 0}
     for lead_id, numeros in por_lead.items():
         resultados = [
@@ -491,8 +499,14 @@ def pasada(limite=None):
         })
         resumen["leads"] += 1
         estado = salida.get("estado", "sin_verificar")
-        if estado in resumen:
-            resumen[estado] += 1
+        clave = CLAVE.get(estado)
+        if clave:
+            resumen[clave] += 1
+        else:
+            # Un estado que no reconocemos significa que la RPC cambió y
+            # este resumen ya no dice la verdad. Mejor enterarse.
+            print(f"estado inesperado de registrar_whatsapp: {estado!r}",
+                  flush=True)
     return resumen
 
 

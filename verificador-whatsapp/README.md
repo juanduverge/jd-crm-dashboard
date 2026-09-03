@@ -132,6 +132,22 @@ curl -X POST http://192.168.18.26:8899/verificar -d '{"limite": 60}'
 docker exec jd-wa-verificador python verificar.py pasada
 ```
 
+## WhatsApp tiene un tope diario de contactos nuevos
+
+Comprobado el 3-sep-2026: tras sincronizar ~150 números en un día, los
+siguientes **dejan de aparecer en `wa_contacts`**. Están en la agenda del
+Android, pero WhatsApp ya no los consulta. No lo arregla reiniciar la app, ni
+abrir la lista de contactos, ni quitar y devolver el permiso: es un límite del
+lado de WhatsApp, no un fallo nuestro.
+
+No hay nada que hacer, y tampoco hace falta: esos leads se quedan
+`sin_verificar`, vuelven a la cola solos, y la pasada del día siguiente los
+coge. Por eso las tres pasadas diarias son suficientes — ir más rápido no
+verifica más leads, sólo gasta el cupo antes y llama la atención.
+
+Si una pasada devuelve muchos `sin_verificar` de golpe y los números **sí**
+están en la agenda, es esto, no una avería.
+
 ## Sobre el riesgo de que cierren la cuenta
 
 Existe. Consultar contactos en bloque desde una cuenta automatizada va contra
