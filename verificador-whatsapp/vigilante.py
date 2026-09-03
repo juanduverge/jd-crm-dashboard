@@ -108,6 +108,9 @@ def revisar_contenedores():
     return None
 
 
+# Quien avisa de QUE se ha desenchufado es `cargador.py`, en el acto y con
+# alarma sonora. Esto es el escalon siguiente: lleva un rato desenchufado y
+# la bateria ya esta baja. Son dos avisos distintos, no el mismo repetido.
 def revisar_bateria():
     base = "/sys/class/power_supply"
     try:
