@@ -329,6 +329,7 @@ export function LeadDrawer({
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
         initialTo={activeEmail}
+        toOptions={lead.emails}
         leadId={lead.id}
         lockTo
       />

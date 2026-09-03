@@ -17,6 +17,7 @@ import { OPEN_STAGES, STAGE_BY_ID, forecast, isStale, daysInStage } from '@/lib/
 import { formatCurrency, cn, scoreColor } from '@/lib/utils'
 import { LeadForm } from '../leads/LeadForm'
 import { LeadDrawer } from '../leads/LeadDrawer'
+import { NewMessageModal } from '../messages/NewMessageModal'
 import { KanbanCard } from './KanbanCard'
 import { KanbanColumn } from './KanbanColumn'
 import { OpportunityForm } from './OpportunityForm'
@@ -77,6 +78,10 @@ export function PipelinePage() {
   const [deleteTarget, setDeleteTarget] = useState<Lead | null>(null)
   const [editOpp, setEditOpp] = useState<Lead | null>(null)
   const [cerrando, setCerrando] = useState<Lead | null>(null)
+  // Escribir sin salir del tablero: el sobre de la tarjeta abre el composer
+  // del CRM (con sus alias y su registro del envio) en vez de mandarte a
+  // Gmail y perder el rastro de lo enviado.
+  const [composeLead, setComposeLead] = useState<Lead | null>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
@@ -313,7 +318,7 @@ export function PipelinePage() {
           <HScrollBoard className="max-h-[calc(100dvh-15rem)] overflow-y-auto snap-x snap-mandatory sm:snap-none">
             <div className="flex gap-3 pb-3">
               {OPEN_STAGES.map((stage) => (
-                <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={(l) => setDrawerLeadId(l.id)} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} />
+                <KanbanColumn key={stage.id} stage={stage} leads={filtered} onOpen={(l) => setDrawerLeadId(l.id)} onAdd={setFormStage} onDelete={setDeleteTarget} onEdit={setEditOpp} onEmail={setComposeLead} />
               ))}
               {/* Zona de cierre: reemplaza a la antigua columna Ganado/Perdido */}
               <CerrarDropZone archivados={archivados.length} />
@@ -325,6 +330,14 @@ export function PipelinePage() {
         <ListView leads={filtered} onOpen={(l) => setDrawerLeadId(l.id)} esMovil={esMovil} />
       )}
 
+      <NewMessageModal
+        open={!!composeLead}
+        onClose={() => setComposeLead(null)}
+        initialTo={composeLead?.email}
+        toOptions={composeLead?.emails}
+        leadId={composeLead?.id}
+        lockTo
+      />
       <LeadForm
         open={formStage !== null || editing !== null}
         onClose={() => { setFormStage(null); setEditing(null) }}

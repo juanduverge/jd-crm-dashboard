@@ -37,9 +37,11 @@ interface Props {
   onAdd: (stage: LeadStatus) => void
   onDelete?: (l: Lead) => void
   onEdit?: (l: Lead) => void
+  /** Abre el composer de correo con ese lead ya cargado. */
+  onEmail?: (l: Lead) => void
 }
 
-export function KanbanColumn({ stage, leads, onOpen, onAdd, onDelete, onEdit }: Props) {
+export function KanbanColumn({ stage, leads, onOpen, onAdd, onDelete, onEdit, onEmail }: Props) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id, data: { stage: stage.id } })
   const { count, value } = stageTotals(leads, stage.id)
   const cards = leads.filter((l) => l.estado === stage.id)
@@ -83,12 +85,12 @@ export function KanbanColumn({ stage, leads, onOpen, onAdd, onDelete, onEdit }: 
                   <span className="h-px flex-1 bg-border" />
                 </div>
                 {grupo.map((l) => (
-                  <KanbanCard key={l.id} lead={l} onOpen={onOpen} onDelete={onDelete} onEdit={onEdit} />
+                  <KanbanCard key={l.id} lead={l} onOpen={onOpen} onDelete={onDelete} onEdit={onEdit} onEmail={onEmail} />
                 ))}
               </div>
             ))
           : cards.map((l) => (
-              <KanbanCard key={l.id} lead={l} onOpen={onOpen} onDelete={onDelete} onEdit={onEdit} />
+              <KanbanCard key={l.id} lead={l} onOpen={onOpen} onDelete={onDelete} onEdit={onEdit} onEmail={onEmail} />
             ))}
         {cards.length === 0 && (
           <p className="py-6 text-center text-xs text-muted/60">Sin leads</p>

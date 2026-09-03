@@ -541,6 +541,7 @@ export function LeadsPage() {
         open={!!composeLead}
         onClose={() => setComposeLead(null)}
         initialTo={composeLead?.email}
+        toOptions={composeLead?.emails}
         leadId={composeLead?.id}
         lockTo
       />

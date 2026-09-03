@@ -11,13 +11,20 @@ import { fileToBase64 } from '@/lib/utils'
 
 /** Composer libre: escribe a cualquier email, exista o no como lead en el CRM. */
 export function NewMessageModal({
-  open, onClose, onSent, initialTo, leadId, lockTo,
+  open, onClose, onSent, initialTo, toOptions, leadId, lockTo,
 }: {
   open: boolean
   onClose: () => void
   onSent?: () => void
   /** Prellena el destinatario (ej. al abrir desde el perfil de un lead). */
   initialTo?: string
+  /**
+   * Emails conocidos de ese lead. Muchos leads del scraping traen varios
+   * (info@, ventas@, el del duenyo) y hasta ahora se enviaba siempre al
+   * primero sin poder cambiarlo: tocaba salir a Gmail para escribir al
+   * bueno. Con dos o mas, el campo "Para" pasa a ser un desplegable.
+   */
+  toOptions?: string[]
   /** Asocia el envío a un lead ya conocido, sin depender del auto-match por email. */
   leadId?: string
   /** Si true, el campo "Para" no se puede editar (viene de un contexto ya definido). */
@@ -36,6 +43,22 @@ export function NewMessageModal({
     if (open) { setTo(initialTo ?? ''); setFrom(aliases[0].email) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialTo])
+
+  // Sin duplicados y sin vacios, con el prellenado siempre dentro: si el
+  // destinatario actual no estuviera en la lista, el select lo cambiaria solo
+  // y acabarias escribiendo a otro sin enterarte.
+  const opcionesTo = useMemo(() => {
+    const vistos = new Set<string>()
+    return [initialTo, ...(toOptions ?? [])]
+      .map((e) => e?.trim())
+      .filter((e): e is string => !!e)
+      .filter((e) => {
+        const k = e.toLowerCase()
+        if (vistos.has(k)) return false
+        vistos.add(k)
+        return true
+      })
+  }, [initialTo, toOptions])
 
   const matchedLead = useMemo(() => {
     const target = to.trim().toLowerCase()
@@ -102,19 +125,32 @@ export function NewMessageModal({
         <div>
           <label className="mb-1 block text-xs font-medium text-muted">Enviar desde</label>
           <select className="input" value={from} onChange={(e) => setFrom(e.target.value)}>
-            {aliases.map((a) => <option key={a.email} value={a.email}>{a.label} — {a.email}</option>)}
+            {/* El guion solo si hay etiqueta: los alias configurados a mano
+                suelen venir sin `label`, y salia un "— correo@..." suelto. */}
+            {aliases.map((a) => (
+              <option key={a.email} value={a.email}>{a.label?.trim() ? `${a.label} — ${a.email}` : a.email}</option>
+            ))}
           </select>
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-muted">Para</label>
-          <Input
-            type="email"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            placeholder="destinatario@ejemplo.com"
-            list="leads-emails"
-            disabled={lockTo}
-          />
+          {opcionesTo.length > 1 ? (
+            <select className="input" value={to} onChange={(e) => setTo(e.target.value)}>
+              {opcionesTo.map((e) => <option key={e} value={e}>{e}</option>)}
+            </select>
+          ) : (
+            <Input
+              type="email"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="destinatario@ejemplo.com"
+              list="leads-emails"
+              disabled={lockTo}
+            />
+          )}
+          {opcionesTo.length > 1 && (
+            <p className="mt-1 text-[11px] text-muted">Este lead tiene {opcionesTo.length} correos: elige a cual escribir.</p>
+          )}
           <datalist id="leads-emails">
             {allEmails.map(({ email, empresa }) => <option key={email} value={email}>{empresa}</option>)}
           </datalist>

@@ -1,3 +1,4 @@
+import type React from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { Mail, MessageCircle, Phone, Clock, AlertTriangle, ArrowRight, History, Trash2, Pencil } from 'lucide-react'
@@ -7,7 +8,7 @@ import { SITUACION_META, situacionLead, textoProximo, textoUltimoContacto, touch
 import { today } from '@/lib/followUps'
 import type { Lead } from '@/types'
 
-export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onOpen: (l: Lead) => void; onDelete?: (l: Lead) => void; onEdit?: (l: Lead) => void }) {
+export function KanbanCard({ lead, onOpen, onDelete, onEdit, onEmail }: { lead: Lead; onOpen: (l: Lead) => void; onDelete?: (l: Lead) => void; onEdit?: (l: Lead) => void; onEmail?: (l: Lead) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
     data: { lead },
@@ -28,6 +29,7 @@ export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onO
   // que una tarjeta con sobre podia no tener email y una con WhatsApp
   // confirmado no lo ensenaba. Ahora cada icono significa "esto existe y se
   // puede usar ahora mismo", y el del canal principal va resaltado.
+  const emails = (lead.emails?.length ? lead.emails : [lead.email]).filter(Boolean) as string[]
   const canales = [
     lead.whatsapp && {
       key: 'whatsapp',
@@ -48,12 +50,15 @@ export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onO
     lead.email && {
       key: 'email',
       icon: Mail,
-      href: `mailto:${lead.email}`,
+      // Con composer, el sobre escribe dentro del CRM (y deja registrado el
+      // envio); sin el, al menos abre el cliente de correo del sistema.
+      href: onEmail ? undefined : `mailto:${lead.email}`,
       externo: false,
-      title: `Email: ${lead.email}`,
+      title: emails.length > 1 ? `Escribir (${emails.length} correos)` : `Escribir a ${lead.email}`,
       color: 'text-primary-500',
+      onClick: onEmail ? () => onEmail(lead) : undefined,
     },
-  ].filter(Boolean) as { key: string; icon: typeof Mail; href: string; externo: boolean; title: string; color: string }[]
+  ].filter(Boolean) as { key: string; icon: typeof Mail; href?: string; externo: boolean; title: string; color: string; onClick?: () => void }[]
 
   return (
     <div
@@ -158,23 +163,38 @@ export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onO
             <span className="text-[10px] italic text-muted/70">Sin contacto</span>
           ) : canales.map((c) => {
             const Icon = c.icon
-            return (
+            const clase = cn(
+              'flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-surface-2',
+              c.color,
+              lead.canalPrincipal !== c.key && 'opacity-60 hover:opacity-100',
+            )
+            // La tarjeta entera arrastra y abre la ficha: sin frenar el evento
+            // aqui, tocar el icono te abriria el drawer en vez de escribir, o
+            // empezaria un drag a media pulsacion.
+            const frenar = {
+              onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+            }
+            return c.onClick ? (
+              <button
+                key={c.key}
+                type="button"
+                title={c.title}
+                onClick={(e) => { e.stopPropagation(); c.onClick!() }}
+                {...frenar}
+                className={clase}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </button>
+            ) : (
               <a
                 key={c.key}
                 href={c.href}
                 target={c.externo ? '_blank' : undefined}
                 rel={c.externo ? 'noreferrer' : undefined}
                 title={c.title}
-                // La tarjeta entera arrastra y abre la ficha: sin frenar el
-                // evento aqui, tocar el icono te abriria el drawer en vez de
-                // escribir, o empezaria un drag a media pulsacion.
                 onClick={(e) => e.stopPropagation()}
-                onPointerDown={(e) => e.stopPropagation()}
-                className={cn(
-                  'flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-surface-2',
-                  c.color,
-                  lead.canalPrincipal !== c.key && 'opacity-60 hover:opacity-100',
-                )}
+                {...frenar}
+                className={clase}
               >
                 <Icon className="h-3.5 w-3.5" />
               </a>
