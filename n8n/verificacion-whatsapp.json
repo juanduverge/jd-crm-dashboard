@@ -103,7 +103,7 @@
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ limite: 60 }) }}",
         "options": {
-          "timeout": 900000
+          "timeout": 2700000
         }
       },
       "id": "wa-ver-0006",

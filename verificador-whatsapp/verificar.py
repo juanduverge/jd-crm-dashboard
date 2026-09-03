@@ -364,29 +364,54 @@ def avisar(texto):
 
 
 # --- Leer el veredicto -----------------------------------------
+def _copiar_wa_db():
+    """
+    Trae una copia de wa.db + su WAL y devuelve la ruta local.
+
+    Se trabaja sobre una COPIA. Abrir el original mientras WhatsApp lo usa
+    puede corromperlo y costar el registro del número.
+
+    Los dos ficheros se copian en UNA sola orden. Copiarlos por separado abría
+    una ventana en la que WhatsApp podía volcar el WAL entre una copia y otra:
+    la pareja quedaba descuadrada y sqlite abría con «database disk image is
+    malformed» (visto el 3-sep-2026, dos pasadas seguidas perdidas).
+
+    El `-shm` no se copia a propósito: es memoria compartida entre procesos,
+    no dato. Un `-shm` de otra ejecución estorba a la recuperación del WAL;
+    sqlite lo reconstruye solo a partir del WAL.
+    """
+    tmp = tempfile.mkdtemp()
+    # Si no hubiera WAL, el `||` deja al menos el fichero principal.
+    adb("shell", f"cp {WA_DB} {WA_DB}-wal /sdcard/ 2>/dev/null || cp {WA_DB} /sdcard/wa.db")
+    adb("pull", "/sdcard/wa.db", f"{tmp}/wa.db", timeout=300)
+    subprocess.run(
+        ["adb", "-s", ADB_HOST, "pull", "/sdcard/wa.db-wal", f"{tmp}/wa.db-wal"],
+        capture_output=True, timeout=300,
+    )
+    return tmp
+
+
 def leer_veredictos():
     """
     Devuelve {dígitos: True/False} según `wa_contacts.is_whatsapp_user`.
 
-    Se trabaja sobre una COPIA de wa.db. Abrir el original mientras WhatsApp
-    lo usa puede corromperlo y costar el registro del número.
+    Si la copia sale descuadrada se reintenta: es un problema del instante en
+    que se copió, no del Android. Rendirse a la primera tira la pasada entera
+    y deja sesenta leads sin verificar por un fallo de medio segundo.
     """
-    tmp = tempfile.mkdtemp()
-    adb("shell", "cp", WA_DB, "/sdcard/wa.db")
-    # El WAL guarda escrituras que aún no están en el fichero principal. Sin
-    # él se leería una foto vieja: contactos recién sincronizados faltarían.
-    for extra in ("-wal", "-shm"):
-        subprocess.run(
-            ["adb", "-s", ADB_HOST, "shell", "cp", WA_DB + extra, "/sdcard/wa.db" + extra],
-            capture_output=True, timeout=60,
-        )
-    adb("pull", "/sdcard/wa.db", f"{tmp}/wa.db", timeout=300)
-    for extra in ("-wal", "-shm"):
-        subprocess.run(
-            ["adb", "-s", ADB_HOST, "pull", "/sdcard/wa.db" + extra, f"{tmp}/wa.db{extra}"],
-            capture_output=True, timeout=300,
-        )
+    ultimo = None
+    for intento in range(1, 4):
+        tmp = _copiar_wa_db()
+        try:
+            return _leer_veredictos_de(tmp)
+        except sqlite3.DatabaseError as e:
+            ultimo = e
+            print(f"copia de wa.db ilegible (intento {intento}/3): {e}", flush=True)
+            time.sleep(5)
+    raise FalloDeLectura(f"wa.db no se pudo leer en tres intentos: {ultimo}")
 
+
+def _leer_veredictos_de(tmp):
     con = sqlite3.connect(f"file:{tmp}/wa.db?mode=ro", uri=True)
     try:
         cols = {r[1] for r in con.execute("pragma table_info(wa_contacts)")}
