@@ -21,6 +21,7 @@ import { AyudaBusqueda } from './AyudaBusqueda'
 import { TouchFilterBar } from '@/components/TouchFilterBar'
 import { useEsMovil } from '@/hooks/useMediaQuery'
 import { pasaFiltroToque } from '@/lib/touches'
+import { PrefFilterBar, pasaPrefs, type PrefKey } from '@/components/PrefFilterBar'
 import { today } from '@/lib/followUps'
 import type { Lead } from '@/types'
 import type { LeadImport } from '@/services/leadsService'
@@ -36,14 +37,12 @@ function fmtShort(v?: string): string {
   return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-/** Pestañas rápidas por estado (Todos + favoritos + preferencia + etapas). */
-const STATE_TABS: { key: 'todos' | 'favoritos' | 'megusta' | 'descartados' | Lead['estado']; label: string }[] = [
+/** Pestañas rápidas por estado (Todos + etapas del pipeline). */
+const STATE_TABS: { key: 'todos' | Lead['estado']; label: string }[] = [
   { key: 'todos', label: 'Todos' },
-  { key: 'favoritos', label: 'Favoritos' },
-  { key: 'megusta', label: 'Me gusta' },
-  { key: 'descartados', label: 'No me gusta' },
   ...PIPELINE_STAGES.map((s) => ({ key: s.id as Lead['estado'], label: s.label })),
 ]
+
 
 /** Filtros inteligentes adicionales (aditivos, un solo activo a la vez). */
 const SMART_PILLS: { key: 'prioridad' | 'conIA' | 'sinIA' | 'sinResponsable'; label: string }[] = [
@@ -65,7 +64,8 @@ export function LeadsPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [fNicho, setFNicho] = useState('')
   const [fScoreMin, setFScoreMin] = useState(0)
-  const [tab, setTab] = useState<'todos' | 'favoritos' | 'megusta' | 'descartados' | Lead['estado']>('todos')
+  const [tab, setTab] = useState<'todos' | Lead['estado']>('todos')
+  const [prefs, setPrefs] = useState<PrefKey[]>([])
   const [fToque, setFToque] = useState('')
   const [smart, setSmart] = useState<'' | 'prioridad' | 'conIA' | 'sinIA' | 'sinResponsable'>('')
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'score', dir: 'desc' })
@@ -102,7 +102,7 @@ export function LeadsPage() {
   // cambias de pestaña, de orden o de búsqueda —ahí sí quieres reordenar— y
   // también a mano con el botón «Reordenar».
   const [anclas, setAnclas] = useState<Map<string, number> | null>(null)
-  useEffect(() => { setAnclas(null) }, [tab, sort, search, fNicho, fScoreMin, fToque, smart])
+  useEffect(() => { setAnclas(null) }, [tab, prefs, sort, search, fNicho, fScoreMin, fToque, smart])
   const deleteLead = useDeleteLead()
   const nichos = useNichos()
   const ultimaImportacion = useUltimaImportacion().data
@@ -119,17 +119,22 @@ export function LeadsPage() {
     )
   }, [leads, search, fNicho, fScoreMin])
 
-  // Conteos por pestaña, calculados sobre la base (respetan búsqueda/filtros).
+  // Conteos por pestaña, calculados sobre la base (respetan búsqueda/filtros)
+  // y las marcas activas, para que el número cuadre con lo que verás al pulsar.
   const counts = useMemo(() => {
-    const c: Record<string, number> = {
-      todos: base.length,
-      favoritos: base.filter((l) => l.favorito).length,
-      megusta: base.filter((l) => l.meGusta).length,
-      descartados: base.filter((l) => l.descartado).length,
-    }
-    for (const s of PIPELINE_STAGES) c[s.id] = base.filter((l) => l.estado === s.id).length
+    const conPrefs = base.filter((l) => pasaPrefs(l, prefs))
+    const c: Record<string, number> = { todos: conPrefs.length }
+    for (const s of PIPELINE_STAGES) c[s.id] = conPrefs.filter((l) => l.estado === s.id).length
     return c
-  }, [base])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base, prefs])
+
+  // Base de conteo de las marcas: dentro de la pestaña elegida. Así en
+  // «Contactado» el 👍 dice cuántos contactados te gustan, no cuántos hay.
+  const baseMarcas = useMemo(
+    () => base.filter((l) => tab === 'todos' || l.estado === tab),
+    [base, tab],
+  )
 
   const smartMatch = (l: Lead) => {
     switch (smart) {
@@ -147,15 +152,12 @@ export function LeadsPage() {
   // aplicadas, para que sus números coincidan con la tabla resultante.
   const conPestana = useMemo(
     () => base.filter((l) =>
-      (tab === 'todos' ? true
-        : tab === 'favoritos' ? l.favorito
-        : tab === 'megusta' ? l.meGusta
-        : tab === 'descartados' ? l.descartado
-        : l.estado === tab) &&
+      (tab === 'todos' || l.estado === tab) &&
+      pasaPrefs(l, prefs) &&
       smartMatch(l),
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [base, tab, smart],
+    [base, tab, prefs, smart],
   )
 
   const hoy = today()
@@ -320,7 +322,6 @@ export function LeadsPage() {
         <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-1 sin-barra scroll-aislado sm:-mx-1 sm:px-1">
           {STATE_TABS.map((t) => {
             const active = tab === t.key
-            const isFav = t.key === 'favoritos'
             return (
               <button
                 key={t.key}
@@ -328,13 +329,10 @@ export function LeadsPage() {
                 className={cn(
                   'inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
                   active
-                    ? isFav
-                      ? 'border-amber-400 bg-amber-400/10 text-amber-500'
-                      : 'border-primary-400 bg-primary-400/10 text-primary-600 dark:text-primary-300'
+                    ? 'border-primary-400 bg-primary-400/10 text-primary-600 dark:text-primary-300'
                     : 'border-border text-muted hover:text-fg',
                 )}
               >
-                {isFav && <Star className={cn('h-3.5 w-3.5', active && 'fill-amber-400')} />}
                 {t.label}
                 <span className={cn('rounded-full px-1.5 text-[10px] tabular-nums', active ? 'bg-white/50 text-fg dark:bg-black/25' : 'bg-surface-2 text-muted')}>
                   {counts[t.key] ?? 0}
@@ -343,6 +341,9 @@ export function LeadsPage() {
             )
           })}
         </div>
+
+        {/* Marcas personales: se suman al estado de arriba, no lo sustituyen. */}
+        <PrefFilterBar leads={baseMarcas} value={prefs} onChange={setPrefs} />
 
         {/* Filtros inteligentes */}
         <div className="flex flex-wrap gap-1.5">

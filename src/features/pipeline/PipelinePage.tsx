@@ -24,6 +24,7 @@ import { HScrollBoard } from './HScrollBoard'
 import { CerrarDropZone, CERRAR_DROP_ID } from './CerrarDropZone'
 import { CerrarLeadModal } from './CerrarLeadModal'
 import { TouchFilterBar } from '@/components/TouchFilterBar'
+import { PrefFilterBar, pasaPrefs, type PrefKey } from '@/components/PrefFilterBar'
 import { pasaFiltroToque } from '@/lib/touches'
 import { today } from '@/lib/followUps'
 import type { Lead, LeadStatus } from '@/types'
@@ -57,6 +58,7 @@ export function PipelinePage() {
   // Filtro de toque/situación: vive fuera del panel plegable porque es la
   // pregunta que más se hace en el tablero ("¿a quién le toca hoy?").
   const [fToque, setFToque] = useState('')
+  const [prefs, setPrefs] = useState<PrefKey[]>([])
   const [activeLead, setActiveLead] = useState<Lead | null>(null)
   // El Resumen enlaza aquí con ?lead=<id> desde «Necesitan atención»: llegas
   // con la ficha ya abierta en vez de tener que buscarla en el tablero.
@@ -104,6 +106,22 @@ export function PipelinePage() {
   // Base para los recuentos de la barra de toques: todo lo demás ya aplicado,
   // para que cada píldora enseñe el número real que va a dar al pulsarla.
   const baseFiltrada = useMemo(
+    () =>
+      activos.filter(
+        (l) =>
+          (!fNicho || l.nicho === fNicho) &&
+          (!fPrioridad || l.prioridad === fPrioridad) &&
+          (!fResponsable || l.responsable === fResponsable) &&
+          (l.valorEstimado || 0) >= fValorMin &&
+          pasaPrefs(l, prefs),
+      ),
+    [activos, fNicho, fPrioridad, fResponsable, fValorMin, prefs],
+  )
+
+  // Conteo de las marcas: sobre el pipeline ya filtrado por lo demás, pero
+  // sin aplicar las propias marcas —si no, la que está activa se contaría a
+  // sí misma y las otras dos saldrían siempre a cero.
+  const baseMarcas = useMemo(
     () =>
       activos.filter(
         (l) =>
@@ -231,8 +249,11 @@ export function PipelinePage() {
         value={fToque}
         onChange={setFToque}
         gruposVisibles={['toque', 'situacion']}
-        className="mb-4"
+        className="mb-3"
       />
+
+      {/* Marcas personales: se suman a los filtros de arriba, no los sustituyen. */}
+      <PrefFilterBar leads={baseMarcas} value={prefs} onChange={setPrefs} className="mb-4" />
 
       {showFilters && (
         <div className="card mb-4 grid grid-cols-1 gap-3 p-3 sm:flex sm:flex-wrap sm:items-end">
@@ -281,8 +302,8 @@ export function PipelinePage() {
               ? 'El pipeline tiene leads, pero ninguno está en este punto de la secuencia.'
               : 'Ajusta los filtros o añade una oportunidad para empezar.'}
           </p>
-          {(fToque || fNicho || fPrioridad || fResponsable || fValorMin > 0) && (
-            <Button variant="outline" size="sm" onClick={() => { setFToque(''); clearFilters() }}>
+          {(fToque || fNicho || fPrioridad || fResponsable || fValorMin > 0 || prefs.length > 0) && (
+            <Button variant="outline" size="sm" onClick={() => { setFToque(''); setPrefs([]); clearFilters() }}>
               <X className="h-4 w-4" /> Quitar filtros
             </Button>
           )}
