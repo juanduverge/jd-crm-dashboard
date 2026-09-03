@@ -1,6 +1,11 @@
 {
+  "updatedAt": "2026-08-12T16:20:25.964Z",
+  "createdAt": "2026-08-12T15:56:49.294Z",
   "id": "jdFase2Enriquec",
   "name": "Fase 2 - Enriquecimiento de Contacto",
+  "description": null,
+  "active": true,
+  "isArchived": false,
   "nodes": [
     {
       "parameters": {},
@@ -75,7 +80,13 @@
         -220,
         220
       ],
-      "notes": "Quien necesita enriquecerse lo decide Supabase (leads_para_enriquecer), no un IF de este workflow. Devuelve {id, empresa, web} de los que tienen web y les falta email, whatsapp o instagram, sin repetir antes de 30 dias."
+      "notes": "Quien necesita enriquecerse lo decide Supabase (leads_para_enriquecer), no un IF de este workflow. Devuelve {id, empresa, web} de los que tienen web y les falta email, whatsapp o instagram, sin repetir antes de 30 dias.",
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      }
     },
     {
       "parameters": {
@@ -123,7 +134,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Extrae contactos publicos del HTML del negocio.\n//\n// REGLA: lo que no se encuentra se OMITE del objeto, nunca se manda como \"\".\n// enriquecer_lead sólo rellena huecos, pero mandar \"\" seria mentirle. El\n// workflow anterior escribia \"\" sobre el Facebook y el WhatsApp existentes y\n// los borraba en cada pasada.\n\nconst lead = $('Loop Over Items').item.json;\nconst html = (typeof $json.data === 'string' ? $json.data : '') || '';\n\nconst datos = {};\n\nif (html.length < 200) {\n  // No hubo web utilizable. Se sella igualmente para no reintentar en bucle.\n  return [{ json: { id: lead.id, empresa: lead.empresa, datos: { status: 'error' } } }];\n}\n\n// --- Emails ---------------------------------------------------------\nconst emails = [...new Set((html.match(/[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g) || [])\n  .map(e => e.toLowerCase()))]\n  .filter(e =>\n    !/(example|domain|sentry|wix|schema|godaddy|squarespace|\\.png|\\.jpe?g|\\.gif|\\.svg|\\.css|\\.js)$/i.test(e) &&\n    !/(example|sentry\\.io|wixpress|\\.wixsite)/i.test(e)\n  );\nif (emails.length) datos.emails = emails.slice(0, 10);\n\n// --- WhatsApp -------------------------------------------------------\n// SOLO lo que la empresa publica en su propia web. No se deduce del telefono:\n// saber si un numero cualquiera tiene WhatsApp es otra cosa y la hace el\n// verificador aparte (whatsapp_source = 'wa_probe'). Aqui, si no hay enlace\n// publico, el campo se queda vacio.\n//\n// Cubre las formas en que aparece un enlace de WhatsApp en una web real:\n//   wa.me/34600…            enlace corto oficial\n//   wa.link/abc  api.whatsapp.com/send?phone=…  web.whatsapp.com/send?phone=…\n//   whatsapp://send?phone=…  esquema de app, comun en botones moviles\n// Acepta cualquier parametro antes de `phone=` (`?text=hola&amp;phone=…` es\n// lo que genera medio WordPress), `&amp;` sin decodificar y `%2B` por el +.\n// Las tres formas rompian la deteccion en silencio.\nconst RE_WA = /(?:wa\\.me\\/|wa\\.link\\/|(?:(?:api\\.|web\\.)?whatsapp\\.com\\/send|whatsapp:\\/\\/send)\\/?\\?[^\"'\\s<>]*?phone=)(?:\\+|%2B)?([0-9]{7,15})/gi;\nconst waNums = [...new Set([...html.matchAll(RE_WA)].map((m) => '+' + m[1]))];\nif (waNums.length) {\n  datos.whatsapp = waNums[0];\n  // Una empresa puede publicar varios (ventas, soporte). Se guardan todos:\n  // `registrar_whatsapp` los une con los que confirme el verificador.\n  datos.whatsapp_numeros = waNums;\n  datos.whatsapp_source = 'wa_link_web';\n}\n\n// --- Redes sociales -------------------------------------------------\n// Se mira tambien el JSON-LD (`sameAs`), que es donde muchas webs declaran\n// sus perfiles de forma estructurada y sin basura de tracking.\nlet urlsLd = [];\nfor (const m of html.matchAll(/<script[^>]+application\\/ld\\+json[^>]*>([\\s\\S]*?)<\\/script>/gi)) {\n  try {\n    const json = JSON.parse(m[1].trim());\n    const walk = (o) => {\n      if (!o || typeof o !== 'object') return;\n      if (Array.isArray(o)) return o.forEach(walk);\n      if (o.sameAs) urlsLd = urlsLd.concat([].concat(o.sameAs));\n      Object.values(o).forEach(walk);\n    };\n    walk(json);\n  } catch (e) { /* JSON-LD roto: se ignora y seguimos con los regex */ }\n}\n\nconst redes = {\n  instagram: /(?:https?:\\/\\/)?(?:www\\.)?instagram\\.com\\/((?!p\\/|reel\\/|explore\\/|accounts\\/|stories\\/|tv\\/|sharer)[a-zA-Z0-9_.]{2,30})/i,\n  facebook:  /(?:https?:\\/\\/)?(?:www\\.)?facebook\\.com\\/((?!sharer|share|dialog|plugins|tr\\b|photo|events|login|groups\\/|watch|marketplace|gaming)[a-zA-Z0-9_.\\-]{2,80})/i,\n  linkedin:  /(?:https?:\\/\\/)?(?:[a-z]{2,3}\\.)?linkedin\\.com\\/(?:company|in)\\/([a-zA-Z0-9_.\\-]{2,80})/i,\n  youtube:   /(?:https?:\\/\\/)?(?:www\\.)?youtube\\.com\\/((?:@|c\\/|channel\\/|user\\/)[a-zA-Z0-9_.\\-]{2,60})/i,\n  tiktok:    /(?:https?:\\/\\/)?(?:www\\.)?tiktok\\.com\\/(@[a-zA-Z0-9_.]{2,30})/i,\n  twitter:   /(?:https?:\\/\\/)?(?:www\\.)?(?:twitter|x)\\.com\\/((?!intent|share|home|search)[a-zA-Z0-9_]{2,15})/i,\n  pinterest: /(?:https?:\\/\\/)?(?:[a-z]{2,3}\\.)?pinterest\\.[a-z.]{2,6}\\/([a-zA-Z0-9_\\-]{2,40})/i,\n};\n\nconst dominios = {\n  instagram: 'https://www.instagram.com/', facebook: 'https://www.facebook.com/',\n  linkedin: 'https://www.linkedin.com/', youtube: 'https://www.youtube.com/',\n  tiktok: 'https://www.tiktok.com/', twitter: 'https://x.com/',\n  pinterest: 'https://www.pinterest.com/',\n};\n\nconst fuente = urlsLd.join('\\n') + '\\n' + html;\nfor (const [red, re] of Object.entries(redes)) {\n  const m = fuente.match(re);\n  if (!m) continue;\n  // LinkedIn conserva el prefijo company/in; el resto se reconstruye limpio.\n  if (red === 'linkedin') {\n    const full = m[0].startsWith('http') ? m[0] : 'https://' + m[0].replace(/^\\/+/, '');\n    datos.linkedin = full;\n  } else {\n    datos[red] = dominios[red] + m[1].replace(/^\\//, '');\n  }\n}\n\n// --- Telefonos ------------------------------------------------------\n// Solo los declarados en enlaces tel:, que son intencionados. Un regex suelto\n// sobre el HTML confunde codigos postales, precios y numeros de licencia.\nconst tels = [...new Set([...html.matchAll(/href=[\"']tel:([+0-9().\\s\\-]{7,25})[\"']/gi)]\n  .map(m => m[1].replace(/[^\\d+]/g, ''))\n  .filter(t => t.replace(/\\D/g, '').length >= 7))];\nif (tels.length) datos.telefonos = tels.slice(0, 5);\n\nreturn [{ json: { id: lead.id, empresa: lead.empresa, datos } }];"
+        "jsCode": "// Extrae contactos publicos del HTML del negocio.\n//\n// REGLA: lo que no se encuentra se OMITE del objeto, nunca se manda como \"\".\n// enriquecer_lead sólo rellena huecos, pero mandar \"\" seria mentirle. El\n// workflow anterior escribia \"\" sobre el Facebook y el WhatsApp existentes y\n// los borraba en cada pasada.\n\nconst lead = $('Loop Over Items').item.json;\nconst html = (typeof $json.data === 'string' ? $json.data : '') || '';\n\nconst datos = {};\n\nif (html.length < 200) {\n  // No hubo web utilizable. Se sella igualmente para no reintentar en bucle.\n  return [{ json: { id: lead.id, empresa: lead.empresa, datos: { status: 'error' } } }];\n}\n\n// --- Emails ---------------------------------------------------------\nconst emails = [...new Set((html.match(/[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}/g) || [])\n  .map(e => e.toLowerCase()))]\n  .filter(e =>\n    !/(example|domain|sentry|wix|schema|godaddy|squarespace|\\.png|\\.jpe?g|\\.gif|\\.svg|\\.css|\\.js)$/i.test(e) &&\n    !/(example|sentry\\.io|wixpress|\\.wixsite)/i.test(e)\n  );\nif (emails.length) datos.emails = emails.slice(0, 10);\n\n// --- WhatsApp -------------------------------------------------------\n// SOLO lo que la empresa publica en su propia web. No se deduce del telefono:\n// no existe forma legitima de saber si un numero tiene WhatsApp.\nconst waMatch = [...html.matchAll(/(?:wa\\.me\\/|wa\\.link\\/|(?:api\\.)?whatsapp\\.com\\/send(?:\\/)?[?&]phone=)\\+?([0-9]{7,15})/gi)];\nif (waMatch.length) {\n  datos.whatsapp = '+' + waMatch[0][1];\n  datos.whatsapp_source = 'wa_link_web';\n}\n\n// --- Redes sociales -------------------------------------------------\n// Se mira tambien el JSON-LD (`sameAs`), que es donde muchas webs declaran\n// sus perfiles de forma estructurada y sin basura de tracking.\nlet urlsLd = [];\nfor (const m of html.matchAll(/<script[^>]+application\\/ld\\+json[^>]*>([\\s\\S]*?)<\\/script>/gi)) {\n  try {\n    const json = JSON.parse(m[1].trim());\n    const walk = (o) => {\n      if (!o || typeof o !== 'object') return;\n      if (Array.isArray(o)) return o.forEach(walk);\n      if (o.sameAs) urlsLd = urlsLd.concat([].concat(o.sameAs));\n      Object.values(o).forEach(walk);\n    };\n    walk(json);\n  } catch (e) { /* JSON-LD roto: se ignora y seguimos con los regex */ }\n}\n\nconst redes = {\n  instagram: /(?:https?:\\/\\/)?(?:www\\.)?instagram\\.com\\/((?!p\\/|reel\\/|explore\\/|accounts\\/|stories\\/|tv\\/|sharer)[a-zA-Z0-9_.]{2,30})/i,\n  facebook:  /(?:https?:\\/\\/)?(?:www\\.)?facebook\\.com\\/((?!sharer|share|dialog|plugins|tr\\b|photo|events|login|groups\\/|watch|marketplace|gaming)[a-zA-Z0-9_.\\-]{2,80})/i,\n  linkedin:  /(?:https?:\\/\\/)?(?:[a-z]{2,3}\\.)?linkedin\\.com\\/(?:company|in)\\/([a-zA-Z0-9_.\\-]{2,80})/i,\n  youtube:   /(?:https?:\\/\\/)?(?:www\\.)?youtube\\.com\\/((?:@|c\\/|channel\\/|user\\/)[a-zA-Z0-9_.\\-]{2,60})/i,\n  tiktok:    /(?:https?:\\/\\/)?(?:www\\.)?tiktok\\.com\\/(@[a-zA-Z0-9_.]{2,30})/i,\n  twitter:   /(?:https?:\\/\\/)?(?:www\\.)?(?:twitter|x)\\.com\\/((?!intent|share|home|search)[a-zA-Z0-9_]{2,15})/i,\n  pinterest: /(?:https?:\\/\\/)?(?:[a-z]{2,3}\\.)?pinterest\\.[a-z.]{2,6}\\/([a-zA-Z0-9_\\-]{2,40})/i,\n};\n\nconst dominios = {\n  instagram: 'https://www.instagram.com/', facebook: 'https://www.facebook.com/',\n  linkedin: 'https://www.linkedin.com/', youtube: 'https://www.youtube.com/',\n  tiktok: 'https://www.tiktok.com/', twitter: 'https://x.com/',\n  pinterest: 'https://www.pinterest.com/',\n};\n\nconst fuente = urlsLd.join('\\n') + '\\n' + html;\nfor (const [red, re] of Object.entries(redes)) {\n  const m = fuente.match(re);\n  if (!m) continue;\n  // LinkedIn conserva el prefijo company/in; el resto se reconstruye limpio.\n  if (red === 'linkedin') {\n    const full = m[0].startsWith('http') ? m[0] : 'https://' + m[0].replace(/^\\/+/, '');\n    datos.linkedin = full;\n  } else {\n    datos[red] = dominios[red] + m[1].replace(/^\\//, '');\n  }\n}\n\n// --- Telefonos ------------------------------------------------------\n// Solo los declarados en enlaces tel:, que son intencionados. Un regex suelto\n// sobre el HTML confunde codigos postales, precios y numeros de licencia.\nconst tels = [...new Set([...html.matchAll(/href=[\"']tel:([+0-9().\\s\\-]{7,25})[\"']/gi)]\n  .map(m => m[1].replace(/[^\\d+]/g, ''))\n  .filter(t => t.replace(/\\D/g, '').length >= 7))];\nif (tels.length) datos.telefonos = tels.slice(0, 5);\n\nreturn [{ json: { id: lead.id, empresa: lead.empresa, datos } }];"
       },
       "id": "f2-extraer-0007",
       "name": "Extraer Contactos",
@@ -165,7 +176,13 @@
         220
       ],
       "onError": "continueRegularOutput",
-      "notes": "enriquecer_lead SOLO rellena huecos. Es imposible por construccion que este paso borre un dato existente, que es justo lo que hacia el 'Guardar en Sheets' anterior."
+      "notes": "enriquecer_lead SOLO rellena huecos. Es imposible por construccion que este paso borre un dato existente, que es justo lo que hacia el 'Guardar en Sheets' anterior.",
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      }
     },
     {
       "parameters": {
@@ -183,6 +200,93 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "html-len-check",
+              "leftValue": "={{ ($json.data || \"\").length }}",
+              "rightValue": 500,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f2-html-check",
+      "name": "¿HTML suficiente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        220
+      ],
+      "onError": "continueRegularOutput",
+      "notes": "Menos de 500 caracteres = la web monta el contenido con JS. Portado del workflow anterior."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/apify~website-content-crawler/run-sync-get-dataset-items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ startUrls: [{ url: $('Loop Over Items').item.json.web }], maxCrawlPages: 1, maxCrawlDepth: 0, crawlerType: 'playwright:firefox' }) }}",
+        "options": {
+          "timeout": 180000,
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "f2-apify-crawl",
+      "name": "Apify Crawl",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        380
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PrIIHdnVnVTEaUFJ",
+          "name": "Apify - JDDeveloper (v2)"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Apify devuelve el dataset como texto JSON: se concatena el contenido de\n// todas las paginas para que \"Extraer Contactos\" lo trate igual que el HTML.\nconst raw = $input.item.json;\nlet items = [];\ntry {\n  const str = typeof raw.data === \"string\" ? raw.data : JSON.stringify(raw);\n  const parsed = JSON.parse(str);\n  items = Array.isArray(parsed) ? parsed : [parsed];\n} catch (e) {\n  items = [];\n}\n\nconst text = items\n  .map(r => r.text || r.markdown || r.html || \"\")\n  .join(\"\\n\\n\")\n  .trim();\n\nreturn { json: { data: text, _from_apify: true } };\n"
+      },
+      "id": "f2-apify-norm",
+      "name": "Normalizar Apify",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        380
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
         "workflowId": {
           "__rl": true,
           "value": "jdVerifWhats",
@@ -197,8 +301,8 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        240,
-        420
+        220,
+        60
       ],
       "notes": "Cuando el enriquecimiento termina el lote, arranca la verificacion de WhatsApp sin esperarla. Aparte, igual que Fase 2 va aparte de Fase 1: la verificacion tarda minutos y un fallo suyo no debe tumbar el enriquecimiento, que ya termino su trabajo."
     }
@@ -270,7 +374,7 @@
       "main": [
         [
           {
-            "node": "Extraer Contactos",
+            "node": "¿HTML suficiente?",
             "type": "main",
             "index": 0
           }
@@ -309,10 +413,92 @@
           }
         ]
       ]
+    },
+    "¿HTML suficiente?": {
+      "main": [
+        [
+          {
+            "node": "Extraer Contactos",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Apify Crawl",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify Crawl": {
+      "main": [
+        [
+          {
+            "node": "Normalizar Apify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizar Apify": {
+      "main": [
+        [
+          {
+            "node": "Extraer Contactos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "settings": {
     "executionOrder": "v1"
   },
-  "pinData": {}
+  "staticData": {
+    "node:Cada 30 min (red de seguridad)": {
+      "recurrenceRules": [
+        null
+      ],
+      "recurrenceRuleSignatures": [
+        null
+      ]
+    }
+  },
+  "meta": null,
+  "nodeGroups": [],
+  "pinData": {},
+  "versionId": "d7cf9fa7-4fe9-4e5e-b70e-1349fafe8bec",
+  "activeVersionId": "d7cf9fa7-4fe9-4e5e-b70e-1349fafe8bec",
+  "versionCounter": 3,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "shared": [
+    {
+      "updatedAt": "2026-08-12T15:56:49.294Z",
+      "createdAt": "2026-08-12T15:56:49.294Z",
+      "role": "workflow:owner",
+      "workflowId": "jdFase2Enriquec",
+      "projectId": "76qeraW7mGJbQvUS",
+      "project": {
+        "updatedAt": "2026-07-10T20:53:17.652Z",
+        "createdAt": "2026-07-10T20:02:48.826Z",
+        "id": "76qeraW7mGJbQvUS",
+        "name": "JD Developer <juanduvergedeveloper@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "customTelemetryTags": [],
+        "creatorId": "26c17935-957f-49a1-ab8e-bc134fa0df2c"
+      }
+    }
+  ],
+  "versionMetadata": {
+    "name": null,
+    "description": null
+  }
 }
