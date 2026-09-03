@@ -1,0 +1,129 @@
+# =============================================================
+# Verificación de WhatsApp — stack aparte
+#
+# POR QUÉ UN COMPOSE PROPIO Y NO `docker-compose.dominio.yml`:
+#
+# Ese fichero levanta el CRM, n8n y Postgres. Es producción. Esto de aquí es
+# un Android completo en modo privilegiado; si un día hay que reiniciarlo,
+# reconstruirlo o borrarlo entero, tiene que poder hacerse sin rozar lo otro.
+# Proyecto Docker distinto (`jd-wa`), red distinta, ciclo de vida distinto.
+#
+# LÍMITES DE MEMORIA: el servidor tiene 11 GB y Postgres + n8n viven ahí.
+# Android es capaz de comerse todo lo que le dejes. Los `mem_limit` no son
+# una optimización, son lo que impide que este stack tire el CRM.
+#
+# NADA DE ESTO SE EXPONE A INTERNET. El adb y el panel escuchan sólo en la
+# LAN de casa; Cloudflare Tunnel no los publica.
+# =============================================================
+services:
+  # --- El Android ---------------------------------------------
+  android:
+    image: redroid/redroid:13.0.0-latest
+    container_name: jd-wa-android
+    # redroid necesita privileged: monta binder y arranca un init de Android.
+    # Es la razón por la que este stack vive aislado del de producción.
+    privileged: true
+    restart: unless-stopped
+    mem_limit: 3g
+    cpus: 2.0
+    devices:
+      # Sin esto, /dev/input queda vacío dentro del contenedor: redroid no
+      # puede crear el touchscreen virtual. Los toques a botones parecen
+      # funcionar igual (el clic no exige "foco"), pero escribir en un campo
+      # de texto sí, y por eso el registro de WhatsApp se atascaba justo ahí.
+      - /dev/uinput
+    ports:
+      # Sólo LAN. `192.168.18.26:` delante del puerto es lo que impide que
+      # Docker lo abra en todas las interfaces (su comportamiento por defecto,
+      # que además se salta el firewall del host).
+      - "192.168.18.26:5555:5555"
+    volumes:
+      # El estado del Android: la sesión de WhatsApp registrada vive aquí.
+      # Copiar este volumen = copia de seguridad del registro. Borrarlo =
+      # hay que volver a registrar el número con el SMS.
+      - android_data:/data
+    command:
+      - androidboot.redroid_gpu_mode=guest   # sin GPU: es un servidor headless
+      - androidboot.use_memfd=true
+      # Sin esto, uinputd (el servicio que crea el touchscreen virtual a
+      # partir de /dev/uinput) ni siquiera arranca: su .rc exige esta
+      # propiedad a 1. Sin touchscreen, los toques a botones simples
+      # "cuelan" pero un campo de texto nunca gana el foco real.
+      - androidboot.use_redroid_stream=1
+      - androidboot.redroid_net_ndns=1
+      - androidboot.redroid_net_dns1=1.1.1.1
+
+  # --- El panel ------------------------------------------------
+  # No hay servicio aparte: el panel vive dentro del verificador, en
+  # /panel. Son capturas bajo demanda con toque y teclado — suficiente para
+  # registrar el número y para mirar si algo se atasca, y funciona desde el
+  # móvil sin instalar nada. Un ws-scrcpy completo pedía compilar Node en el
+  # servidor a cambio de vídeo en directo que aquí no hace falta.
+
+  # --- El que hace el trabajo ---------------------------------
+  verificador:
+    build: .
+    container_name: jd-wa-verificador
+    restart: unless-stopped
+    mem_limit: 512m
+    depends_on:
+      - android
+    environment:
+      ADB_HOST: android:5555
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      # Cuántos leads por pasada. Cualquier tamaño es seguro para WhatsApp:
+      # sincronizar contactos en bloque es su comportamiento normal.
+      LOTE: ${LOTE:-60}
+      # A quién avisar cuando algo se rompe. Varios números van con comas.
+      # Es la ÚNICA razón por la que este sistema envía mensajes, y nunca
+      # van a un lead.
+      AVISAR_A: ${AVISAR_A:-}
+      # Si se define, el vigilante hace ping aquí cada ronda. Es lo único
+      # que detecta un apagón o una caída de internet: cuando el ping deja
+      # de llegar, el servicio externo avisa. Desde dentro es imposible.
+      LATIDO_URL: ${LATIDO_URL:-}
+      BATERIA_MINIMA: ${BATERIA_MINIMA:-60}
+    ports:
+      # n8n llama aquí, y el panel se abre desde la LAN de casa.
+      # Sigue sin salir a internet: Cloudflare Tunnel no publica este puerto.
+      - "192.168.18.26:8899:8899"
+    volumes:
+      # Para recordar de qué ya avisó y no repetirse en cada ronda.
+      - vigilante_datos:/datos
+      # Sólo lectura: mirar la batería del portátil y si sigue enchufado.
+      - /sys/class/power_supply:/sys/class/power_supply:ro
+      # Sólo para comprobar que los contenedores siguen vivos.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # --- El que vigila ------------------------------------------
+  # Ronda cada pocos minutos y avisa por WhatsApp si algo se rompió.
+  # NO puede avisar de un apagón ni de una caída de internet: el aviso
+  # viajaría por lo mismo que se cayó. Para eso está LATIDO_URL, que deja
+  # que un servicio de fuera note nuestro silencio.
+  vigilante:
+    build: .
+    container_name: jd-wa-vigilante
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on:
+      - verificador
+    environment:
+      ADB_HOST: android:5555
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      AVISAR_A: ${AVISAR_A:-}
+      LATIDO_URL: ${LATIDO_URL:-}
+      BATERIA_MINIMA: ${BATERIA_MINIMA:-60}
+    volumes:
+      - vigilante_datos:/datos
+      - /sys/class/power_supply:/sys/class/power_supply:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # Cada 5 minutos. Más seguido no aporta: los problemas que vigila no
+    # aparecen y desaparecen en segundos, y cada ronda toca el Android.
+    command: >
+      sh -c 'while true; do python -u vigilante.py; sleep 300; done'
+
+volumes:
+  android_data:
+  vigilante_datos:

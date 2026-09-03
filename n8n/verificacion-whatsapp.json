@@ -1,0 +1,197 @@
+{
+  "id": "jdVerifWhats",
+  "name": "Verificacion WhatsApp",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "wa-trig-0001",
+      "name": "Llamado por Fase 2",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        60
+      ],
+      "notes": "Se encadena despues del enriquecimiento: cada tanda nueva de Apify acaba verificada sin que nadie lance nada."
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8,14,20 * * *"
+            }
+          ]
+        }
+      },
+      "id": "wa-cron-0002",
+      "name": "Tres pasadas al dia",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -460,
+        220
+      ],
+      "notes": "Repasa el historico del CRM y recoge lo que quedo pendiente. Tres pasadas y no mas: lo que le llama la atencion a WhatsApp no es el tamano del lote sino un goteo constante de numeros nuevos a todas horas."
+    },
+    {
+      "parameters": {},
+      "id": "wa-man-0003",
+      "name": "Ejecutar a mano (pruebas)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -460,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://192.168.18.26:8899/salud",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "wa-salud-0004",
+      "name": "Hay sesion de WhatsApp?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -200,
+        220
+      ],
+      "notes": "Comprueba que hay una cuenta registrada antes de mover nada. Sin esta puerta, una sesion caida haria una pasada entera que no puede leer nada."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "wa-if-0005",
+      "name": "Si hay sesion",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        20,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.18.26:8899/verificar",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ limite: 60 }) }}",
+        "options": {
+          "timeout": 900000
+        }
+      },
+      "id": "wa-ver-0006",
+      "name": "Verificar lote",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        140
+      ],
+      "notes": "El verificador pide la cola a Supabase, mete los numeros como contactos, espera a que WhatsApp sincronice y escribe el resultado con registrar_whatsapp. Timeout largo a proposito: la sincronizacion tarda minutos. Si algo falla devuelve 500 y NO escribe nada: un fallo nunca se guarda como «no tiene WhatsApp»."
+    },
+    {
+      "parameters": {
+        "content": "=La sesion de WhatsApp no esta lista. No se ha verificado nada, que es lo correcto: sin sesion no hay veredicto. Hay que entrar al panel http://192.168.18.26:8899/panel y registrar el numero.",
+        "height": 200,
+        "width": 380
+      },
+      "id": "wa-nota-0007",
+      "name": "Sin sesion: no se toca nada",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        240,
+        320
+      ]
+    }
+  ],
+  "connections": {
+    "Llamado por Fase 2": {
+      "main": [
+        [
+          {
+            "node": "Hay sesion de WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tres pasadas al dia": {
+      "main": [
+        [
+          {
+            "node": "Hay sesion de WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ejecutar a mano (pruebas)": {
+      "main": [
+        [
+          {
+            "node": "Hay sesion de WhatsApp?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay sesion de WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Si hay sesion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Si hay sesion": {
+      "main": [
+        [
+          {
+            "node": "Verificar lote",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

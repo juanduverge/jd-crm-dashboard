@@ -77,7 +77,20 @@ export function LeadDrawer({
   // legítima de saber si un número tiene WhatsApp.
   const waHint = lead.whatsappSource === 'wa_link_web' ? 'publicado en su web'
     : lead.whatsappSource === 'apify_contacts' ? 'detectado por Apify'
+    : lead.whatsappSource === 'wa_probe' ? 'verificado en WhatsApp'
     : lead.whatsappSource === 'manual' ? 'añadido a mano'
+    : undefined
+
+  // Qué teléfonos concretos tienen WhatsApp (migración 0035). Se compara por
+  // dígitos porque el mismo número se guarda en formatos distintos según de
+  // dónde venga ('+1 809-555-0000' vs '18095550000').
+  const soloDigitos = (t?: string) => (t ?? '').replace(/\D/g, '')
+  const digitosConWa = new Set((lead.whatsappNumeros ?? []).map(soloDigitos).filter(Boolean))
+  const tieneWa = (t?: string) => digitosConWa.size > 0 && digitosConWa.has(soloDigitos(t))
+  // `no_aparece` NO es «no tiene WhatsApp»: la privacidad del número puede
+  // ocultarlo. Se dice lo que se sabe, no lo que se supone.
+  const waEstadoHint = lead.whatsappEstado === 'no_aparece' ? 'no apareció al comprobarlo'
+    : lead.whatsappEstado === 'sin_verificar' ? 'pendiente de comprobar'
     : undefined
 
   const analizarConIA = async () => {
@@ -119,40 +132,40 @@ export function LeadDrawer({
 
   return (
     <Drawer open={!!lead} onClose={onClose}>
-      <div className="sticky top-0 z-10 border-b border-border bg-surface p-5">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
+      <div className="sticky top-0 z-10 border-b border-border bg-surface p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl text-sm font-bold text-white" style={{ background: stringToColor(lead.empresa) }}>
               {initials(lead.empresa)}
             </div>
-            <div>
-              <h3 className="font-semibold text-fg">{lead.empresa}</h3>
-              <p className="text-xs text-muted">{lead.ciudad} · {lead.nicho}</p>
+            <div className="min-w-0">
+              <h3 className="truncate font-semibold text-fg">{lead.empresa}</h3>
+              <p className="truncate text-xs text-muted">{lead.ciudad} · {lead.nicho}</p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-0.5">
             <button
               onClick={() => toggleFavorito(lead.id)}
-              className={cn('btn-ghost', lead.favorito ? 'text-amber-400' : 'text-muted/50')}
+              className={cn('btn-ghost h-10 w-10 p-0', lead.favorito ? 'text-amber-400' : 'text-muted/50')}
               title={lead.favorito ? 'Quitar de favoritos' : 'Marcar como favorito'}
             >
               <Star className={cn('h-4 w-4', lead.favorito && 'fill-amber-400')} />
             </button>
             <button
               onClick={() => toggleMeGusta(lead.id)}
-              className={cn('btn-ghost', lead.meGusta ? 'text-emerald-400' : 'text-muted/50')}
+              className={cn('btn-ghost h-10 w-10 p-0', lead.meGusta ? 'text-emerald-400' : 'text-muted/50')}
               title={lead.meGusta ? 'Quitar el me gusta' : 'Me gusta'}
             >
               <ThumbsUp className={cn('h-4 w-4', lead.meGusta && 'fill-emerald-400')} />
             </button>
             <button
               onClick={() => toggleDescartado(lead.id)}
-              className={cn('btn-ghost', lead.descartado ? 'text-rose-400' : 'text-muted/50')}
+              className={cn('btn-ghost h-10 w-10 p-0', lead.descartado ? 'text-rose-400' : 'text-muted/50')}
               title={lead.descartado ? 'Quitar el no me gusta' : 'No me gusta (lo manda al final)'}
             >
               <ThumbsDown className={cn('h-4 w-4', lead.descartado && 'fill-rose-400')} />
             </button>
-            <button onClick={onClose} className="btn-ghost"><X className="h-4 w-4" /></button>
+            <button onClick={onClose} aria-label="Cerrar ficha" className="btn-ghost h-10 w-10 p-0"><X className="h-5 w-5" /></button>
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -180,16 +193,16 @@ export function LeadDrawer({
       <FichaSeguimiento lead={lead} onVerSeguimientos={() => setTab('Seguimientos')} />
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border px-5">
+      <div className="flex gap-1 overflow-x-auto border-b border-border px-4 sin-barra scroll-aislado sm:px-5">
         {TABS.map((t) => (
           <button key={t} onClick={() => setTab(t)}
-            className={cn('border-b-2 px-3 py-2 text-sm', tab === t ? 'border-primary-400 text-fg' : 'border-transparent text-muted hover:text-fg')}>
+            className={cn('shrink-0 whitespace-nowrap border-b-2 px-3 py-3 text-sm sm:py-2', tab === t ? 'border-primary-400 text-fg' : 'border-transparent text-muted hover:text-fg')}>
             {t}
           </button>
         ))}
       </div>
 
-      <div className="p-5">
+      <div className="p-4 sm:p-5">
         {tab === 'Detalles' && (
           <div className="space-y-3 text-sm">
             <Row icon={Briefcase} label="Cargo" value={lead.cargo} />
@@ -213,13 +226,22 @@ export function LeadDrawer({
             ) : (
               <Row icon={Mail} label="Email" value={lead.email} onClick={lead.email ? () => setComposeOpen(true) : undefined} />
             )}
-            <Row icon={Phone} label="Teléfono" value={lead.telefono} />
+            <Row icon={Phone} label="Teléfono" value={lead.telefono} hint={tieneWa(lead.telefono) ? 'WhatsApp ✓' : undefined} />
             {/* El scraping suele traer más de un número (fijo + móvil). Se
                 muestran los adicionales en vez de quedarse sólo con el primero. */}
             {otrosTelefonos.map((t) => (
-              <Row key={t} icon={Phone} label="Otro teléfono" value={t} />
+              <Row key={t} icon={Phone} label="Otro teléfono" value={t} hint={tieneWa(t) ? 'WhatsApp ✓' : undefined} />
             ))}
             <Row icon={MessageCircle} label="WhatsApp" value={lead.whatsapp} hint={waHint} />
+            {/* Sin WhatsApp conocido pero ya comprobado: se deja constancia de
+                que se miró, para no volver a mirarlo a mano. */}
+            {!lead.whatsapp && waEstadoHint && (
+              <div className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-muted" />
+                <span className="w-20 text-xs text-muted">WhatsApp</span>
+                <span className="text-[10px] text-muted">{waEstadoHint}</span>
+              </div>
+            )}
             <Row icon={Instagram} label="Instagram" value={lead.instagram} link={lead.instagram} />
             <Row icon={Facebook} label="Facebook" value={lead.facebook} link={lead.facebook} />
             <Row icon={Linkedin} label="LinkedIn" value={lead.linkedin} link={lead.linkedin} />
@@ -531,13 +553,13 @@ function ContactForm({
   return (
     <div className="space-y-2 rounded-xl border border-primary-500/30 bg-primary-500/5 p-3">
       <input className="input" placeholder="Nombre *" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <input className="input" placeholder="Cargo" value={form.cargo} onChange={(e) => setForm({ ...form, cargo: e.target.value })} />
         <select className="input" value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value as ContactType })}>
           {Object.entries(TIPO_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <input className="input" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <input className="input" placeholder="Teléfono" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })} />
       </div>

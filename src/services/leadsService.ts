@@ -96,6 +96,9 @@ interface LeadRow {
   phone_source: string | null
   social_source: string | null
   whatsapp_source: string | null
+  whatsapp_estado: string | null
+  whatsapp_numeros: string[] | null
+  whatsapp_verificado_en: string | null
   last_enriched_at: string | null
   enrichment_status: string | null
 }
@@ -158,6 +161,9 @@ function rowToLead(row: LeadRow): Lead {
     phoneSource: row.phone_source ?? undefined,
     socialSource: row.social_source ?? undefined,
     whatsappSource: row.whatsapp_source ?? undefined,
+    whatsappEstado: (row.whatsapp_estado as Lead['whatsappEstado']) ?? undefined,
+    whatsappNumeros: row.whatsapp_numeros ?? undefined,
+    whatsappVerificadoEn: row.whatsapp_verificado_en ?? undefined,
     lastEnrichedAt: row.last_enriched_at ?? undefined,
     enrichmentStatus: row.enrichment_status ?? undefined,
     etiquetas: row.etiquetas ?? [],
