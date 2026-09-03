@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
-import { Mail, MessageCircle, Clock, AlertTriangle, ArrowRight, History, Trash2, Pencil } from 'lucide-react'
+import { Mail, MessageCircle, Phone, Clock, AlertTriangle, ArrowRight, History, Trash2, Pencil } from 'lucide-react'
 import { initials, stringToColor, formatCurrency, scoreColor, cn } from '@/lib/utils'
 import { daysInStage, isStale, PRIORITY_META } from '@/lib/pipeline'
 import { SITUACION_META, situacionLead, textoProximo, textoUltimoContacto, touchColor, touchLabel } from '@/lib/touches'
@@ -22,6 +22,38 @@ export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onO
   const sit = situacionLead(lead, hoy)
   const proximo = textoProximo(lead, hoy)
   const ultimo = textoUltimoContacto(lead)
+
+  // Canales que el lead TIENE, no el que le toca por defecto. Antes el pie
+  // pintaba siempre un sobre salvo que el canal principal fuera WhatsApp, asi
+  // que una tarjeta con sobre podia no tener email y una con WhatsApp
+  // confirmado no lo ensenaba. Ahora cada icono significa "esto existe y se
+  // puede usar ahora mismo", y el del canal principal va resaltado.
+  const canales = [
+    lead.whatsapp && {
+      key: 'whatsapp',
+      icon: MessageCircle,
+      href: `https://wa.me/${lead.whatsapp.replace(/\D/g, '')}`,
+      externo: true,
+      title: `WhatsApp: ${lead.whatsapp}`,
+      color: 'text-green-500',
+    },
+    lead.telefono && {
+      key: 'telefono',
+      icon: Phone,
+      href: `tel:${lead.telefono.replace(/[^\d+]/g, '')}`,
+      externo: false,
+      title: `Llamar: ${lead.telefono}`,
+      color: 'text-sky-500',
+    },
+    lead.email && {
+      key: 'email',
+      icon: Mail,
+      href: `mailto:${lead.email}`,
+      externo: false,
+      title: `Email: ${lead.email}`,
+      color: 'text-primary-500',
+    },
+  ].filter(Boolean) as { key: string; icon: typeof Mail; href: string; externo: boolean; title: string; color: string }[]
 
   return (
     <div
@@ -121,12 +153,33 @@ export function KanbanCard({ lead, onOpen, onDelete, onEdit }: { lead: Lead; onO
           {stale ? <AlertTriangle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
           {days}d
         </span>
-        <span className="flex items-center gap-1">
-          {lead.canalPrincipal === 'whatsapp' ? (
-            <MessageCircle className="h-3.5 w-3.5 text-green-500" />
-          ) : (
-            <Mail className="h-3.5 w-3.5 text-primary-500" />
-          )}
+        <span className="flex items-center gap-0.5">
+          {canales.length === 0 ? (
+            <span className="text-[10px] italic text-muted/70">Sin contacto</span>
+          ) : canales.map((c) => {
+            const Icon = c.icon
+            return (
+              <a
+                key={c.key}
+                href={c.href}
+                target={c.externo ? '_blank' : undefined}
+                rel={c.externo ? 'noreferrer' : undefined}
+                title={c.title}
+                // La tarjeta entera arrastra y abre la ficha: sin frenar el
+                // evento aqui, tocar el icono te abriria el drawer en vez de
+                // escribir, o empezaria un drag a media pulsacion.
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className={cn(
+                  'flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-surface-2',
+                  c.color,
+                  lead.canalPrincipal !== c.key && 'opacity-60 hover:opacity-100',
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </a>
+            )
+          })}
         </span>
       </div>
     </div>
