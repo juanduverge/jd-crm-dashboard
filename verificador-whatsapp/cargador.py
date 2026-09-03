@@ -13,10 +13,10 @@ avisaba, podían haber pasado horas desde el tirón.
 Esto mira el cargador cada diez segundos y hace dos cosas distintas a
 propósito:
 
-  - SUENA en el propio portátil. Es lo único que funciona sin internet y sin
-    móvil a mano: si estás en casa, lo oyes. Y sigue sonando cada poco
-    mientras siga desenchufado, porque un pitido único a las tres de la
-    mañana no lo oye nadie.
+  - SUENA en el propio portátil, y no para hasta que el cable vuelva a su
+    sitio. Es lo único que funciona sin internet y sin móvil a mano. Un
+    pitido único a las tres de la mañana no lo oye nadie; una alarma que no
+    se calla sola obliga a ir a mirar, que es justo lo que se quiere.
   - AVISA por WhatsApp, una sola vez, por si no estás en casa.
 
 Cuando se vuelve a enchufar, el ruido para solo y llega el mensaje de que ya
@@ -33,6 +33,7 @@ import os
 import struct
 import subprocess
 import sys
+import threading
 import time
 import wave
 
@@ -45,8 +46,6 @@ BAT = os.environ.get("RUTA_BAT", "/sys/class/power_supply/BAT0/capacity")
 # Cada cuánto se mira el cable. Diez segundos es de sobra: lo que se quiere
 # evitar es enterarse horas después, no milisegundos después.
 INTERVALO = int(os.environ.get("INTERVALO_CARGADOR", "10"))
-# Cada cuánto vuelve a sonar mientras siga desenchufado.
-REPETIR_SONIDO = int(os.environ.get("REPETIR_SONIDO", "45"))
 # El aparato de ALSA. `default` vale salvo que el portátil tenga varias
 # tarjetas y la primera sea el HDMI (que no suena si no hay pantalla).
 ALSA = os.environ.get("ALSA_DEVICE", "default")
@@ -78,25 +77,57 @@ def _crear_tono():
         w.writeframes(bytes(muestras))
 
 
+def _subir_volumen():
+    """
+    Al máximo. Una alarma a medio volumen no despierta a nadie, y el portátil
+    vive con la tapa cerrada en un rincón. Falla en silencio si el mando no se
+    llama así en esta tarjeta: no es motivo para no intentar el pitido.
+    """
+    for mando in ("Master", "PCM", "Speaker"):
+        subprocess.run(["amixer", "-q", "sset", mando, "100%", "unmute"],
+                       capture_output=True, timeout=10)
+
+
 def sonar():
-    """
-    Pita por los altavoces del portátil. Si no hay sonido no se levanta nada:
-    quedarse sin pitido no puede impedir que salga el WhatsApp.
-    """
+    """Una tanda de pitidos. Si no hay sonido no se levanta nada: quedarse sin
+    pitido no puede impedir que salga el WhatsApp."""
     try:
         if not os.path.exists(TONO):
             _crear_tono()
-        # Al máximo antes de sonar: una alarma a medio volumen no despierta a
-        # nadie, y el portátil vive con la tapa cerrada en un rincón. Falla en
-        # silencio si el mando no se llama así en esta tarjeta, que no es
-        # motivo para no intentar el pitido.
-        for mando in ("Master", "PCM", "Speaker"):
-            subprocess.run(["amixer", "-q", "sset", mando, "100%", "unmute"],
-                           capture_output=True, timeout=10)
         subprocess.run(["aplay", "-q", "-D", ALSA, TONO],
                        capture_output=True, timeout=30)
     except Exception as e:
         print(f"no se pudo hacer sonar la alarma: {e}", flush=True)
+
+
+class Alarma:
+    """
+    Suena sin parar hasta que se la manda callar.
+
+    Vive en su propio hilo porque `aplay` bloquea mientras suena: en el hilo
+    principal, el programa dejaría de mirar el cable justo mientras pita, y
+    tardaría en enterarse de que ya lo enchufaste. Así el pitido se corta al
+    momento.
+    """
+
+    def __init__(self):
+        self._sonando = threading.Event()
+        threading.Thread(target=self._bucle, daemon=True).start()
+
+    def _bucle(self):
+        while True:
+            self._sonando.wait()
+            _subir_volumen()
+            # Se vuelve a comprobar dentro: subir el volumen tarda, y en ese
+            # rato el cable puede haber vuelto. Nada de un pitido de despedida.
+            while self._sonando.is_set():
+                sonar()
+
+    def arrancar(self):
+        self._sonando.set()
+
+    def parar(self):
+        self._sonando.clear()
 
 
 def enchufado():
@@ -123,7 +154,7 @@ def main():
     anterior = enchufado()
     print(f"vigilando el cargador (ahora {'enchufado' if anterior else 'DESENCHUFADO'})",
           flush=True)
-    ultimo_pitido = 0.0
+    alarma = Alarma()
 
     while True:
         time.sleep(INTERVALO)
@@ -133,30 +164,31 @@ def main():
 
         if anterior is not False and ahora is False:
             bat = nivel()
-            print("¡DESENCHUFADO!", flush=True)
-            sonar()
-            ultimo_pitido = time.time()
+            print("¡DESENCHUFADO! alarma sonando hasta que vuelva el cable", flush=True)
+            # Primero el ruido y luego el mensaje: mandar el WhatsApp tarda
+            # (abre la app en el Android, busca el botón), y el pitido tiene
+            # que empezar ya.
+            alarma.arrancar()
             v.avisar(
                 "Hola Juan. El servidor se ha DESENCHUFADO de la corriente."
                 + (f" Va por {bat}% de batería." if bat is not None else "")
-                + " Cuando se acabe, el CRM se cae. Está sonando la alarma en casa."
+                + " Cuando se acabe, el CRM se cae. La alarma seguirá sonando"
+                  " en casa hasta que lo enchufes."
             )
         elif anterior is False and ahora is True:
-            print("vuelve a estar enchufado", flush=True)
+            print("vuelve a estar enchufado: se calla la alarma", flush=True)
+            alarma.parar()
             v.avisar("Hola Juan. El servidor ya está enchufado otra vez. Todo en orden.")
-        elif ahora is False and time.time() - ultimo_pitido >= REPETIR_SONIDO:
-            # Sigue desenchufado: se repite el pitido, no el WhatsApp. Repetir
-            # el mensaje es lo que convierte un aviso en ruido —y es el patrón
-            # que hace que WhatsApp cierre una cuenta.
-            sonar()
-            ultimo_pitido = time.time()
 
         anterior = ahora
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "prueba":
+        # Una tanda suelta, para comprobar que se oye sin dejar el portátil
+        # pitando para siempre.
         print("sonando…")
+        _subir_volumen()
         sonar()
         print("estado del cargador:", enchufado(), "batería:", nivel())
     else:

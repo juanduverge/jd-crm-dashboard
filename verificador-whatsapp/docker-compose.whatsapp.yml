@@ -128,7 +128,8 @@ services:
   # El servidor es un portatil: si alguien tira del cable, nadie se entera
   # hasta que la bateria se acaba y el CRM se cae de golpe. Esto mira el
   # cable cada diez segundos, hace sonar una alarma en los altavoces de casa
-  # (lo unico que funciona sin internet) y manda un WhatsApp.
+  # que no para hasta que vuelva el cable (lo unico que funciona sin
+  # internet) y manda un WhatsApp.
   #
   # Va aparte del vigilante a proposito: aquel ronda cada cinco minutos y
   # toca el Android en cada ronda, ritmo que aqui no sirve.
@@ -143,7 +144,6 @@ services:
       ADB_HOST: android:5555
       AVISAR_A: ${AVISAR_A:-}
       INTERVALO_CARGADOR: ${INTERVALO_CARGADOR:-10}
-      REPETIR_SONIDO: ${REPETIR_SONIDO:-45}
       ALSA_DEVICE: ${ALSA_DEVICE:-default}
     devices:
       # Los altavoces del portatil. Sin esto el contenedor no tiene con que
