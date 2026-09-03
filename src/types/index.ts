@@ -52,6 +52,11 @@ export interface Lead {
   phoneSource?: string
   socialSource?: string
   whatsappSource?: string    // wa_link_web = la empresa lo publica en su web. Nunca inferido.
+  // Verificación de WhatsApp (migración 0035). `noAparece` NO significa «no
+  // tiene»: la privacidad del número puede ocultarlo. Es prioridad, no hecho.
+  whatsappEstado?: 'confirmado' | 'no_aparece' | 'sin_verificar'
+  whatsappNumeros?: string[]  // Todos los teléfonos del lead que tienen WhatsApp
+  whatsappVerificadoEn?: string
   lastEnrichedAt?: string
   enrichmentStatus?: string  // ok | sin_datos | error
   etiquetas?: string[]        // Etiquetas libres (col Etiquetas, separadas por coma)
