@@ -74,21 +74,30 @@ export function InboxPage() {
         leadId: selected.idLead,
         ...(att ? { attachmentName: replyAttachment!.name, attachmentBase64: att, attachmentMimeType: replyAttachment!.type } : {}),
       })
+      // A partir de aqui el correo YA SALIO por SMTP. El registro en Supabase
+      // es contabilidad interna y no puede desmentirlo: si va en el mismo try,
+      // un fallo de RLS pinta "no se pudo enviar" sobre un correo ya entregado
+      // y el usuario reenvia (el destinatario recibe duplicados).
       // `destinatario` siempre: si la respuesta va a alguien que aun no
       // es lead, el envio tiene que quedar registrado igual.
-      await messagesService.logSentMessage({
-        leadId: selected.idLead,
-        destinatario: selected.deEmail,
-        asunto: selected.asunto || '(sin asunto)',
-        cuerpo: replyText.trim(),
-      })
-      toast.success('Respuesta enviada')
+      try {
+        await messagesService.logSentMessage({
+          leadId: selected.idLead,
+          destinatario: selected.deEmail,
+          asunto: selected.asunto || '(sin asunto)',
+          cuerpo: replyText.trim(),
+        })
+        toast.success('Respuesta enviada')
+      } catch (e) {
+        toast.success('Respuesta enviada (no se pudo guardar en el historial)')
+        console.error('logSentMessage fallo tras un envio correcto:', e)
+      }
       setReplyOpen(false)
       setReplyText('')
       setReplyAttachment(null)
       refetch()
-    } catch {
-      toast.error('No se pudo enviar la respuesta. Intenta de nuevo.')
+    } catch (e) {
+      toast.error(e instanceof Error ? `No se pudo enviar la respuesta: ${e.message}` : 'No se pudo enviar la respuesta. Intenta de nuevo.')
     } finally {
       setSending(false)
     }

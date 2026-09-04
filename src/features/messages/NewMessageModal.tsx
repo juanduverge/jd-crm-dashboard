@@ -87,20 +87,28 @@ export function NewMessageModal({
         leadId: leadId ?? matchedLead?.id,
         ...(att ? { attachmentName: attachment!.name, attachmentBase64: att, attachmentMimeType: attachment!.type } : {}),
       })
+      // El correo ya salio por SMTP. El registro en Supabase va aparte: si
+      // comparte el try, un fallo de RLS acaba diciendo "no se pudo enviar"
+      // sobre un correo entregado, y el reenvio duplica al destinatario.
       const effectiveLeadId = leadId ?? matchedLead?.id
       const effectiveSubject = subject.trim() || 'Mensaje de JD Developer'
-      await messagesService.logSentMessage({
-        leadId: effectiveLeadId,
-        destinatario: email,
-        asunto: effectiveSubject,
-        cuerpo: body.trim(),
-      })
-      toast.success('Mensaje enviado')
+      try {
+        await messagesService.logSentMessage({
+          leadId: effectiveLeadId,
+          destinatario: email,
+          asunto: effectiveSubject,
+          cuerpo: body.trim(),
+        })
+        toast.success('Mensaje enviado')
+      } catch (e) {
+        toast.success('Mensaje enviado (no se pudo guardar en el historial)')
+        console.error('logSentMessage fallo tras un envio correcto:', e)
+      }
       reset()
       onSent?.()
       onClose()
-    } catch {
-      toast.error('No se pudo enviar el mensaje. Intenta de nuevo.')
+    } catch (e) {
+      toast.error(e instanceof Error ? `No se pudo enviar el mensaje: ${e.message}` : 'No se pudo enviar el mensaje. Intenta de nuevo.')
     } finally {
       setSending(false)
     }

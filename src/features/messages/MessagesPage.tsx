@@ -90,20 +90,27 @@ export function MessagesPage() {
         leadId,
         ...(att ? { attachmentName: attachment!.name, attachmentBase64: att, attachmentMimeType: attachment!.type } : {}),
       })
-      await messagesService.logSentMessage({
-        leadId,
-        destinatario: leadEmail,
-        asunto,
-        cuerpo: compose.trim(),
-      })
-      toast.success('Mensaje enviado')
+      // El correo ya salio por SMTP: el registro va en su propio try para que
+      // un fallo de escritura no se anuncie como un fallo de envio.
+      try {
+        await messagesService.logSentMessage({
+          leadId,
+          destinatario: leadEmail,
+          asunto,
+          cuerpo: compose.trim(),
+        })
+        toast.success('Mensaje enviado')
+      } catch (e) {
+        toast.success('Mensaje enviado (no se pudo guardar en el historial)')
+        console.error('logSentMessage fallo tras un envio correcto:', e)
+      }
       setCompose('')
       setAttachment(null)
       refetch()
     } catch (e) {
-      // El error concreto importa: no es lo mismo que falle el envío que que
-      // falle el registro. Antes ambos daban el mismo mensaje genérico.
-      toast.error(e instanceof Error ? e.message : 'No se pudo enviar el mensaje. Intenta de nuevo.')
+      // Aqui ya solo puede haber fallado el envio en si: el registro tiene su
+      // propio catch mas arriba y nunca llega hasta este.
+      toast.error(e instanceof Error ? `No se pudo enviar el mensaje: ${e.message}` : 'No se pudo enviar el mensaje. Intenta de nuevo.')
     } finally {
       setSending(false)
     }
