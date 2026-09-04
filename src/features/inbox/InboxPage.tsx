@@ -10,7 +10,7 @@ import { MaestroDetalle, Avatar } from '@/components/ui/MaestroDetalle'
 import { useInbox, useLeads, useEmailAliases, useMarkInboxRead } from '@/hooks/useData'
 import { useEsMovil } from '@/hooks/useMediaQuery'
 import { crmApi } from '@/services/crmApi'
-import { cn, fuzzyMatch, fileToBase64, htmlToText } from '@/lib/utils'
+import { cn, fuzzyMatch, fileToBase64, htmlToText, esCorreoPropio } from '@/lib/utils'
 import { fechaCorta, fechaLarga, claveDia, etiquetaDia } from '@/lib/fecha'
 
 /** Primera línea del correo, para la lista. */
@@ -36,8 +36,17 @@ export function InboxPage() {
 
   const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads])
 
+  // La Bandeja es lo que NOS escriben. El workflow de IMAP inserta todo lo que
+  // hay en INBOX sin mirar quién firma, así que si el buzón guarda ahí copia de
+  // lo que sale, nuestros propios envíos entraban como correo recibido. Esos
+  // ya viven en Mensajes; aquí sobran.
+  const recibidos = useMemo(() => {
+    const propias = aliases.map((a) => a.email)
+    return (emails ?? []).filter((e) => !esCorreoPropio(e.deEmail, propias))
+  }, [emails, aliases])
+
   const filtered = useMemo(() => {
-    const list = emails ?? []
+    const list = recibidos
     return list
       .filter((e) => (onlyUnread ? !e.leido : true))
       .filter((e) =>
@@ -47,7 +56,7 @@ export function InboxPage() {
         fuzzyMatch(e.deNombre ?? '', query) ||
         fuzzyMatch(leadById.get(e.idLead ?? '')?.empresa ?? '', query),
       )
-  }, [emails, onlyUnread, query, leadById])
+  }, [recibidos, onlyUnread, query, leadById])
 
   // En escritorio siempre hay un correo a la vista. En el teléfono no se abre
   // ninguno hasta que se toca, o la lista no se vería nunca.
@@ -66,7 +75,7 @@ export function InboxPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id])
 
-  const unreadCount = (emails ?? []).filter((e) => !e.leido).length
+  const unreadCount = recibidos.filter((e) => !e.leido).length
 
   const sendReply = async () => {
     if (!selected || !replyText.trim()) return
@@ -333,7 +342,7 @@ export function InboxPage() {
           <Skeleton className="h-[520px] rounded-2xl" />
           <Skeleton className="hidden h-[520px] rounded-2xl lg:block" />
         </div>
-      ) : !emails?.length ? (
+      ) : !recibidos.length ? (
         <EmptyState
           icon={<Mail className="h-8 w-8" />}
           title="Bandeja vacía"

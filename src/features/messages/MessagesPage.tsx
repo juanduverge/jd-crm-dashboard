@@ -5,10 +5,10 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Skeleton, EmptyState, Badge, Textarea } from '@/components/ui'
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { MaestroDetalle, Avatar } from '@/components/ui/MaestroDetalle'
-import { useMessages, useLeads } from '@/hooks/useData'
+import { useMessages, useLeads, useEmailAliases } from '@/hooks/useData'
 import { useEsMovil } from '@/hooks/useMediaQuery'
 import { crmApi } from '@/services/crmApi'
-import { cn, fuzzyMatch, fileToBase64, htmlToText } from '@/lib/utils'
+import { cn, fuzzyMatch, fileToBase64, htmlToText, esCorreoPropio } from '@/lib/utils'
 import { fechaCorta, soloHora, claveDia, etiquetaDia } from '@/lib/fecha'
 import { NewMessageModal } from './NewMessageModal'
 import type { Channel, Message } from '@/types'
@@ -46,6 +46,7 @@ function EstadoEnvio({ estado, claro }: { estado?: string; claro?: boolean }) {
 export function MessagesPage() {
   const { data: messages, isLoading, isError, refetch, isFetching } = useMessages()
   const { leads } = useLeads()
+  const aliases = useEmailAliases()
   const esMovil = useEsMovil()
   const [query, setQuery] = useState('')
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null)
@@ -53,8 +54,16 @@ export function MessagesPage() {
   const leadById = useMemo(() => new Map(leads.map((l) => [l.id, l])), [leads])
 
   const threads = useMemo(() => {
+    const propias = aliases.map((a) => a.email)
     const byLead = new Map<string, Message[]>()
-    for (const m of messages ?? []) {
+    for (const bruto of messages ?? []) {
+      // Una copia de nuestro propio envío que volvió por IMAP se marcaba como
+      // «recibido» y en el hilo salía del lado del lead, como si nos lo
+      // hubieran escrito ellos. Sigue en el hilo, pero del lado que le toca.
+      const m: Message =
+        bruto.direccion === 'recibido' && esCorreoPropio(bruto.remitente ?? '', propias)
+          ? { ...bruto, direccion: 'enviado' }
+          : bruto
       if (!m.idLead) continue
       if (!byLead.has(m.idLead)) byLead.set(m.idLead, [])
       byLead.get(m.idLead)!.push(m)
@@ -67,7 +76,7 @@ export function MessagesPage() {
         last: msgs.reduce((a, b) => (a.fecha > b.fecha ? a : b)),
       }))
       .sort((a, b) => (a.last.fecha < b.last.fecha ? 1 : -1))
-  }, [messages, leadById])
+  }, [messages, leadById, aliases])
 
   const filteredThreads = useMemo(
     () =>

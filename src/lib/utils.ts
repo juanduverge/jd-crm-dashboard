@@ -110,3 +110,31 @@ export function downloadCSV(filename: string, rows: Record<string, unknown>[]) {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+/**
+ * Extrae la dirección de un `From` de correo: `"Juan" <juan@x.com>` → `juan@x.com`.
+ * Lo que guarda n8n en `inbox_messages.remitente` es la cabecera entera.
+ */
+export function soloDireccion(remitente: string): string {
+  const s = (remitente || '').trim()
+  const m = s.match(/<([^>]+)>/)
+  return (m ? m[1] : s).trim().toLowerCase()
+}
+
+/**
+ * ¿Este correo lo mandamos nosotros?
+ *
+ * El workflow «CRM API - Leer Inbox» mete en `inbox_messages` TODO lo que hay
+ * en la carpeta INBOX, sin mirar quién lo firma. Si el buzón guarda ahí una
+ * copia de lo que sale, nuestros propios envíos aparecían en la Bandeja como
+ * si fueran correo entrante. La Bandeja es para lo que nos escriben; lo que
+ * mandamos ya está en Mensajes, en `outreach_messages`.
+ *
+ * Esto es una defensa del lado del CRM: la raíz está en el workflow, que no
+ * debería insertarlos de entrada.
+ */
+export function esCorreoPropio(remitente: string, propias: string[]): boolean {
+  const dir = soloDireccion(remitente)
+  if (!dir) return false
+  return propias.some((p) => p.trim().toLowerCase() === dir)
+}
