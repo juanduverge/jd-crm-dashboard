@@ -7,9 +7,11 @@ vuelve a meter con `n8n import:workflow`. No toca la base de datos a mano.
 """
 import json, re, sys
 
-WF = '/tmp/wf-backup.json'
-CODIGO = '/tmp/nuevocodigo.js'
-SALIDA = '/tmp/wf-nuevo.json'
+# Las rutas por defecto son las del servidor; se pueden pasar por argumento
+# para parchear en local y subir solo el resultado.
+WF = sys.argv[1] if len(sys.argv) > 1 else '/tmp/wf-backup.json'
+CODIGO = sys.argv[2] if len(sys.argv) > 2 else '/tmp/nuevocodigo.js'
+SALIDA = sys.argv[3] if len(sys.argv) > 3 else '/tmp/wf-nuevo.json'
 NODO = 'Combinar y Formatear'
 
 with open(WF, encoding='utf-8') as f:
