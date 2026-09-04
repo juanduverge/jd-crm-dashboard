@@ -16,7 +16,7 @@ Dos cosas que arregla respecto a como estaba:
  2. El insert no ponia `status`, asi que la fila caia con el valor por
     defecto de la columna y el hilo mostraba el mensaje como pendiente para
     siempre. Si hemos llegado a este nodo es que el correo ya salio: va
-    'sent'.
+    'enviado'.
 
 Se deja con `onError: continueRegularOutput` a proposito: si Supabase falla,
 el correo YA se envio y no tiene sentido dar el webhook por fallido. La
@@ -35,7 +35,7 @@ CUERPO = (
     "destinatario: $('Construir Email').item.json.to, "
     "asunto: $('Construir Email').item.json.subject, "
     "cuerpo: $('Construir Email').item.json.html, "
-    "status: 'sent', "
+    "status: 'enviado', "
     "sent_at: new Date().toISOString() }) }}"
 )
 

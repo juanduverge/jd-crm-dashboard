@@ -142,7 +142,13 @@ export const messagesService = {
       destinatario: payload.destinatario ?? null,
       asunto: payload.asunto,
       cuerpo: payload.cuerpo,
-      status: 'sent',
+      // 'enviado', en espanol. La restriccion real de la columna acepta
+      // draft / nota_generada / listo_envio / enviado / error /
+      // whatsapp_enviado / seguimiento_enviado. Las migraciones del repo
+      // dicen otra cosa porque la base de produccion se toco por fuera:
+      // insertar 'sent' revienta el insert con un 400 y el envio se quedaba
+      // sin registrar.
+      status: 'enviado',
       sent_at: new Date().toISOString(),
     })
     if (error) throw error

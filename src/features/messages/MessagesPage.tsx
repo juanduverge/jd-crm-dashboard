@@ -26,21 +26,54 @@ const channelIcon: Record<Channel, typeof Mail> = {
  * Antes se imprimía «Estado: draft» debajo de cada mensaje, en inglés y en
  * texto corrido. Un estado que se repite en cada burbuja tiene que ocupar lo
  * que ocupa un icono, no una línea.
+ *
+ * Los valores son los que ACEPTA la tabla de verdad, que no son los que dicen
+ * las migraciones del repo: la base de producción se tocó por fuera y admite
+ * draft / nota_generada / listo_envio / enviado / error / whatsapp_enviado /
+ * seguimiento_enviado. Se dejan también los ingleses por si queda histórico.
  */
+const ESTADOS: Record<string, { texto: string; icono: typeof Check; tono?: 'error' }> = {
+  enviado: { texto: 'Enviado', icono: CheckCheck },
+  sent: { texto: 'Enviado', icono: CheckCheck },
+  ok: { texto: 'Enviado', icono: CheckCheck },
+  whatsapp_enviado: { texto: 'WhatsApp enviado', icono: CheckCheck },
+  seguimiento_enviado: { texto: 'Seguimiento enviado', icono: CheckCheck },
+  listo_envio: { texto: 'Listo para enviar', icono: Check },
+  queued: { texto: 'En cola', icono: Check },
+  pendiente: { texto: 'En cola', icono: Check },
+  pending: { texto: 'En cola', icono: Check },
+  nota_generada: { texto: 'Nota generada', icono: FileEdit },
+  draft: { texto: 'Borrador', icono: FileEdit },
+  borrador: { texto: 'Borrador', icono: FileEdit },
+  error: { texto: 'No salió', icono: AlertTriangle, tono: 'error' },
+  failed: { texto: 'No salió', icono: AlertTriangle, tono: 'error' },
+  fallido: { texto: 'No salió', icono: AlertTriangle, tono: 'error' },
+}
+
 function EstadoEnvio({ estado, claro }: { estado?: string; claro?: boolean }) {
   if (!estado) return null
-  const e = estado.toLowerCase()
-  const base = cn('inline-flex items-center gap-1 text-[0.6875rem]', claro ? 'text-white/70' : 'text-muted')
-
-  if (e === 'sent' || e === 'enviado' || e === 'ok')
-    return <span className={base}><CheckCheck className="h-3 w-3" /> Enviado</span>
-  if (e === 'queued' || e === 'pendiente' || e === 'pending')
-    return <span className={base}><Check className="h-3 w-3" /> En cola</span>
-  if (e === 'draft' || e === 'borrador')
-    return <span className={base}><FileEdit className="h-3 w-3" /> Borrador</span>
-  if (e === 'failed' || e === 'error' || e === 'fallido')
-    return <span className="inline-flex items-center gap-1 text-[0.6875rem] font-medium" style={{ color: 'rgb(var(--danger))' }}><AlertTriangle className="h-3 w-3" /> No salió</span>
-  return <span className={base}>{estado}</span>
+  const e = ESTADOS[estado.toLowerCase()]
+  if (!e) {
+    // Un estado que no conocemos se enseña tal cual: mejor un texto raro que
+    // esconder que la fila trae algo que nadie previó.
+    return <span className={cn('text-[0.6875rem]', claro ? 'text-white/70' : 'text-muted')}>{estado}</span>
+  }
+  const Icono = e.icono
+  if (e.tono === 'error') {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-[0.6875rem] font-medium"
+        style={{ color: claro ? '#fff' : 'rgb(var(--danger))' }}
+      >
+        <Icono className="h-3 w-3" /> {e.texto}
+      </span>
+    )
+  }
+  return (
+    <span className={cn('inline-flex items-center gap-1 text-[0.6875rem]', claro ? 'text-white/70' : 'text-muted')}>
+      <Icono className="h-3 w-3" /> {e.texto}
+    </span>
+  )
 }
 
 export function MessagesPage() {
