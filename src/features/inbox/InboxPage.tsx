@@ -6,7 +6,6 @@ import { Button, Input, Textarea, Skeleton, EmptyState, Badge } from '@/componen
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { useInbox, useLeads, useEmailAliases, useMarkInboxRead } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
-import { messagesService } from '@/services/messagesService'
 import { cn, fuzzyMatch, initials, stringToColor, fileToBase64, htmlToText } from '@/lib/utils'
 import type { InboxMessage } from '@/types'
 
@@ -74,24 +73,9 @@ export function InboxPage() {
         leadId: selected.idLead,
         ...(att ? { attachmentName: replyAttachment!.name, attachmentBase64: att, attachmentMimeType: replyAttachment!.type } : {}),
       })
-      // A partir de aqui el correo YA SALIO por SMTP. El registro en Supabase
-      // es contabilidad interna y no puede desmentirlo: si va en el mismo try,
-      // un fallo de RLS pinta "no se pudo enviar" sobre un correo ya entregado
-      // y el usuario reenvia (el destinatario recibe duplicados).
-      // `destinatario` siempre: si la respuesta va a alguien que aun no
-      // es lead, el envio tiene que quedar registrado igual.
-      try {
-        await messagesService.logSentMessage({
-          leadId: selected.idLead,
-          destinatario: selected.deEmail,
-          asunto: selected.asunto || '(sin asunto)',
-          cuerpo: replyText.trim(),
-        })
-        toast.success('Respuesta enviada')
-      } catch (e) {
-        toast.success('Respuesta enviada (no se pudo guardar en el historial)')
-        console.error('logSentMessage fallo tras un envio correcto:', e)
-      }
+      // El registro en `outreach_messages` lo hace n8n (nodo "Registrar Envio"),
+      // con la credencial de servicio. Ver NewMessageModal para el porque.
+      toast.success('Respuesta enviada')
       setReplyOpen(false)
       setReplyText('')
       setReplyAttachment(null)

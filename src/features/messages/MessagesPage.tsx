@@ -6,7 +6,6 @@ import { Button, Input, Skeleton, EmptyState, Badge, Textarea } from '@/componen
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { useMessages, useLeads } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
-import { messagesService } from '@/services/messagesService'
 import { cn, fuzzyMatch, initials, stringToColor, fileToBase64, htmlToText } from '@/lib/utils'
 import { NewMessageModal } from './NewMessageModal'
 import type { Channel, Message } from '@/types'
@@ -90,20 +89,9 @@ export function MessagesPage() {
         leadId,
         ...(att ? { attachmentName: attachment!.name, attachmentBase64: att, attachmentMimeType: attachment!.type } : {}),
       })
-      // El correo ya salio por SMTP: el registro va en su propio try para que
-      // un fallo de escritura no se anuncie como un fallo de envio.
-      try {
-        await messagesService.logSentMessage({
-          leadId,
-          destinatario: leadEmail,
-          asunto,
-          cuerpo: compose.trim(),
-        })
-        toast.success('Mensaje enviado')
-      } catch (e) {
-        toast.success('Mensaje enviado (no se pudo guardar en el historial)')
-        console.error('logSentMessage fallo tras un envio correcto:', e)
-      }
+      // El registro en `outreach_messages` lo hace n8n (nodo "Registrar Envio"),
+      // con la credencial de servicio. Ver NewMessageModal para el porque.
+      toast.success('Mensaje enviado')
       setCompose('')
       setAttachment(null)
       refetch()

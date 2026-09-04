@@ -6,7 +6,6 @@ import { Button, Input, Textarea } from '@/components/ui'
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { useLeads, useEmailAliases } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
-import { messagesService } from '@/services/messagesService'
 import { fileToBase64 } from '@/lib/utils'
 
 /** Composer libre: escribe a cualquier email, exista o no como lead en el CRM. */
@@ -87,23 +86,12 @@ export function NewMessageModal({
         leadId: leadId ?? matchedLead?.id,
         ...(att ? { attachmentName: attachment!.name, attachmentBase64: att, attachmentMimeType: attachment!.type } : {}),
       })
-      // El correo ya salio por SMTP. El registro en Supabase va aparte: si
-      // comparte el try, un fallo de RLS acaba diciendo "no se pudo enviar"
-      // sobre un correo entregado, y el reenvio duplica al destinatario.
-      const effectiveLeadId = leadId ?? matchedLead?.id
-      const effectiveSubject = subject.trim() || 'Mensaje de JD Developer'
-      try {
-        await messagesService.logSentMessage({
-          leadId: effectiveLeadId,
-          destinatario: email,
-          asunto: effectiveSubject,
-          cuerpo: body.trim(),
-        })
-        toast.success('Mensaje enviado')
-      } catch (e) {
-        toast.success('Mensaje enviado (no se pudo guardar en el historial)')
-        console.error('logSentMessage fallo tras un envio correcto:', e)
-      }
+      // El registro en `outreach_messages` lo hace n8n (nodo "Registrar Envio"
+      // del workflow CRM API - Enviar Respuesta), no el navegador: alli se
+      // escribe con la credencial de servicio, asi que no depende del rol del
+      // usuario ni de que la pestaña siga abierta. Registrarlo tambien aqui
+      // duplicaria cada correo en el historial.
+      toast.success('Mensaje enviado')
       reset()
       onSent?.()
       onClose()
