@@ -102,7 +102,7 @@ Ver [`../.env.example`](../.env.example) para la lista completa.
 |------|-------|
 | Email principal | info@jddeveloper.com |
 | Email outreach | sales@jddeveloper.com |
-| WhatsApp | +1 829 871 4367 |
+| WhatsApp | +1 849 576 4367 |
 | Booking | https://calendar.app.google/QQ17ujMKjNXePb1a8 |
 | Instagram | @jddeveloper_ |
 | Web | https://jddeveloper.com |
