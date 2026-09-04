@@ -113,7 +113,7 @@ export function DashboardPage() {
 
       {leadsError && (
         <p className="aviso-error mb-4">
-          No se pudo conectar con n8n para leer los leads. Verifica que el workflow "CRM API - Leer Sheets" esté activo.
+          No se pudieron cargar los leads. Revisa tu conexión y vuelve a intentar.
         </p>
       )}
 

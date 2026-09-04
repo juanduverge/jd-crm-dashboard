@@ -401,7 +401,7 @@ export function LeadsPage() {
         <EmptyState
           icon={<Search className="h-8 w-8" />}
           title="No se pudo conectar con n8n"
-          description="Verifica que el workflow &quot;CRM API - Leer Sheets&quot; esté activo y vuelve a intentar."
+          description="Revisa tu conexión y vuelve a intentar."
           action={<Button onClick={() => refetch()}>Reintentar</Button>}
         />
       ) : isLoading ? (

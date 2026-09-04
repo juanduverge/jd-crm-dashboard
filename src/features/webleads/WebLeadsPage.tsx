@@ -100,7 +100,7 @@ export function WebLeadsPage() {
         <EmptyState
           icon={<Globe className="h-8 w-8" />}
           title="No se pudieron cargar las solicitudes"
-          description='Verifica que el workflow "CRM API - Leer Sheets" incluya la hoja web_leads y esté activo.'
+          description='No se pudieron cargar las solicitudes web. Revisa tu conexión y vuelve a intentar.'
           action={<Button onClick={() => refetch()}>Reintentar</Button>}
         />
       )}

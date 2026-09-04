@@ -34,7 +34,7 @@ export const config = {
     name: 'JD Developer',
     emailMain: import.meta.env.VITE_BUSINESS_EMAIL_MAIN || 'info@jddeveloper.com',
     emailOutreach: import.meta.env.VITE_BUSINESS_EMAIL_OUTREACH || 'sales@jddeveloper.com',
-    whatsapp: import.meta.env.VITE_BUSINESS_WHATSAPP || '+1 849 576 4367',
+    whatsapp: import.meta.env.VITE_BUSINESS_WHATSAPP || '+1 829 871 4367',
     booking: import.meta.env.VITE_BUSINESS_BOOKING || 'https://calendar.app.google/QQ17ujMKjNXePb1a8',
     instagram: '@jddeveloper_',
     web: 'https://jddeveloper.com',
