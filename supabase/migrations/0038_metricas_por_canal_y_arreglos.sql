@@ -202,15 +202,22 @@ update leads l
 -- `v_toques` se redefine sólo para dejar el canal a la vista con el nombre
 -- que usa el resto del sistema. `tipo` ya venía; `canal` es el mismo dato
 -- nombrado como lo nombra `leads.canal_principal`.
+--
+-- `canal` va AL FINAL y no junto a `tipo`, que es donde pediría el sentido
+-- común. `create or replace view` sólo admite añadir columnas por el final:
+-- insertar una en medio lo interpreta como renombrar la que ocupaba ese
+-- sitio y falla con «cannot change name of view column». La alternativa
+-- —borrar y recrear la vista— tocaría permisos y `security_invoker` sin
+-- necesidad, así que manda el orden histórico.
 create or replace view v_toques as
 select
   f.id,
   f.lead_id,
   f.completed_at,
   f.tipo,
-  f.tipo::text as canal,
   f.resultado,
-  row_number() over (partition by f.lead_id order by f.completed_at, f.id) as toque_n
+  row_number() over (partition by f.lead_id order by f.completed_at, f.id) as toque_n,
+  f.tipo::text as canal
 from follow_ups f
 where f.estado = 'completado' and f.deleted_at is null;
 
