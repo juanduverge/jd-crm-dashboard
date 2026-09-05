@@ -21,7 +21,7 @@ export interface MetricaMeta {
   unidad: string
   formato?: 'numero' | 'moneda' | 'minutos'
   /** Familia para agrupar en los desplegables y en el panel. */
-  grupo: 'Prospección' | 'Contacto' | 'Resultado' | 'Esfuerzo'
+  grupo: 'Prospección' | 'Contacto' | 'Canal' | 'Resultado' | 'Esfuerzo'
 }
 
 export const METRICAS: MetricaMeta[] = [
@@ -42,6 +42,26 @@ export const METRICAS: MetricaMeta[] = [
   { clave: 'touch_3', label: 'Touch 3 · tercer contacto', unidad: 'toques', grupo: 'Contacto', ayuda: 'Terceros contactos completados en el periodo.' },
   { clave: 'touch_4', label: 'Touch 4 · cuarto contacto', unidad: 'toques', grupo: 'Contacto', ayuda: 'Cuartos contactos completados en el periodo.' },
   { clave: 'touch_5', label: 'Touch 5+ · quinto en adelante', unidad: 'toques', grupo: 'Contacto', ayuda: 'Quintos contactos y posteriores completados en el periodo.' },
+  // --- CANAL (0038) ---
+  // Separadas de 'Contacto' a propósito: los touch_N responden "¿insisto lo
+  // suficiente?" y estas otras "¿por dónde merece la pena insistir?". Son dos
+  // decisiones distintas y mezclarlas en el mismo grupo las esconde.
+  {
+    clave: 'contactos_whatsapp', label: 'Enviados por WhatsApp', unidad: 'toques', grupo: 'Canal',
+    ayuda: 'Toques completados cuyo canal fue WhatsApp. Cuenta envíos, no leads: al mismo lead se le puede escribir varias veces.',
+  },
+  {
+    clave: 'contactos_email', label: 'Enviados por correo', unidad: 'toques', grupo: 'Canal',
+    ayuda: 'Toques completados cuyo canal fue el correo. Cuenta envíos, no leads.',
+  },
+  {
+    clave: 'respuestas_whatsapp', label: 'Respuestas por WhatsApp', unidad: 'respuestas', grupo: 'Canal',
+    ayuda: 'Toques de WhatsApp que obtuvieron respuesta, buena o mala. Se atribuyen al canal por el que se MANDÓ el mensaje.',
+  },
+  {
+    clave: 'respuestas_email', label: 'Respuestas por correo', unidad: 'respuestas', grupo: 'Canal',
+    ayuda: 'Toques de correo que obtuvieron respuesta, buena o mala. Se atribuyen al canal por el que se MANDÓ el mensaje.',
+  },
   {
     clave: 'respuestas_recibidas', label: 'Respuestas recibidas', unidad: 'respuestas', grupo: 'Resultado',
     ayuda: 'Toques cuyo resultado no fue «sin respuesta». Un «no, gracias» también es una respuesta.',
@@ -70,7 +90,7 @@ export const METRICA_BY_CLAVE = Object.fromEntries(
 ) as Record<MetricaClave, MetricaMeta>
 
 /** Orden de los grupos en los desplegables; el catálogo se agrupa por aquí. */
-export const GRUPOS_METRICA = ['Prospección', 'Contacto', 'Resultado', 'Esfuerzo'] as const
+export const GRUPOS_METRICA = ['Prospección', 'Contacto', 'Canal', 'Resultado', 'Esfuerzo'] as const
 
 export function metricasPorGrupo(): { grupo: string; metricas: MetricaMeta[] }[] {
   return GRUPOS_METRICA.map((grupo) => ({

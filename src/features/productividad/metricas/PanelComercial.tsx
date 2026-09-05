@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
-  Activity, AlertTriangle, CalendarClock, Flame, MessageSquare, Search, Target, TrendingUp,
+  Activity, AlertTriangle, CalendarClock, Flame, MessageSquare, Search, Send, Target, TrendingUp,
 } from 'lucide-react'
 import { Skeleton } from '@/components/ui'
 import { useMetricasCrm } from '@/hooks/useData'
@@ -73,6 +73,7 @@ export function PanelComercial({ mes, esActual }: { mes: Date; esActual: boolean
       ) : (
         <>
           <Kpis m={data} />
+          <Canales m={data} />
           <div className="grid gap-4 lg:grid-cols-2">
             <Embudo m={data} />
             <Toques m={data} />
@@ -88,8 +89,21 @@ export function PanelComercial({ mes, esActual }: { mes: Date; esActual: boolean
 
 function Kpis({ m }: { m: MetricasCrm }) {
   const p = m.periodo
+  const wa = p.contactos_whatsapp
+  const email = p.contactos_email
+
+  // El canal que MÁS RESPUESTA saca, no el que más se usa. Es la diferencia
+  // entre "por dónde estoy trabajando" y "por dónde debería trabajar", y la
+  // segunda es la que cambia lo que se hace mañana. Sólo se declara ganador
+  // cuando ambos canales tienen envíos: con uno a cero no hay comparación,
+  // hay una muestra.
+  const hayComparacion = wa > 0 && email > 0
+  const mejor = m.ratios.tasa_respuesta_whatsapp >= m.ratios.tasa_respuesta_email
+    ? { nombre: 'WhatsApp', tasa: m.ratios.tasa_respuesta_whatsapp }
+    : { nombre: 'Correo', tasa: m.ratios.tasa_respuesta_email }
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       <Kpi
         icon={<Search className="h-4 w-4" />}
         label="Leads encontrados"
@@ -120,6 +134,19 @@ function Kpis({ m }: { m: MetricasCrm }) {
         pie={`${p.leads_ganados} ganados · ${p.leads_perdidos} perdidos`}
         acento={p.leads_ganados > 0 ? 'text-emerald-500' : undefined}
       />
+      <Kpi
+        icon={<Send className="h-4 w-4" />}
+        label="WhatsApp · correo"
+        valor={`${wa} · ${email}`}
+        pie={
+          hayComparacion
+            ? `Responde mejor ${mejor.nombre} (${Math.round(mejor.tasa)}%)`
+            : wa + email > 0
+              ? 'Todavía sin envíos por los dos canales'
+              : 'Sin envíos por WhatsApp ni correo'
+        }
+        acento={hayComparacion ? 'text-emerald-500' : undefined}
+      />
     </div>
   )
 }
@@ -135,6 +162,117 @@ function Kpi({
       </div>
       <p className={cn('mt-1 text-2xl font-bold tabular-nums text-fg', acento)}>{valor}</p>
       <p className="mt-0.5 text-[11px] text-muted">{pie}</p>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------- Canales */
+
+/**
+ * WhatsApp contra correo, lado a lado. Va justo debajo de los KPIs porque la
+ * pregunta que responde —dónde meter las horas de mañana— es más accionable
+ * que cualquier otra cosa del panel.
+ *
+ * Se enseñan las tres cifras juntas (envíos, respuestas y tasa) a propósito:
+ * una tasa suelta engaña. Un 50% sobre dos envíos no es mejor que un 18%
+ * sobre ciento cuarenta, y con los tres números delante eso se ve solo.
+ *
+ * Los toques de llamada, reunión y 'otro' no aparecen aquí; por eso los dos
+ * canales no tienen por qué sumar el total de contactos del periodo.
+ */
+function Canales({ m }: { m: MetricasCrm }) {
+  const p = m.periodo
+  const canales = [
+    {
+      nombre: 'WhatsApp',
+      enviados: p.contactos_whatsapp,
+      respuestas: p.respuestas_whatsapp,
+      tasa: m.ratios.tasa_respuesta_whatsapp,
+      barra: 'bg-emerald-500',
+      punto: 'bg-emerald-500',
+    },
+    {
+      nombre: 'Correo',
+      enviados: p.contactos_email,
+      respuestas: p.respuestas_email,
+      tasa: m.ratios.tasa_respuesta_email,
+      barra: 'bg-sky-500',
+      punto: 'bg-sky-500',
+    },
+  ]
+  // Escala compartida por los dos: barras con escalas distintas no se pueden
+  // comparar de un vistazo, que es lo único que hace este bloque.
+  const max = Math.max(...canales.map((c) => c.enviados), 1)
+  const totalCanal = canales.reduce((a, c) => a + c.enviados, 0)
+  const otros = Math.max(0, p.contactos_realizados - totalCanal)
+
+  return (
+    <div className="card">
+      <div className="mb-3 flex items-center gap-2">
+        <Send className="h-4 w-4 text-muted" />
+        <h3 className="text-sm font-semibold text-fg">Por dónde se contactó</h3>
+        {otros > 0 && (
+          <span className="ml-auto text-[11px] text-muted">
+            +{otros} por llamada, reunión u otro
+          </span>
+        )}
+      </div>
+
+      {totalCanal === 0 ? (
+        <p className="py-2 text-xs text-muted">
+          Ningún toque por WhatsApp ni por correo en el periodo. En cuanto se
+          complete el primero, aquí sale la comparación.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {canales.map((c) => (
+            <div key={c.nombre}>
+              <div className="flex items-baseline justify-between text-xs">
+                <span className="flex items-center gap-1.5 text-fg">
+                  <span className={cn('h-2 w-2 rounded-full', c.punto)} />
+                  {c.nombre}
+                </span>
+                <span className="text-muted">
+                  <span className="font-semibold tabular-nums text-fg">{c.enviados}</span> enviados ·{' '}
+                  <span className="font-semibold tabular-nums text-fg">{c.respuestas}</span> respuestas
+                </span>
+              </div>
+              <div className="mt-1.5 flex items-center gap-2">
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full bg-surface-2">
+                  {/* Dentro de la barra de envíos, la parte que respondió: la
+                      proporción se lee sin tener que dividir mentalmente. */}
+                  <div
+                    className={cn('h-full rounded-full', c.barra, 'opacity-30')}
+                    style={{ width: `${Math.max((c.enviados / max) * 100, c.enviados > 0 ? 3 : 0)}%` }}
+                  >
+                    <div
+                      className={cn('h-full rounded-full', c.barra)}
+                      style={{
+                        width: c.enviados > 0 ? `${(c.respuestas / c.enviados) * 100}%` : '0%',
+                      }}
+                    />
+                  </div>
+                </div>
+                <span
+                  className={cn(
+                    'w-12 shrink-0 text-right text-xs font-semibold tabular-nums',
+                    c.tasa >= 15 ? 'text-emerald-500' : 'text-muted',
+                  )}
+                >
+                  {c.enviados > 0 ? `${Math.round(c.tasa)}%` : '—'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {totalCanal > 0 && (
+        <p className="mt-3 text-[11px] text-muted">
+          El porcentaje es cuántos de esos envíos consiguieron respuesta. La
+          parte sólida de cada barra son las respuestas dentro de lo enviado.
+        </p>
+      )}
     </div>
   )
 }

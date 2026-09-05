@@ -591,6 +591,12 @@ export type MetricaClave =
   | 'leads_contactados'
   | 'contactos_realizados'
   | 'touch_1' | 'touch_2' | 'touch_3' | 'touch_4' | 'touch_5'
+  // Actividad por canal (0038). Cuentan toques, no leads: al mismo lead se le
+  // puede escribir por los dos canales y cada envío cuenta en el suyo.
+  | 'contactos_whatsapp'
+  | 'contactos_email'
+  | 'respuestas_whatsapp'
+  | 'respuestas_email'
   | 'respuestas_recibidas'
   | 'leads_respondieron'
   | 'reuniones_agendadas'
@@ -627,6 +633,13 @@ export interface RatiosCrm {
   tasa_respuesta: number
   tasa_conversion: number
   toques_por_lead: number
+  /**
+   * Respuestas por canal sobre los envíos DE ESE canal (0038). Dividir entre
+   * el total de toques daría dos porcentajes que no se pueden comparar entre
+   * sí, que es justo la comparación que interesa.
+   */
+  tasa_respuesta_whatsapp: number
+  tasa_respuesta_email: number
 }
 
 /** Respuesta completa del RPC `metricas_crm`. */
