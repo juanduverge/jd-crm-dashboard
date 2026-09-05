@@ -47,12 +47,12 @@ export const METRICAS: MetricaMeta[] = [
   // suficiente?" y estas otras "¿por dónde merece la pena insistir?". Son dos
   // decisiones distintas y mezclarlas en el mismo grupo las esconde.
   {
-    clave: 'contactos_whatsapp', label: 'Enviados por WhatsApp', unidad: 'toques', grupo: 'Canal',
-    ayuda: 'Toques completados cuyo canal fue WhatsApp. Cuenta envíos, no leads: al mismo lead se le puede escribir varias veces.',
+    clave: 'contactos_whatsapp', label: 'Contactos por WhatsApp', unidad: 'contactos', grupo: 'Canal',
+    ayuda: 'Mensajes que salieron de verdad por WhatsApp más los toques registrados de ese canal. Un lead contactado dos veces el mismo día cuenta una.',
   },
   {
-    clave: 'contactos_email', label: 'Enviados por correo', unidad: 'toques', grupo: 'Canal',
-    ayuda: 'Toques completados cuyo canal fue el correo. Cuenta envíos, no leads.',
+    clave: 'contactos_email', label: 'Contactos por correo', unidad: 'contactos', grupo: 'Canal',
+    ayuda: 'Correos que salieron de verdad (los mande el CRM o n8n) más los toques de correo registrados. Un lead contactado dos veces el mismo día cuenta una.',
   },
   {
     clave: 'respuestas_whatsapp', label: 'Respuestas por WhatsApp', unidad: 'respuestas', grupo: 'Canal',

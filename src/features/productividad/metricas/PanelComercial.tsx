@@ -204,24 +204,18 @@ function Canales({ m }: { m: MetricasCrm }) {
   // comparar de un vistazo, que es lo único que hace este bloque.
   const max = Math.max(...canales.map((c) => c.enviados), 1)
   const totalCanal = canales.reduce((a, c) => a + c.enviados, 0)
-  const otros = Math.max(0, p.contactos_realizados - totalCanal)
 
   return (
     <div className="card">
       <div className="mb-3 flex items-center gap-2">
         <Send className="h-4 w-4 text-muted" />
         <h3 className="text-sm font-semibold text-fg">Por dónde se contactó</h3>
-        {otros > 0 && (
-          <span className="ml-auto text-[11px] text-muted">
-            +{otros} por llamada, reunión u otro
-          </span>
-        )}
       </div>
 
       {totalCanal === 0 ? (
         <p className="py-2 text-xs text-muted">
-          Ningún toque por WhatsApp ni por correo en el periodo. En cuanto se
-          complete el primero, aquí sale la comparación.
+          Ningún contacto por WhatsApp ni por correo en el periodo. En cuanto
+          salga el primer mensaje, aquí sale la comparación.
         </p>
       ) : (
         <div className="space-y-4">
@@ -269,8 +263,10 @@ function Canales({ m }: { m: MetricasCrm }) {
 
       {totalCanal > 0 && (
         <p className="mt-3 text-[11px] text-muted">
-          El porcentaje es cuántos de esos envíos consiguieron respuesta. La
-          parte sólida de cada barra son las respuestas dentro de lo enviado.
+          Cuenta los mensajes que salieron de verdad y los toques registrados,
+          sin contar dos veces al mismo lead el mismo día. El porcentaje es
+          cuántos consiguieron respuesta; la parte sólida de la barra, esas
+          respuestas dentro de lo enviado.
         </p>
       )}
     </div>
