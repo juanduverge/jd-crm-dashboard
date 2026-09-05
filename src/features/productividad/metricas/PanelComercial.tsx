@@ -102,6 +102,25 @@ function Kpis({ m }: { m: MetricasCrm }) {
     ? { nombre: 'WhatsApp', tasa: m.ratios.tasa_respuesta_whatsapp }
     : { nombre: 'Correo', tasa: m.ratios.tasa_respuesta_email }
 
+  /**
+   * El pie tiene que decir la verdad en los tres casos, y el del medio es el
+   * que importa: con envíos por un solo canal NO hay comparación que hacer,
+   * pero sí hay actividad. Decir «todavía sin envíos» ahí —como decía la
+   * primera versión— contradice el número que está justo encima.
+   */
+  const soloUno = wa + email > 0 && !hayComparacion
+  const unico = wa > 0
+    ? { nombre: 'WhatsApp', n: wa, tasa: m.ratios.tasa_respuesta_whatsapp }
+    : { nombre: 'correo', n: email, tasa: m.ratios.tasa_respuesta_email }
+
+  const pieCanal = hayComparacion
+    ? `Responde mejor ${mejor.nombre} (${Math.round(mejor.tasa)}%)`
+    : soloUno
+      ? unico.tasa > 0
+        ? `Todo por ${unico.nombre} · ${Math.round(unico.tasa)}% de respuesta`
+        : `Todo por ${unico.nombre}, sin respuestas todavía`
+      : 'Sin envíos por WhatsApp ni correo'
+
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       <Kpi
@@ -117,7 +136,12 @@ function Kpis({ m }: { m: MetricasCrm }) {
         pie={
           m.ratios.toques_por_lead > 0
             ? `${fmtMetrica(undefined, m.ratios.toques_por_lead)} toques por lead`
-            : 'Todavía sin toques en el periodo'
+            // Sin toques pero con mensajes fuera: la aclaración evita leerlo
+            // como una contradicción del KPI de canal, que está al lado y sí
+            // los cuenta. Aquí sólo entran los seguimientos registrados.
+            : wa + email > 0
+              ? `Sin seguimientos registrados · ${wa + email} mensajes sí salieron`
+              : 'Todavía sin toques en el periodo'
         }
       />
       <Kpi
@@ -138,13 +162,7 @@ function Kpis({ m }: { m: MetricasCrm }) {
         icon={<Send className="h-4 w-4" />}
         label="WhatsApp · correo"
         valor={`${wa} · ${email}`}
-        pie={
-          hayComparacion
-            ? `Responde mejor ${mejor.nombre} (${Math.round(mejor.tasa)}%)`
-            : wa + email > 0
-              ? 'Todavía sin envíos por los dos canales'
-              : 'Sin envíos por WhatsApp ni correo'
-        }
+        pie={pieCanal}
         acento={hayComparacion ? 'text-emerald-500' : undefined}
       />
     </div>
