@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star, ThumbsUp, ThumbsDown, Calendar, Clock, Gauge, Youtube, Twitter, Music2, Pin } from 'lucide-react'
+import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star, ThumbsUp, ThumbsDown, Calendar, Clock, Gauge, Youtube, Twitter, Music2, Pin, Copy, Check } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge, Skeleton } from '@/components/ui'
-import { scoreColor, formatCurrency, initials, stringToColor, cn, htmlToText } from '@/lib/utils'
+import { scoreColor, formatCurrency, initials, stringToColor, cn, htmlToText, copiarAlPortapapeles } from '@/lib/utils'
 import { PIPELINE_STAGES } from '@/lib/config'
 import { leadsService } from '@/services/leadsService'
 import { useLeadsStore } from '@/store/leadsStore'
@@ -206,7 +206,7 @@ export function LeadDrawer({
         {tab === 'Detalles' && (
           <div className="space-y-3 text-sm">
             <Row icon={Briefcase} label="Cargo" value={lead.cargo} />
-            <Row icon={Globe} label="Web" value={lead.web} link={lead.web} />
+            <Row icon={Globe} label="Web" value={lead.web} link={lead.web} copyLabel="Enlace de la web" />
             {emailOptions ? (
               <div className="flex items-start gap-3 py-2 text-sm">
                 <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
@@ -252,7 +252,7 @@ export function LeadDrawer({
             <Row icon={MapPin} label="Dirección" value={lead.direccion} />
             <Row icon={MapPin} label="Ciudad" value={lead.ciudad} />
             <Row icon={MapPin} label="País" value={lead.pais} />
-            <Row icon={MapPin} label="Google Maps" value={mapsUrl ? (lead.googleMaps ? 'Ver ficha en Google Maps' : 'Buscar en Google Maps') : undefined} link={mapsUrl} />
+            <Row icon={MapPin} label="Google Maps" value={mapsUrl ? (lead.googleMaps ? 'Ver ficha en Google Maps' : 'Buscar en Google Maps') : undefined} link={mapsUrl} copyLabel="Enlace de Google Maps" />
             <Row icon={Flag} label="Fuente" value={lead.fuente} />
             {/* `sin_datos` = se buscó en su web y no había nada, que es distinto
                 de no haberlo intentado nunca (last_enriched_at vacío). */}
@@ -419,8 +419,43 @@ function FichaSeguimiento({ lead, onVerSeguimientos }: { lead: Lead; onVerSeguim
   )
 }
 
-function Row({ icon: Icon, label, value, link, onClick, hint }: { icon: any; label: string; value?: string; link?: string; onClick?: () => void; hint?: string }) {
+/**
+ * Botón de copiar al lado de un dato: el enlace de Google Maps, la web, el
+ * teléfono. Sirve para pegarlo en un chat sin tener que abrir la página,
+ * seleccionar la barra del navegador y copiar de ahí.
+ */
+function CopyButton({ texto, que }: { texto: string; que: string }) {
+  const [copiado, setCopiado] = useState(false)
+  useEffect(() => {
+    if (!copiado) return
+    const t = setTimeout(() => setCopiado(false), 1500)
+    return () => clearTimeout(t)
+  }, [copiado])
+  return (
+    <button
+      type="button"
+      onClick={async (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (await copiarAlPortapapeles(texto)) {
+          setCopiado(true)
+          toast.success(`${que} copiado`)
+        } else {
+          toast.error('No se pudo copiar')
+        }
+      }}
+      title={`Copiar ${que.toLowerCase()}`}
+      aria-label={`Copiar ${que.toLowerCase()}`}
+      className="shrink-0 rounded p-1 text-muted hover:bg-muted/10 hover:text-fg"
+    >
+      {copiado ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+    </button>
+  )
+}
+
+function Row({ icon: Icon, label, value, link, onClick, hint, copy, copyLabel }: { icon: any; label: string; value?: string; link?: string; onClick?: () => void; hint?: string; copy?: string; copyLabel?: string }) {
   if (!value) return null
+  const aCopiar = copy ?? link
   return (
     <div className="flex items-center gap-2">
       <Icon className="h-4 w-4 text-muted" />
@@ -431,6 +466,7 @@ function Row({ icon: Icon, label, value, link, onClick, hint }: { icon: any; lab
               : <span className="min-w-0 truncate text-fg" title={value}>{value}</span>}
         {hint && <span className="shrink-0 text-[10px] text-muted">{hint}</span>}
       </span>
+      {aCopiar && <CopyButton texto={aCopiar} que={copyLabel ?? 'Enlace'} />}
     </div>
   )
 }

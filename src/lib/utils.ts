@@ -138,3 +138,35 @@ export function esCorreoPropio(remitente: string, propias: string[]): boolean {
   if (!dir) return false
   return propias.some((p) => p.trim().toLowerCase() === dir)
 }
+
+/**
+ * Copia texto al portapapeles y dice si lo consiguió.
+ *
+ * `navigator.clipboard` solo existe en contexto seguro (HTTPS o localhost) y el
+ * CRM se abre por IP en la red de casa (http://192.168.18.26), donde no está.
+ * Por eso el plan B con un textarea y `execCommand`, que es lo único que
+ * funciona ahí — y es justo donde más se usa: copiar el enlace desde el móvil.
+ */
+export async function copiarAlPortapapeles(texto: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(texto)
+      return true
+    }
+  } catch { /* seguimos con el plan B */ }
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = texto
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    ta.setSelectionRange(0, ta.value.length)
+    const ok = document.execCommand('copy')
+    document.body.removeChild(ta)
+    return ok
+  } catch {
+    return false
+  }
+}
