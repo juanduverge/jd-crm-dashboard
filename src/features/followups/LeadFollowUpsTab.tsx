@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import { CalendarPlus, Check } from 'lucide-react'
 import { Button, Input, Select } from '@/components/ui'
 import { useLeadFollowUps, useProgramarFollowUp } from '@/hooks/useData'
-import { FOLLOW_UP_TIPOS, addDays, today } from '@/lib/followUps'
+import { FOLLOW_UP_TIPOS, addDiasLaborales, today } from '@/lib/followUps'
 import { FollowUpTimeline } from './FollowUpTimeline'
 import { CompletarFollowUpModal } from './CompletarFollowUpModal'
 import type { FollowUp, FollowUpTipo } from '@/types'
@@ -21,7 +21,7 @@ export function LeadFollowUpsTab({ leadId, empresa }: { leadId: string; empresa?
   const { data } = useLeadFollowUps(leadId)
   const programar = useProgramarFollowUp()
 
-  const [fecha, setFecha] = useState(() => addDays(3))
+  const [fecha, setFecha] = useState(() => addDiasLaborales(3))
   const [tipo, setTipo] = useState<FollowUpTipo>('llamada')
   const [nota, setNota] = useState('')
   const [completando, setCompletando] = useState<FollowUp | null>(null)
@@ -37,7 +37,7 @@ export function LeadFollowUpsTab({ leadId, empresa }: { leadId: string; empresa?
       await programar.mutateAsync({ leadId, fecha, tipo, nota: nota.trim() || undefined })
       toast.success('Seguimiento programado')
       setNota('')
-      setFecha(addDays(3))
+      setFecha(addDiasLaborales(3))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo programar')
     }

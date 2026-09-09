@@ -46,19 +46,60 @@ export function addDays(days: number, from: string = today()): string {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 10)
 }
 
+/** Un YYYY-MM-DD que cae en sábado o domingo. */
+export function esFinDeSemana(fecha: string): boolean {
+  const d = new Date(`${fecha}T12:00:00`).getDay()
+  return d === 0 || d === 6
+}
+
+/**
+ * Empuja una fecha al siguiente día laboral si cayó en fin de semana.
+ * Nunca la adelanta: un seguimiento del sábado se atiende el lunes, no el
+ * viernes anterior, que ya pasó.
+ */
+export function siguienteDiaLaboral(fecha: string): string {
+  let f = fecha
+  while (esFinDeSemana(f)) f = addDays(1, f)
+  return f
+}
+
+/**
+ * N días LABORALES desde `from`. "En 3 días" dicho un miércoles es el lunes
+ * siguiente, no el sábado: los sábados y domingos no se trabaja, y una tarea
+ * puesta ahí o se atiende tarde o no se atiende.
+ */
+export function addDiasLaborales(dias: number, from: string = today()): string {
+  let f = from
+  let quedan = dias
+  while (quedan > 0) {
+    f = addDays(1, f)
+    if (!esFinDeSemana(f)) quedan--
+  }
+  return siguienteDiaLaboral(f)
+}
+
 /**
  * Atajos de reprogramación. Se cuentan siempre desde HOY, no desde la fecha
  * actual del seguimiento: "en 1 semana" dicho sobre un toque vencido hace un
  * mes significa dentro de siete días, no hace tres semanas.
  *
- * `meses` en vez de `dias: 30` para que "en 1 mes" caiga en el mismo día del
- * mes siguiente, que es lo que la gente entiende por un mes.
+ * Dos formas de contar, según lo que la etiqueta promete:
+ *   · `dias`    -> días LABORALES. "En 3 días" es tres días de trabajo.
+ *   · `semanas` -> semanas de calendario, empujando al lunes si cae en finde.
+ *                  "En 2 semanas" tiene que seguir siendo el mismo día de la
+ *                  semana; contar 14 laborales lo movería a casi tres.
+ *   · `meses`   -> igual, el mismo día del mes siguiente.
  */
-export const ATAJOS_REPROGRAMAR: { label: string; dias?: number; meses?: number }[] = [
+export const ATAJOS_REPROGRAMAR: {
+  label: string
+  dias?: number
+  semanas?: number
+  meses?: number
+}[] = [
   { label: 'Mañana', dias: 1 },
   { label: 'En 3 días', dias: 3 },
-  { label: 'En 1 semana', dias: 7 },
-  { label: 'En 2 semanas', dias: 14 },
+  { label: 'En 1 semana', semanas: 1 },
+  { label: 'En 2 semanas', semanas: 2 },
   { label: 'En 1 mes', meses: 1 },
 ]
 
@@ -74,7 +115,9 @@ export function addMonths(months: number, from: string = today()): string {
 
 /** Resuelve un atajo a su fecha YYYY-MM-DD. */
 export function fechaDeAtajo(a: (typeof ATAJOS_REPROGRAMAR)[number]): string {
-  return a.meses ? addMonths(a.meses) : addDays(a.dias ?? 0)
+  if (a.meses) return siguienteDiaLaboral(addMonths(a.meses))
+  if (a.semanas) return siguienteDiaLaboral(addDays(a.semanas * 7))
+  return addDiasLaborales(a.dias ?? 0)
 }
 
 /**
@@ -86,6 +129,20 @@ export const SIGUIENTE_TOQUE_DIAS: Record<FollowUpResultado, number> = {
   positivo: 3,
   sin_respuesta: 7,
   negativo: 21,
+}
+
+/**
+ * La fecha concreta del siguiente toque, ya en día laboral.
+ *
+ * Los plazos cortos se cuentan en días de trabajo —tres días tras una buena
+ * respuesta son tres días de oficina, no un fin de semana de por medio— y el
+ * plazo largo del "negativo" se cuenta de calendario y sólo se empuja si cae
+ * en sábado o domingo: ahí lo que importa es dejar pasar tres semanas, no
+ * quince jornadas exactas.
+ */
+export function fechaSiguienteToque(resultado: FollowUpResultado): string {
+  const dias = SIGUIENTE_TOQUE_DIAS[resultado]
+  return dias > 10 ? siguienteDiaLaboral(addDays(dias)) : addDiasLaborales(dias)
 }
 
 export interface AgendaGrupos {

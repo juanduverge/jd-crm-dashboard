@@ -4,7 +4,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Button, Input, Select, Textarea } from '@/components/ui'
 import { useCompletarFollowUp, useProgramarFollowUp } from '@/hooks/useData'
 import {
-  FOLLOW_UP_TIPOS, RESULTADO_META, SIGUIENTE_TOQUE_DIAS, addDays,
+  FOLLOW_UP_TIPOS, RESULTADO_META, fechaSiguienteToque,
 } from '@/lib/followUps'
 import { cn } from '@/lib/utils'
 import type { FollowUp, FollowUpResultado, FollowUpTipo } from '@/types'
@@ -37,7 +37,7 @@ export function CompletarFollowUpModal({
   const [resultado, setResultado] = useState<FollowUpResultado>('positivo')
   const [nota, setNota] = useState('')
   const [encadenar, setEncadenar] = useState(true)
-  const [siguienteFecha, setSiguienteFecha] = useState(() => addDays(SIGUIENTE_TOQUE_DIAS.positivo))
+  const [siguienteFecha, setSiguienteFecha] = useState(() => fechaSiguienteToque('positivo'))
   const [siguienteTipo, setSiguienteTipo] = useState<FollowUpTipo>('llamada')
   const [siguienteNota, setSiguienteNota] = useState('')
 
@@ -47,7 +47,7 @@ export function CompletarFollowUpModal({
     setResultado('positivo')
     setNota('')
     setEncadenar(true)
-    setSiguienteFecha(addDays(SIGUIENTE_TOQUE_DIAS.positivo))
+    setSiguienteFecha(fechaSiguienteToque('positivo'))
     setSiguienteTipo(followUp.tipo)
     setSiguienteNota('')
   }, [followUp])
@@ -55,7 +55,7 @@ export function CompletarFollowUpModal({
   // La fecha sugerida sigue al resultado: un "negativo" no se reintenta en 3 días.
   const cambiarResultado = (r: FollowUpResultado) => {
     setResultado(r)
-    setSiguienteFecha(addDays(SIGUIENTE_TOQUE_DIAS[r]))
+    setSiguienteFecha(fechaSiguienteToque(r))
   }
 
   const guardar = async () => {

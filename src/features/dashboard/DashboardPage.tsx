@@ -24,10 +24,13 @@ function buildKpis(leads: Lead[]): Kpi[] {
   const pipelineUsd = leads
     .filter((l) => !['ganado', 'perdido'].includes(l.estado))
     .reduce((s, l) => s + (l.valorEstimado || 0), 0)
-  const respondieron = leads.filter((l) =>
-    ['respondio', 'reunion', 'propuesta', 'negociacion', 'ganado'].includes(l.estado),
-  ).length
-  const contactados = leads.filter((l) => l.estado !== 'nuevo').length
+  // Contactado y respondido se leen del HISTORIAL (`primerContactoEn` /
+  // `respondioEn`, que mantiene la 0028), no de la etapa actual. Un lead que
+  // contestó y luego se cerró como perdido contestó igual: mirando la etapa
+  // desaparecía de las respuestas y seguía sumando en los contactados, así
+  // que cada lead perdido bajaba la tasa dos veces.
+  const respondieron = leads.filter(haRespondido).length
+  const contactados = leads.filter(haSidoContactado).length
   const tasaResp = contactados ? (respondieron / contactados) * 100 : 0
 
   // Eran seis: «Total leads», «Leads activos» y «Contactados» son tres
@@ -43,11 +46,28 @@ function buildKpis(leads: Lead[]): Kpi[] {
   ]
 }
 
+/**
+ * Un embudo cuenta por dónde HA PASADO cada lead, no dónde está parado hoy.
+ *
+ * Estos dos se leen del historial que mantiene la 0028, así que un lead que
+ * contestó y acabó en «perdido» sigue contando como contactado y como
+ * respuesta. Con la etapa actual desaparecía de los dos escalones el día que
+ * se cerraba, y el embudo se encogía por detrás según se trabajaba.
+ */
+const haSidoContactado = (l: Lead) => Boolean(l.primerContactoEn) || l.touchActual > 0
+const haRespondido = (l: Lead) => Boolean(l.respondioEn)
+
+/**
+ * Los escalones de abajo (reunión y cliente) sí van por la etapa: no hay
+ * columna en `leads` que recuerde que alguien tuvo una reunión y luego se
+ * enfrió. Vive en `pipeline_events`; el día que haga falta se saca de ahí,
+ * como ya hacen `reuniones_agendadas` y `propuestas_enviadas` en métricas.
+ */
 const FUNNEL_STAGES: { key: string; label: string; match: (l: Lead) => boolean; color: string }[] = [
   { key: 's', label: 'Scrapeados', match: () => true, color: '#94a3b8' },
-  { key: 'c', label: 'Contactados', match: (l) => l.estado !== 'nuevo', color: '#0082f3' },
+  { key: 'c', label: 'Contactados', match: haSidoContactado, color: '#0082f3' },
   { key: 'o', label: 'Abrieron', match: (l) => ['seguimiento', 'respondio', 'reunion', 'propuesta', 'negociacion', 'ganado'].includes(l.estado), color: '#6248ff' },
-  { key: 'r', label: 'Respondieron', match: (l) => ['respondio', 'reunion', 'propuesta', 'negociacion', 'ganado'].includes(l.estado), color: '#f38744' },
+  { key: 'r', label: 'Respondieron', match: haRespondido, color: '#f38744' },
   { key: 'm', label: 'Reunión', match: (l) => ['reunion', 'propuesta', 'negociacion', 'ganado'].includes(l.estado), color: '#ff7448' },
   { key: 'w', label: 'Cliente', match: (l) => l.estado === 'ganado', color: '#16a34a' },
 ]

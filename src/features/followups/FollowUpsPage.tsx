@@ -11,7 +11,7 @@ import {
   useFollowUpsAgenda, useActualizarFollowUp,
 } from '@/hooks/useData'
 import {
-  agruparAgenda, textoVencimiento, TIPO_META, addDays, today,
+  agruparAgenda, textoVencimiento, TIPO_META, addDiasLaborales, today,
   ATAJOS_REPROGRAMAR, FOLLOW_UP_TIPOS, fechaDeAtajo,
 } from '@/lib/followUps'
 import { ResponsableSelect } from '@/components/ui/ResponsableSelect'
@@ -73,7 +73,7 @@ export function FollowUpsPage() {
   const abrirReprogramar = (f: FollowUpAgendaItem) => {
     setReprogramando(f)
     // Sugerencia por defecto: mañana. Para un vencido, es el rescate más rápido.
-    setNuevaFecha(addDays(1))
+    setNuevaFecha(addDiasLaborales(1))
     setNuevaHora(f.hora ?? '')
     setNuevoTipo(f.tipo)
     setNuevoResponsable(f.responsable ?? '')
