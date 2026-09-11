@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
-import { Bell, Mail, Search } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Bell, Globe, Mail, Search } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
-import { useInbox, useUltimasBusquedas } from '@/hooks/useData'
+import { useInbox, useUltimasBusquedas, useWebLeads } from '@/hooks/useData'
 import { cn } from '@/lib/utils'
 
 const SEEN_STORAGE_KEY = 'jd-crm-notif-seen-at'
@@ -13,7 +14,7 @@ function loadSeenAt(): number {
 
 interface NotifEvent {
   id: string
-  type: 'message' | 'search'
+  type: 'message' | 'search' | 'webform'
   title: string
   subtitle: string
   time: number
@@ -23,9 +24,40 @@ interface NotifEvent {
 export function NotificationBell() {
   const { data: emails } = useInbox()
   const { data: searches } = useUltimasBusquedas()
+  const { data: webLeads } = useWebLeads()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [seenAt, setSeenAt] = useState(() => loadSeenAt())
+
+  // Aviso emergente cuando entra una solicitud del formulario de la web.
+  // La primera carga solo memoriza lo que ya había: avisar de eso sería ruido.
+  const knownWebLeadIds = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    if (!webLeads) return
+    if (knownWebLeadIds.current === null) {
+      knownWebLeadIds.current = new Set(webLeads.map((w) => w.id))
+      return
+    }
+    const known = knownWebLeadIds.current
+    for (const w of webLeads) {
+      if (known.has(w.id)) continue
+      known.add(w.id)
+      toast(
+        (t) => (
+          <button
+            className="text-left"
+            onClick={() => { toast.dismiss(t.id); navigate('/web-leads') }}
+          >
+            <span className="block font-semibold">Nueva solicitud web</span>
+            <span className="block text-xs opacity-80">
+              {w.nombre}{w.empresa ? ` · ${w.empresa}` : ''}
+            </span>
+          </button>
+        ),
+        { icon: '🌐', duration: 10_000 },
+      )
+    }
+  }, [webLeads, navigate])
 
   const events = useMemo<NotifEvent[]>(() => {
     const msgEvents: NotifEvent[] = (emails ?? [])
@@ -49,8 +81,20 @@ export function NotificationBell() {
       onClick: () => navigate('/leads'),
     }))
 
-    return [...msgEvents, ...searchEvents].sort((a, b) => b.time - a.time).slice(0, 10)
-  }, [emails, searches, navigate])
+    const webEvents: NotifEvent[] = (webLeads ?? [])
+      .filter((w) => w.estado === 'nuevo')
+      .slice(0, 8)
+      .map((w) => ({
+        id: `web-${w.id}`,
+        type: 'webform',
+        title: `Solicitud web: ${w.nombre}`,
+        subtitle: w.asunto || w.empresa || w.email,
+        time: new Date(w.fechaHora).getTime() || 0,
+        onClick: () => navigate('/web-leads'),
+      }))
+
+    return [...msgEvents, ...searchEvents, ...webEvents].sort((a, b) => b.time - a.time).slice(0, 10)
+  }, [emails, searches, webLeads, navigate])
 
   const unseenCount = events.filter((e) => e.time > seenAt).length
 
@@ -90,8 +134,15 @@ export function NotificationBell() {
                   'flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left hover:bg-surface-2',
                 )}
               >
-                <span className={cn('mt-0.5 rounded-md p-1', e.type === 'message' ? 'bg-primary-400/10 text-primary-500' : 'bg-amber-400/10 text-amber-500')}>
-                  {e.type === 'message' ? <Mail className="h-3.5 w-3.5" /> : <Search className="h-3.5 w-3.5" />}
+                <span className={cn(
+                  'mt-0.5 rounded-md p-1',
+                  e.type === 'message' && 'bg-primary-400/10 text-primary-500',
+                  e.type === 'search' && 'bg-amber-400/10 text-amber-500',
+                  e.type === 'webform' && 'bg-emerald-400/10 text-emerald-500',
+                )}>
+                  {e.type === 'message' && <Mail className="h-3.5 w-3.5" />}
+                  {e.type === 'search' && <Search className="h-3.5 w-3.5" />}
+                  {e.type === 'webform' && <Globe className="h-3.5 w-3.5" />}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-fg">{e.title}</span>
