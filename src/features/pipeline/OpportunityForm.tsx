@@ -35,6 +35,32 @@ export function OpportunityForm({
   onClose: () => void
   onSave: (id: string, patch: Partial<Lead>) => void
 }) {
+  if (!lead) return null
+  return (
+    <Modal open={open} onClose={onClose} title={`Editar oportunidad · ${lead.empresa}`} size="lg">
+      <OpportunityEditor lead={lead} active={open} onClose={onClose} onSave={onSave} />
+    </Modal>
+  )
+}
+
+/** Canal del lead ↔ medio del seguimiento: son la misma elección vista desde
+ *  dos sitios, así que cambiar uno arrastra al otro cuando tiene equivalente. */
+const CANALES: Channel[] = ['email', 'whatsapp', 'instagram', 'linkedin']
+
+/**
+ * El editor sin el modal alrededor, para poder usarlo también como pestaña de
+ * la ficha del lead. Oportunidad y Seguimiento van en pestañas para que no sea
+ * un formulario interminable.
+ */
+export function OpportunityEditor({
+  lead, active, onClose, onSave,
+}: {
+  lead: Lead | null
+  active: boolean
+  onClose: () => void
+  onSave: (id: string, patch: Partial<Lead>) => void
+}) {
+  const [pestana, setPestana] = useState<'oportunidad' | 'seguimiento'>('oportunidad')
   // --- Oportunidad (tabla leads) ---
   const [estado, setEstado] = useState<LeadStatus>('nuevo')
   const [valorEstimado, setValor] = useState(0)
@@ -56,14 +82,14 @@ export function OpportunityForm({
   const [resultadoEsperado, setResultadoEsperado] = useState('')
   const [comentariosInternos, setComentarios] = useState('')
 
-  const { data: followUps } = useLeadFollowUps(open && lead ? lead.id : undefined)
+  const { data: followUps } = useLeadFollowUps(active && lead ? lead.id : undefined)
   const pendiente = followUps?.find((f) => f.estado === 'pendiente')
   const programar = useProgramarFollowUp()
   const actualizar = useActualizarFollowUp()
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
-    if (!lead || !open) return
+    if (!lead || !active) return
     setEstado(lead.estado)
     setValor(lead.valorEstimado ?? 0)
     setPrioridad(lead.prioridad ?? 'media')
@@ -74,12 +100,12 @@ export function OpportunityForm({
     setNotas(lead.notas ?? '')
     setProb(lead.probabilidad ?? '')
     setCierre(lead.fechaCierreEstimada ?? '')
-  }, [lead, open])
+  }, [lead, active])
 
   // El seguimiento se rellena en su propio efecto porque llega por otra query y
   // puede resolverse después de que el modal ya esté abierto.
   useEffect(() => {
-    if (!lead || !open) return
+    if (!lead || !active) return
     if (pendiente) {
       setFecha(pendiente.fechaProgramada)
       setHora(pendiente.hora ?? '')
@@ -108,7 +134,7 @@ export function OpportunityForm({
       setResultadoEsperado('')
       setComentarios('')
     }
-  }, [lead, open, pendiente])
+  }, [lead, active, pendiente])
 
   if (!lead) return null
 
@@ -163,23 +189,32 @@ export function OpportunityForm({
     onClose()
   }
 
+  const cambiarCanal = (c: Channel) => {
+    setCanal(c)
+    setTipoSeguimiento(c as FollowUpTipo)
+  }
+  const cambiarMedio = (t: FollowUpTipo) => {
+    setTipoSeguimiento(t)
+    if ((CANALES as string[]).includes(t)) setCanal(t as Channel)
+  }
+
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={`Editar oportunidad · ${lead.empresa}`}
-      size="lg"
-      footer={
-        <>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={save} disabled={guardando}>
-            {guardando ? 'Guardando…' : 'Guardar cambios'}
-          </Button>
-        </>
-      }
-    >
+    <div className="space-y-4">
+      <div className="flex gap-1 border-b border-border">
+        {([['oportunidad', 'Oportunidad', Target], ['seguimiento', pendiente ? `Seguimiento · toque ${pendiente.orden}` : 'Seguimiento', CalendarClock]] as const).map(([k, label, Icon]) => (
+          <button
+            key={k}
+            type="button"
+            onClick={() => setPestana(k)}
+            className={cn('flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm', pestana === k ? 'border-primary-400 text-fg' : 'border-transparent text-muted hover:text-fg')}
+          >
+            <Icon className="h-3.5 w-3.5" /> {label}
+          </button>
+        ))}
+      </div>
       <div className="space-y-6">
         {/* ---------------- Oportunidad ---------------- */}
+        {pestana === 'oportunidad' && (
         <section>
           <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
             <Target className="h-3.5 w-3.5" /> Oportunidad
@@ -205,7 +240,7 @@ export function OpportunityForm({
             </label>
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-muted">Canal principal</span>
-              <Select value={canalPrincipal} onChange={(e) => setCanal(e.target.value as Channel)}>
+              <Select value={canalPrincipal} onChange={(e) => cambiarCanal(e.target.value as Channel)}>
                 <option value="email">Email</option>
                 <option value="whatsapp">WhatsApp</option>
                 <option value="instagram">Instagram</option>
@@ -237,8 +272,10 @@ export function OpportunityForm({
             </div>
           </div>
         </section>
+        )}
 
         {/* ---------------- Seguimiento ---------------- */}
+        {pestana === 'seguimiento' && (
         <section className="rounded-xl border border-border bg-surface-2/50 p-4">
           <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
             <CalendarClock className="h-3.5 w-3.5" />
@@ -293,7 +330,7 @@ export function OpportunityForm({
                 era lo que obligaba a completar y reprogramar el toque. */}
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-muted">Medio de contacto</span>
-              <Select value={tipoSeguimiento} onChange={(e) => setTipoSeguimiento(e.target.value as FollowUpTipo)}>
+              <Select value={tipoSeguimiento} onChange={(e) => cambiarMedio(e.target.value as FollowUpTipo)}>
                 {FOLLOW_UP_TIPOS.map((t) => (
                   <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>
                 ))}
@@ -358,6 +395,7 @@ export function OpportunityForm({
                   : 'Aparecerá en Seguimientos y avisará cuando toque.'}
           </p>
         </section>
+        )}
 
         {/* Resumen ponderado */}
         <div className="flex items-center justify-between rounded-xl border border-border bg-surface-2 px-4 py-2.5 text-sm">
@@ -365,6 +403,12 @@ export function OpportunityForm({
           <span className="text-muted">Valor ponderado: <b className="text-fg">{formatCurrency(ponderado)}</b></span>
         </div>
       </div>
-    </Modal>
+      <div className="flex justify-end gap-2 border-t border-border pt-3">
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={save} disabled={guardando}>
+          {guardando ? 'Guardando…' : 'Guardar cambios'}
+        </Button>
+      </div>
+    </div>
   )
 }

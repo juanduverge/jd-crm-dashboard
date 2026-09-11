@@ -3,10 +3,10 @@ import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   Plus, Download, RefreshCw, Trash2, Search, ArrowUpDown, Mail, MessageCircle,
-  Eye, Filter, X, Sparkles, Star, ThumbsUp, ThumbsDown,
+  Eye, X, Sparkles, Star, ThumbsUp, ThumbsDown,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Button, Input, Select, Badge, Skeleton, EmptyState } from '@/components/ui'
+import { Button, Input, Badge, Skeleton, EmptyState } from '@/components/ui'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { LeadForm } from './LeadForm'
 import { LeadDrawer } from './LeadDrawer'
@@ -18,10 +18,8 @@ import { PIPELINE_STAGES } from '@/lib/config'
 import { scoreColor, formatCurrency, downloadCSV, cn } from '@/lib/utils'
 import { crearFiltroLeads, relevanciaLead } from '@/lib/leadSearch'
 import { AyudaBusqueda } from './AyudaBusqueda'
-import { TouchFilterBar } from '@/components/TouchFilterBar'
+import { LeadFiltros, crearCategorias, pasaFiltros, type FiltrosSel } from './LeadFiltros'
 import { useEsMovil } from '@/hooks/useMediaQuery'
-import { pasaFiltroToque } from '@/lib/touches'
-import { PrefFilterBar, pasaPrefs, type PrefKey } from '@/components/PrefFilterBar'
 import { today } from '@/lib/followUps'
 import type { Lead } from '@/types'
 import type { LeadImport } from '@/services/leadsService'
@@ -37,21 +35,6 @@ function fmtShort(v?: string): string {
   return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-/** Pestañas rápidas por estado (Todos + etapas del pipeline). */
-const STATE_TABS: { key: 'todos' | Lead['estado']; label: string }[] = [
-  { key: 'todos', label: 'Todos' },
-  ...PIPELINE_STAGES.map((s) => ({ key: s.id as Lead['estado'], label: s.label })),
-]
-
-
-/** Filtros inteligentes adicionales (aditivos, un solo activo a la vez). */
-const SMART_PILLS: { key: 'prioridad' | 'conIA' | 'sinIA' | 'sinResponsable'; label: string }[] = [
-  { key: 'prioridad', label: 'Alta prioridad' },
-  { key: 'conIA', label: 'Con puntuación IA' },
-  { key: 'sinIA', label: 'Sin puntuación IA' },
-  { key: 'sinResponsable', label: 'Sin responsable' },
-]
-
 export function LeadsPage() {
   // Tabla o tarjetas, nunca las dos: pintar las dos listas y esconder una con
   // CSS duplicaría el trabajo de React en una lista que puede tener miles.
@@ -61,13 +44,8 @@ export function LeadsPage() {
   const { addLead, updateLead, removeLeads, moveStage, selectedIds, toggleSelect, selectAll, clearSelection, toggleFavorito, toggleMeGusta, toggleDescartado } = useLeadsStore()
 
   const [search, setSearch] = useState('')
-  const [showFilters, setShowFilters] = useState(false)
-  const [fNicho, setFNicho] = useState('')
   const [fScoreMin, setFScoreMin] = useState(0)
-  const [tab, setTab] = useState<'todos' | Lead['estado']>('todos')
-  const [prefs, setPrefs] = useState<PrefKey[]>([])
-  const [fToque, setFToque] = useState('')
-  const [smart, setSmart] = useState<'' | 'prioridad' | 'conIA' | 'sinIA' | 'sinResponsable'>('')
+  const [filtros, setFiltros] = useState<FiltrosSel>({})
   const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({ key: 'score', dir: 'desc' })
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Lead | null>(null)
@@ -102,67 +80,24 @@ export function LeadsPage() {
   // cambias de pestaña, de orden o de búsqueda —ahí sí quieres reordenar— y
   // también a mano con el botón «Reordenar».
   const [anclas, setAnclas] = useState<Map<string, number> | null>(null)
-  useEffect(() => { setAnclas(null) }, [tab, prefs, sort, search, fNicho, fScoreMin, fToque, smart])
+  useEffect(() => { setAnclas(null) }, [filtros, sort, search, fScoreMin])
   const deleteLead = useDeleteLead()
   const nichos = useNichos()
   const ultimaImportacion = useUltimaImportacion().data
 
-  // Base: aplica búsqueda + filtros avanzados (nicho/score), sin la pestaña ni pills.
+  // Base: búsqueda + score mínimo. Las categorías de casillas van aparte para
+  // que el panel pueda contar cada opción sobre esta base.
   // La búsqueda recorre TODOS los campos de la ficha y admite sintaxis por
   // campo (`ciudad:madrid`, `tel:600`, `creado:>2026-01`); ver `lib/leadSearch`.
   const base = useMemo(() => {
     const coincide = crearFiltroLeads(search)
-    return leads.filter((l) =>
-      coincide(l) &&
-      (!fNicho || l.nicho === fNicho) &&
-      (l.score >= fScoreMin),
-    )
-  }, [leads, search, fNicho, fScoreMin])
+    return leads.filter((l) => coincide(l) && l.score >= fScoreMin)
+  }, [leads, search, fScoreMin])
 
-  // Conteos por pestaña, calculados sobre la base (respetan búsqueda/filtros)
-  // y las marcas activas, para que el número cuadre con lo que verás al pulsar.
-  const counts = useMemo(() => {
-    const conPrefs = base.filter((l) => pasaPrefs(l, prefs))
-    const c: Record<string, number> = { todos: conPrefs.length }
-    for (const s of PIPELINE_STAGES) c[s.id] = conPrefs.filter((l) => l.estado === s.id).length
-    return c
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base, prefs])
-
-  // Base de conteo de las marcas: dentro de la pestaña elegida. Así en
-  // «Contactado» el 👍 dice cuántos contactados te gustan, no cuántos hay.
-  const baseMarcas = useMemo(
-    () => base.filter((l) => tab === 'todos' || l.estado === tab),
-    [base, tab],
-  )
-
-  const smartMatch = (l: Lead) => {
-    switch (smart) {
-      case 'prioridad': return l.prioridad === 'alta'
-      case 'conIA': return l.scoreIA !== undefined
-      case 'sinIA': return l.scoreIA === undefined
-      // Sin responsable de verdad: vacío. Antes se colaba aquí la abreviatura
-      // 'JD' del importador, que ya no existe (0028 unificó los responsables).
-      case 'sinResponsable': return !l.responsable?.trim()
-      default: return true
-    }
-  }
-
-  // Conjunto sobre el que la barra de toques cuenta: pestaña y pills ya
-  // aplicadas, para que sus números coincidan con la tabla resultante.
-  const conPestana = useMemo(
-    () => base.filter((l) =>
-      (tab === 'todos' || l.estado === tab) &&
-      pasaPrefs(l, prefs) &&
-      smartMatch(l),
-    ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [base, tab, prefs, smart],
-  )
-
+  const categorias = useMemo(() => crearCategorias(nichos), [nichos])
   const hoy = today()
   const filtered = useMemo(() => {
-    let res = conPestana.filter((l) => pasaFiltroToque(l, fToque, hoy))
+    let res = base.filter((l) => pasaFiltros(l, categorias, filtros, hoy))
     const sortVal = (l: Lead): string | number => {
       if (sort.key === 'favorito') return l.favorito ? 1 : 0
       if (sort.key === 'meGusta') return l.meGusta ? 1 : 0
@@ -198,7 +133,7 @@ export function LeadsPage() {
     })
     return res
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conPestana, fToque, hoy, sort, search, anclas])
+  }, [base, categorias, filtros, hoy, sort, search, anclas])
 
   // Congela el orden actual antes de tocar una marca. Si ya estaba congelado
   // no se rehace la foto: si no, el segundo clic recolocaría todo lo del
@@ -259,9 +194,6 @@ export function LeadsPage() {
         subtitle={`${filtered.length} de ${leads.length} leads`}
         actions={
           <>
-            <Button variant="outline" size="sm" onClick={() => setShowFilters((v) => !v)}>
-              <Filter className="h-4 w-4" /> Filtros
-            </Button>
             {anclas && (
               <Button variant="outline" size="sm" onClick={() => setAnclas(null)} title="La lista está quieta desde que empezaste a marcar. Esto la vuelve a ordenar.">
                 <ArrowUpDown className="h-4 w-4" /> Reordenar
@@ -318,72 +250,17 @@ export function LeadsPage() {
           <AyudaBusqueda onEjemplo={(q) => setSearch(q)} />
         </div>
 
-        {/* Pestañas rápidas por estado (un clic cambia la vista, estilo Pipeline) */}
-        <div className="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-1 sin-barra scroll-aislado sm:-mx-1 sm:px-1">
-          {STATE_TABS.map((t) => {
-            const active = tab === t.key
-            return (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={cn(
-                  'inline-flex min-h-[36px] shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
-                  active
-                    ? 'border-primary-400 bg-primary-400/10 text-primary-600 dark:text-primary-300'
-                    : 'border-border text-muted hover:text-fg',
-                )}
-              >
-                {t.label}
-                <span className={cn('rounded-full px-1.5 text-[10px] tabular-nums', active ? 'bg-white/50 text-fg dark:bg-black/25' : 'bg-surface-2 text-muted')}>
-                  {counts[t.key] ?? 0}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Marcas personales: se suman al estado de arriba, no lo sustituyen. */}
-        <PrefFilterBar leads={baseMarcas} value={prefs} onChange={setPrefs} />
-
-        {/* Filtros inteligentes */}
-        <div className="flex flex-wrap gap-1.5">
-          {SMART_PILLS.map((p) => {
-            const active = smart === p.key
-            return (
-              <button
-                key={p.key}
-                onClick={() => setSmart((v) => (v === p.key ? '' : p.key))}
-                className={cn(
-                  'inline-flex min-h-[34px] shrink-0 items-center rounded-full border px-3 py-1 text-[11px] font-medium transition-colors',
-                  active ? 'border-primary-400 bg-primary-400/10 text-primary-600 dark:text-primary-300' : 'border-border text-muted hover:text-fg',
-                )}
-              >
-                {p.label}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Toque y situación de seguimiento — mismo catálogo que Pipeline y
-            Seguimiento, para que los tres respondan lo mismo. */}
-        <TouchFilterBar leads={conPestana} value={fToque} onChange={setFToque} />
-
-        {showFilters && (
-          <div className="card flex flex-col items-stretch gap-3 p-3 sm:flex-row sm:flex-wrap sm:items-end">
-            <label className="text-xs text-muted">Nicho
-              <Select className="mt-1 w-full sm:w-44" value={fNicho} onChange={(e) => setFNicho(e.target.value)}>
-                <option value="">Todos</option>
-                {nichos.map((n) => <option key={n.id} value={n.id}>{n.emoji} {n.nombre}</option>)}
-              </Select>
-            </label>
-            <label className="text-xs text-muted">Score mínimo: {fScoreMin}
-              <input type="range" min={0} max={100} value={fScoreMin} onChange={(e) => setFScoreMin(+e.target.value)} className="mt-2 block w-full accent-primary-400 sm:w-44" />
-            </label>
-            <Button variant="ghost" size="sm" onClick={() => { setFNicho(''); setFScoreMin(0) }}>
-              <X className="h-4 w-4" /> Limpiar
-            </Button>
-          </div>
-        )}
+        {/* Filtros por categorías con casillas: OR dentro, AND entre ellas.
+            Toque/seguimiento salen del mismo catálogo que Pipeline. */}
+        <LeadFiltros
+          leads={base}
+          categorias={categorias}
+          value={filtros}
+          onChange={setFiltros}
+          hoy={hoy}
+          scoreMin={fScoreMin}
+          onScoreMin={setFScoreMin}
+        />
       </div>
 
       {/* Barra de acciones bulk */}

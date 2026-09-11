@@ -9,6 +9,7 @@ import { useLeadsStore } from '@/store/leadsStore'
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useNotes, useCreateNote, useUpdateNote, useDeleteNote, useMessages } from '@/hooks/useData'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
 import { LeadFollowUpsTab } from '@/features/followups/LeadFollowUpsTab'
+import { OpportunityEditor } from '@/features/pipeline/OpportunityForm'
 import toast from 'react-hot-toast'
 import type { Lead, Contact, ContactType, Note, Channel } from '@/types'
 
@@ -18,7 +19,7 @@ import {
 } from '@/lib/touches'
 import { today } from '@/lib/followUps'
 
-const TABS = ['Detalles', 'Seguimientos', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
+const TABS = ['Detalles', 'Oportunidad', 'Seguimientos', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
 
 /** Formatea una fecha ISO o 'YYYY-MM-DD' de forma legible; devuelve el original si no parsea. */
 function fmtFecha(v?: string): string {
@@ -57,6 +58,7 @@ export function LeadDrawer({
   const toggleFavorito = useLeadsStore((s) => s.toggleFavorito)
   const toggleMeGusta = useLeadsStore((s) => s.toggleMeGusta)
   const toggleDescartado = useLeadsStore((s) => s.toggleDescartado)
+  const updateLead = useLeadsStore((s) => s.updateLead)
   useEffect(() => { setSelectedEmail(undefined) }, [lead?.id])
   if (!lead) return null
   const sc = scoreColor(lead.score)
@@ -318,6 +320,15 @@ export function LeadDrawer({
               </div>
             )}
           </div>
+        )}
+        {tab === 'Oportunidad' && (
+          <OpportunityEditor
+            key={lead.id}
+            lead={lead}
+            active
+            onClose={() => setTab('Detalles')}
+            onSave={(id, patch) => { updateLead(id, patch); toast.success('Oportunidad actualizada') }}
+          />
         )}
         {tab === 'Seguimientos' && <LeadFollowUpsTab leadId={lead.id} empresa={lead.empresa} />}
         {tab === 'Contactos' && <ContactsTab leadId={lead.id} />}
