@@ -109,13 +109,13 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <Badge className={ESTADOS[lead.estado].badge}>{ESTADOS[lead.estado].label}</Badge>
           <Badge className={PRIORIDADES[lead.prioridad].badge}>{PRIORIDADES[lead.prioridad].label}</Badge>
           <Badge className="bg-border/50 text-muted">🌐 {lead.fuente}</Badge>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           <button
             onClick={convertir}
             disabled={yaConvertido || convert.isPending}
@@ -133,20 +133,20 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
         </div>
 
         {composerOpen && (
-          <div className="mt-3 space-y-2 rounded-xl border border-border bg-surface p-3">
-            <div className="flex items-center gap-2 text-xs">
+          <div className="mt-4 space-y-3 rounded-xl border border-border bg-surface p-4">
+            <div className="flex items-center gap-3 text-sm">
               <span className="font-medium text-muted">De:</span>
               <select
                 value={replyFrom}
                 onChange={(e) => setReplyFrom(e.target.value)}
-                className="input h-7 flex-1 text-xs"
+                className="input h-10 min-w-0 flex-1 py-0 text-sm"
               >
                 {aliases.map((a) => (
-                  <option key={a.email} value={a.email}>{a.label} — {a.email}</option>
+                  <option key={a.email} value={a.email}>{a.label ? `${a.label} — ${a.email}` : a.email}</option>
                 ))}
               </select>
             </div>
-            <p className="text-xs text-muted">Para: {lead.email} · Asunto: Re: {lead.asunto || 'Tu consulta en JD Developer'}</p>
+            <p className="break-words text-xs text-muted">Para: {lead.email} · Asunto: Re: {lead.asunto || 'Tu consulta en JD Developer'}</p>
             <textarea
               rows={5}
               value={replyBody}
@@ -177,8 +177,10 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
       <div className="space-y-5 p-5">
         {tab === 'Detalles' && (
           <>
-            {lead.asunto && <p className="text-sm font-semibold text-fg">{lead.asunto}</p>}
-            <p className="whitespace-pre-wrap rounded-xl bg-surface p-4 text-sm text-fg">{lead.mensaje}</p>
+            <div className="rounded-xl border border-border bg-surface-2 p-4">
+              {lead.asunto && <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{lead.asunto}</p>}
+              <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-fg">{lead.mensaje || <span className="text-muted">(sin mensaje)</span>}</p>
+            </div>
 
             <Field label="Contacto">
               <div className="space-y-1.5 text-sm">

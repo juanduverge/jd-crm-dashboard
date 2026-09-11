@@ -34,6 +34,10 @@ server {
     # --- SPA ---
     location / {
         try_files $uri $uri/ /index.html;
+        # index.html siempre fresco: si el navegador lo guarda, sigue pidiendo
+        # el bundle viejo tras un deploy. `expires` (no add_header) para no
+        # perder las cabeceras de seguridad heredadas del server.
+        expires -1;
     }
 
     location /assets/ {
