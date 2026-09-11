@@ -1,3 +1,12 @@
+# Formulario Web → CRM
+
+> **Estado actual (2026-09-10).** Lo de abajo sobre Google Sheets es historia.
+> Hoy: web → `/api/contacto` (proxy) → n8n "CRM API - Web Lead" → tabla
+> `web_leads` de Supabase → CRM "Inbox de Leads". El aviso por correo sale de
+> `info@` a `info@` con Reply-To al lead, y el CRM avisa con un toast y en la
+> campana (NotificationBell). `n8n/crm-web-lead.json` es la copia del workflow vivo.
+> Pendiente conocido: el id `WL-…` anti doble envío se calcula pero no se guarda.
+
 # Formulario Web → CRM — IMPLEMENTADO (2026-07-10/11)
 
 ## Causa raíz del "no llegaban los formularios" (2026-07-11)

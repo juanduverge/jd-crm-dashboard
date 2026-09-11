@@ -1,5 +1,11 @@
 {
+  "updatedAt": "2026-09-11T01:37:52.643Z",
+  "createdAt": "2026-07-11T04:00:33.477Z",
+  "id": "bQkDifygg7Jdzoht",
   "name": "CRM API - Web Lead",
+  "description": null,
+  "active": true,
+  "isArchived": false,
   "nodes": [
     {
       "parameters": {
@@ -67,38 +73,36 @@
     },
     {
       "parameters": {
-        "operation": "appendOrUpdate",
-        "documentId": {
-          "__rl": true,
-          "mode": "id",
-          "value": "1N8bL-ujDDg9hF9gqV0mQrD94AZeh_QItJ-Aft2Xd7NE"
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/web_leads",
+        "authentication": "predefinedCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
         },
-        "sheetName": {
-          "__rl": true,
-          "mode": "name",
-          "value": "web_leads"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "matchingColumns": [
-            "id"
-          ],
-          "schema": []
-        },
-        "options": {}
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  nombre: $json.nombre,\n  email: $json.email,\n  telefono: $json.telefono,\n  mensaje: $json.mensaje,\n  empresa: $json.empresa,\n  asunto: $json.asunto,\n  pagina: $json.pagina,\n  url: $json.url,\n  referrer: $json.referrer,\n  utm_source: $json.utm_source,\n  utm_medium: $json.utm_medium,\n  utm_campaign: $json.utm_campaign,\n  ip: $json.ip,\n  user_agent: $json.user_agent,\n  fuente: $json.fuente || 'web',\n  formulario: $json.formulario,\n  estado: $json.estado || 'nuevo',\n  responsable: $json.responsable || null,\n  notas_internas: $json.notas_internas || null,\n  prioridad: $json.prioridad || 'media',\n  etiquetas: $json.etiquetas ? String($json.etiquetas).split(',').map(s => s.trim()).filter(Boolean) : []\n}) }}",
+        "options": {},
+        "nodeCredentialType": "supabaseApi"
       },
       "id": "wl-sheets",
       "name": "Guardar Solicitud",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
       "position": [
         672,
         -96
       ],
       "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "86m52fKwvUB07q9D",
-          "name": "Google Sheets account"
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
         }
       }
     },
@@ -167,12 +171,14 @@
     },
     {
       "parameters": {
-        "fromEmail": "sales@jddeveloper.com",
+        "fromEmail": "Formulario Web JD <info@jddeveloper.com>",
         "toEmail": "info@jddeveloper.com",
         "subject": "=🆕 Nuevo lead web: {{ $('Validar y Preparar').item.json.nombre }}{{ $('Validar y Preparar').item.json.empresa ? ' — ' + $('Validar y Preparar').item.json.empresa : '' }}",
         "emailFormat": "html",
         "html": "=<div style=\"font-family:Arial,sans-serif;max-width:560px\"><h2 style=\"color:#ff5c33\">Nuevo lead desde la web</h2><table style=\"border-collapse:collapse;font-size:14px\"><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Nombre</td><td><b>{{ $('Validar y Preparar').item.json.nombre }}</b></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Empresa</td><td>{{ $('Validar y Preparar').item.json.empresa || '—' }}</td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Email</td><td><a href=\"mailto:{{ $('Validar y Preparar').item.json.email }}\">{{ $('Validar y Preparar').item.json.email }}</a></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Teléfono</td><td>{{ $('Validar y Preparar').item.json.telefono || '—' }}</td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Asunto</td><td>{{ $('Validar y Preparar').item.json.asunto || '—' }}</td></tr></table><p style=\"margin-top:16px;padding:12px;background:#f6f6f6;border-radius:8px\">{{ $('Validar y Preparar').item.json.mensaje }}</p><p style=\"font-size:12px;color:#999\">Página: {{ $('Validar y Preparar').item.json.pagina }} · Gestiónalo en el CRM → Inbox de Leads</p></div>",
-        "options": {}
+        "options": {
+          "replyTo": "={{ $('Validar y Preparar').item.json.email }}"
+        }
       },
       "id": "wl-notify",
       "name": "Notificar Email",
@@ -276,5 +282,17 @@
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
+  },
+  "meta": null,
+  "nodeGroups": [],
+  "versionId": "868354f3-a63b-4c58-bbb9-9cb589d292d3",
+  "activeVersionId": "868354f3-a63b-4c58-bbb9-9cb589d292d3",
+  "versionCounter": 11,
+  "triggerCount": 1,
+  "sourceWorkflowId": null,
+  "tags": [],
+  "versionMetadata": {
+    "name": null,
+    "description": null
   }
 }
