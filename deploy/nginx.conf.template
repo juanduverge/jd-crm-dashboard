@@ -29,7 +29,7 @@ server {
     add_header Cross-Origin-Opener-Policy "same-origin" always;
     # connect-src incluye 'self' (proxy n8n de mismo origen) + el proyecto
     # Supabase (REST/Auth/Realtime van directo al navegador con la anon key).
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ${SUPABASE_URL}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ${SUPABASE_URL}; frame-src https:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" always;
 
     # --- SPA ---
     location / {

@@ -7,6 +7,8 @@ import { PIPELINE_STAGES } from '@/lib/config'
 import { leadsService } from '@/services/leadsService'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useNotes, useCreateNote, useUpdateNote, useDeleteNote, useMessages } from '@/hooks/useData'
+import { EnlaceMapa, type FichaMapa } from '@/components/ui/MapaVisor'
+import { EnlaceWeb } from '@/components/ui/VisorWeb'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
 import { LeadFollowUpsTab } from '@/features/followups/LeadFollowUpsTab'
 import { OpportunityEditor } from '@/features/pipeline/OpportunityForm'
@@ -69,6 +71,15 @@ export function LeadDrawer({
   // Apify guarda el enlace real de la ficha en google_maps. Si el lead es
   // manual (o vino sin enlace) caemos a una busqueda por nombre + direccion,
   // que es lo que uno haria a mano.
+  // Piezas de la dirección para el visor de mapa embebido (el enlace `cid`
+  // de Apify no se puede meter en un iframe, hay que buscar por texto).
+  const partesMapa = [lead.empresa, lead.direccion, lead.ciudad, lead.pais]
+  // Lo que enseña el panel de la ficha: es lo que Apify ya guardó, no una
+  // llamada a Google (ese panel lateral suyo no se puede embeber).
+  const fichaMapa = {
+    nombre: lead.empresa, categoria: lead.categoria, rating: lead.ratingGoogle,
+    resenas: lead.numResenas, direccion: lead.direccion, telefono: lead.telefono, web: lead.web,
+  }
   const mapsUrl = lead.googleMaps
     || (lead.empresa
         ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([lead.empresa, lead.direccion, lead.ciudad].filter(Boolean).join(' '))}`
@@ -208,7 +219,7 @@ export function LeadDrawer({
         {tab === 'Detalles' && (
           <div className="space-y-3 text-sm">
             <Row icon={Briefcase} label="Cargo" value={lead.cargo} />
-            <Row icon={Globe} label="Web" value={lead.web} link={lead.web} copyLabel="Enlace de la web" />
+            <Row icon={Globe} label="Web" value={lead.web} link={lead.web} web copyLabel="Enlace de la web" />
             {emailOptions ? (
               <div className="flex items-start gap-3 py-2 text-sm">
                 <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted" />
@@ -251,10 +262,10 @@ export function LeadDrawer({
             <Row icon={Music2} label="TikTok" value={lead.tiktok} link={lead.tiktok} />
             <Row icon={Twitter} label="X / Twitter" value={lead.twitter} link={lead.twitter} />
             <Row icon={Pin} label="Pinterest" value={lead.pinterest} link={lead.pinterest} />
-            <Row icon={MapPin} label="Dirección" value={lead.direccion} />
+            <Row icon={MapPin} label="Dirección" value={lead.direccion} mapa={partesMapa} enlaceMapa={lead.googleMaps} ficha={fichaMapa} />
             <Row icon={MapPin} label="Ciudad" value={lead.ciudad} />
             <Row icon={MapPin} label="País" value={lead.pais} />
-            <Row icon={MapPin} label="Google Maps" value={mapsUrl ? (lead.googleMaps ? 'Ver ficha en Google Maps' : 'Buscar en Google Maps') : undefined} link={mapsUrl} copyLabel="Enlace de Google Maps" />
+            <Row icon={MapPin} label="Google Maps" value={mapsUrl ? (lead.googleMaps ? 'Ver ficha en Google Maps' : 'Buscar en Google Maps') : undefined} link={mapsUrl} mapa={partesMapa} enlaceMapa={lead.googleMaps} ficha={fichaMapa} copyLabel="Enlace de Google Maps" />
             <Row icon={Flag} label="Fuente" value={lead.fuente} />
             {/* `sin_datos` = se buscó en su web y no había nada, que es distinto
                 de no haberlo intentado nunca (last_enriched_at vacío). */}
@@ -464,7 +475,7 @@ function CopyButton({ texto, que }: { texto: string; que: string }) {
   )
 }
 
-function Row({ icon: Icon, label, value, link, onClick, hint, copy, copyLabel }: { icon: any; label: string; value?: string; link?: string; onClick?: () => void; hint?: string; copy?: string; copyLabel?: string }) {
+function Row({ icon: Icon, label, value, link, onClick, hint, copy, copyLabel, mapa, enlaceMapa, ficha, web }: { icon: any; label: string; value?: string; link?: string; onClick?: () => void; hint?: string; copy?: string; copyLabel?: string; mapa?: (string | undefined | null)[]; enlaceMapa?: string; ficha?: FichaMapa; web?: boolean }) {
   if (!value) return null
   const aCopiar = copy ?? link
   return (
@@ -473,6 +484,8 @@ function Row({ icon: Icon, label, value, link, onClick, hint, copy, copyLabel }:
       <span className="w-20 text-xs text-muted">{label}</span>
       <span className="flex min-w-0 flex-1 items-baseline gap-2">
         {onClick ? <button onClick={onClick} className="min-w-0 truncate text-left text-primary-600 hover:underline" title={value}>{value}</button>
+        : mapa ? <EnlaceMapa partes={mapa} enlaceExterno={enlaceMapa} ficha={ficha}>{value}</EnlaceMapa>
+        : web && link ? <EnlaceWeb url={link}>{value}</EnlaceWeb>
         : link ? <a href={link} target="_blank" className="min-w-0 truncate text-primary-600 hover:underline" title={value}>{value}</a>
               : <span className="min-w-0 truncate text-fg" title={value}>{value}</span>}
         {hint && <span className="shrink-0 text-[10px] text-muted">{hint}</span>}

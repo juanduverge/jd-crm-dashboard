@@ -6,10 +6,10 @@ import {
   pointerWithin, rectIntersection, type CollisionDetection,
   type DragStartEvent, type DragEndEvent,
 } from '@dnd-kit/core'
-import { LayoutGrid, List, Filter, RefreshCw, X, TrendingUp, AlertTriangle } from 'lucide-react'
+import { LayoutGrid, List, RefreshCw, X, TrendingUp, AlertTriangle } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { useEsMovil } from '@/hooks/useMediaQuery'
-import { Button, Select, Badge, Skeleton } from '@/components/ui'
+import { Button, Badge, Skeleton } from '@/components/ui'
 import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { useLeads, useDeleteLead, useNichos } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
@@ -24,9 +24,7 @@ import { OpportunityForm } from './OpportunityForm'
 import { HScrollBoard } from './HScrollBoard'
 import { CerrarDropZone, CERRAR_DROP_ID } from './CerrarDropZone'
 import { CerrarLeadModal } from './CerrarLeadModal'
-import { TouchFilterBar } from '@/components/TouchFilterBar'
-import { PrefFilterBar, pasaPrefs, type PrefKey } from '@/components/PrefFilterBar'
-import { pasaFiltroToque } from '@/lib/touches'
+import { LeadFiltros, crearCategorias, pasaFiltros, type FiltrosSel } from '../leads/LeadFiltros'
 import { today } from '@/lib/followUps'
 import type { Lead, LeadStatus } from '@/types'
 import { formToLeadPatch, type LeadFormValues } from '../leads/leadSchema'
@@ -51,15 +49,13 @@ export function PipelinePage() {
   const [view, setView] = useState<'kanban' | 'list'>(
     () => (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'list' : 'kanban'),
   )
-  const [showFilters, setShowFilters] = useState(false)
-  const [fNicho, setFNicho] = useState('')
-  const [fPrioridad, setFPrioridad] = useState('')
-  const [fResponsable, setFResponsable] = useState('')
+  // Mismos filtros que en Leads: desplegables por categoría con casillas
+  // (OR dentro de una categoría, AND entre categorías). Aquí no hay categoría
+  // «Estado» —la etapa ya son las columnas del tablero— y sí prioridad y
+  // vendedor, que antes eran los desplegables del panel plegable.
+  const [filtros, setFiltros] = useState<FiltrosSel>({})
+  const [fScoreMin, setFScoreMin] = useState(0)
   const [fValorMin, setFValorMin] = useState(0)
-  // Filtro de toque/situación: vive fuera del panel plegable porque es la
-  // pregunta que más se hace en el tablero ("¿a quién le toca hoy?").
-  const [fToque, setFToque] = useState('')
-  const [prefs, setPrefs] = useState<PrefKey[]>([])
   const [activeLead, setActiveLead] = useState<Lead | null>(null)
   // El Resumen enlaza aquí con ?lead=<id> desde «Necesitan atención»: llegas
   // con la ficha ya abierta en vez de tener que buscarla en el tablero.
@@ -108,46 +104,33 @@ export function PipelinePage() {
     [leads],
   )
 
-  // Base para los recuentos de la barra de toques: todo lo demás ya aplicado,
-  // para que cada píldora enseñe el número real que va a dar al pulsarla.
-  const baseFiltrada = useMemo(
-    () =>
-      activos.filter(
-        (l) =>
-          (!fNicho || l.nicho === fNicho) &&
-          (!fPrioridad || l.prioridad === fPrioridad) &&
-          (!fResponsable || l.responsable === fResponsable) &&
-          (l.valorEstimado || 0) >= fValorMin &&
-          pasaPrefs(l, prefs),
-      ),
-    [activos, fNicho, fPrioridad, fResponsable, fValorMin, prefs],
-  )
-
-  // Conteo de las marcas: sobre el pipeline ya filtrado por lo demás, pero
-  // sin aplicar las propias marcas —si no, la que está activa se contaría a
-  // sí misma y las otras dos saldrían siempre a cero.
-  const baseMarcas = useMemo(
-    () =>
-      activos.filter(
-        (l) =>
-          (!fNicho || l.nicho === fNicho) &&
-          (!fPrioridad || l.prioridad === fPrioridad) &&
-          (!fResponsable || l.responsable === fResponsable) &&
-          (l.valorEstimado || 0) >= fValorMin,
-      ),
-    [activos, fNicho, fPrioridad, fResponsable, fValorMin],
-  )
-
   const hoy = today()
-  const filtered = useMemo(
-    () => baseFiltrada.filter((l) => pasaFiltroToque(l, fToque, hoy)),
-    [baseFiltrada, fToque, hoy],
+  const categorias = useMemo(
+    () => crearCategorias(nichos, { estado: false, prioridad: true, responsables }),
+    [nichos, responsables],
   )
 
-  // Las métricas se calculan sobre `baseFiltrada`, no sobre `filtered`: la
-  // píldora de toque es una forma de mirar el pipeline, no de redefinirlo.
-  // Antes, pulsar «Touch 2» dejaba el forecast del mes en $0 y parecía que la
-  // pantalla se había roto.
+  // Base del panel: todo lo que no son casillas (score y valor). Sobre ella
+  // cuenta cada opción, para que el número de la casilla sea el que vas a ver.
+  const base = useMemo(
+    () => activos.filter((l) => l.score >= fScoreMin && (l.valorEstimado || 0) >= fValorMin),
+    [activos, fScoreMin, fValorMin],
+  )
+
+  const filtered = useMemo(
+    () => base.filter((l) => pasaFiltros(l, categorias, filtros, hoy)),
+    [base, categorias, filtros, hoy],
+  )
+
+  // Las métricas ignoran las categorías de secuencia (contacto, seguimiento,
+  // resultado): mirar «a quién le toca hoy» es una forma de leer el pipeline,
+  // no de redefinirlo. Antes, pulsar «Touch 2» dejaba el forecast en $0 y
+  // parecía que la pantalla se había roto.
+  const baseFiltrada = useMemo(
+    () => base.filter((l) => pasaFiltros(l, categorias, filtros, hoy, ['toque', 'situacion', 'seguimiento', 'resultado'])),
+    [base, categorias, filtros, hoy],
+  )
+
   const fc = useMemo(() => forecast(baseFiltrada), [baseFiltrada])
   const totalOpen = useMemo(
     () => baseFiltrada.reduce((s, l) => s + (l.valorEstimado || 0), 0),
@@ -196,7 +179,8 @@ export function PipelinePage() {
     setEditing(null)
   }
 
-  const clearFilters = () => { setFNicho(''); setFPrioridad(''); setFResponsable(''); setFValorMin(0) }
+  const hayFiltros = Object.values(filtros).some((v) => v.length) || fScoreMin > 0 || fValorMin > 0
+  const clearFilters = () => { setFiltros({}); setFScoreMin(0); setFValorMin(0) }
 
   const confirmDelete = async () => {
     if (!deleteTarget) return
@@ -215,7 +199,7 @@ export function PipelinePage() {
     <div>
       <PageHeader
         title="Pipeline"
-        subtitle={fToque ? `${filtered.length} de ${baseFiltrada.length} leads` : `${baseFiltrada.length} leads · ${formatCurrency(totalOpen)} en juego`}
+        subtitle={filtered.length !== baseFiltrada.length ? `${filtered.length} de ${baseFiltrada.length} leads` : `${baseFiltrada.length} leads · ${formatCurrency(totalOpen)} en juego`}
         actions={
           <>
             <div className="flex shrink-0 overflow-hidden rounded-xl border border-border">
@@ -226,9 +210,6 @@ export function PipelinePage() {
                 <List className="h-3.5 w-3.5" /> Lista
               </button>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setShowFilters((v) => !v)}>
-              <Filter className="h-4 w-4" /> Filtros
-            </Button>
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
               <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} /> Sincronizar
             </Button>
@@ -249,45 +230,26 @@ export function PipelinePage() {
         />
       </div>
 
-      <TouchFilterBar
-        leads={baseFiltrada}
-        value={fToque}
-        onChange={setFToque}
-        gruposVisibles={['toque', 'situacion']}
-        className="mb-3"
-      />
-
-      {/* Marcas personales: se suman a los filtros de arriba, no los sustituyen. */}
-      <PrefFilterBar leads={baseMarcas} value={prefs} onChange={setPrefs} className="mb-4" />
-
-      {showFilters && (
-        <div className="card mb-4 grid grid-cols-1 gap-3 p-3 sm:flex sm:flex-wrap sm:items-end">
-          <label className="t-label text-xs font-medium text-muted">Nicho
-            <Select className="mt-1 w-full sm:w-40" value={fNicho} onChange={(e) => setFNicho(e.target.value)}>
-              <option value="">Todos</option>
-              {nichos.map((n) => <option key={n.id} value={n.id}>{n.emoji} {n.nombre}</option>)}
-            </Select>
-          </label>
-          <label className="t-label text-xs font-medium text-muted">Prioridad
-            <Select className="mt-1 w-full sm:w-32" value={fPrioridad} onChange={(e) => setFPrioridad(e.target.value)}>
-              <option value="">Todas</option>
-              <option value="alta">Alta</option>
-              <option value="media">Media</option>
-              <option value="baja">Baja</option>
-            </Select>
-          </label>
-          <label className="t-label text-xs font-medium text-muted">Vendedor
-            <Select className="mt-1 w-full sm:w-36" value={fResponsable} onChange={(e) => setFResponsable(e.target.value)}>
-              <option value="">Todos</option>
-              {responsables.map((r) => <option key={r} value={r}>{r}</option>)}
-            </Select>
-          </label>
-          <label className="t-label text-xs font-medium text-muted">Valor mínimo: {formatCurrency(fValorMin)}
-            <input type="range" min={0} max={10000} step={500} value={fValorMin} onChange={(e) => setFValorMin(+e.target.value)} className="mt-2 block w-full accent-primary-400 sm:w-44" />
-          </label>
-          <Button variant="ghost" size="sm" onClick={clearFilters}><X className="h-4 w-4" /> Limpiar</Button>
-        </div>
-      )}
+      {/* Mismos filtros que en Leads: OR dentro de cada categoría, AND entre
+          categorías. «Valor mínimo» es lo único propio del tablero y vive
+          dentro del desplegable «Más», junto al score. */}
+      <div className="mb-4">
+        <LeadFiltros
+          leads={base}
+          categorias={categorias}
+          value={filtros}
+          onChange={setFiltros}
+          hoy={hoy}
+          scoreMin={fScoreMin}
+          onScoreMin={setFScoreMin}
+          extras={
+            <label className="block border-t border-border px-2 py-2 text-xs text-muted">
+              Valor mínimo: {formatCurrency(fValorMin)}
+              <input type="range" min={0} max={10000} step={500} value={fValorMin} onChange={(e) => setFValorMin(+e.target.value)} className="mt-1 block w-full accent-primary-400" />
+            </label>
+          }
+        />
+      </div>
 
       {isError ? (
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-10 text-center">
@@ -302,13 +264,9 @@ export function PipelinePage() {
         // salida en el mismo sitio donde te has quedado atascado.
         <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border p-10 text-center">
           <p className="t-card">Ningún lead con este filtro</p>
-          <p className="t-hint max-w-sm">
-            {fToque
-              ? 'El pipeline tiene leads, pero ninguno está en este punto de la secuencia.'
-              : 'Ajusta los filtros o añade una oportunidad para empezar.'}
-          </p>
-          {(fToque || fNicho || fPrioridad || fResponsable || fValorMin > 0 || prefs.length > 0) && (
-            <Button variant="outline" size="sm" onClick={() => { setFToque(''); setPrefs([]); clearFilters() }}>
+          <p className="t-hint max-w-sm">Ajusta los filtros o añade una oportunidad para empezar.</p>
+          {hayFiltros && (
+            <Button variant="outline" size="sm" onClick={clearFilters}>
               <X className="h-4 w-4" /> Quitar filtros
             </Button>
           )}

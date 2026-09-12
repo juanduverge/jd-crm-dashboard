@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { ChevronDown, X, Check } from 'lucide-react'
 import { PIPELINE_STAGES } from '@/lib/config'
 import { FILTROS_TOQUE } from '@/lib/touches'
@@ -30,11 +30,42 @@ export type Categoria = { key: string; label: string; opciones: Opcion[] }
 const toques = (grupo: string) =>
   FILTROS_TOQUE.filter((f) => f.grupo === grupo).map((f) => ({ key: f.key, label: f.label, test: f.test }))
 
-export function crearCategorias(nichos: { id: string; nombre: string; emoji?: string }[]): Categoria[] {
+/**
+ * Opciones para adaptar el mismo panel a cada pantalla.
+ *
+ * En el Pipeline la etapa ya son las columnas del tablero, así que ahí sobra
+ * la categoría «Estado»; en cambio hacen falta prioridad y vendedor, que en
+ * Leads no estaban como categoría.
+ */
+export type OpcionesCategorias = {
+  estado?: boolean
+  prioridad?: boolean
+  responsables?: string[]
+}
+
+export function crearCategorias(
+  nichos: { id: string; nombre: string; emoji?: string }[],
+  opts: OpcionesCategorias = {},
+): Categoria[] {
+  const { estado = true, prioridad = false, responsables = [] } = opts
   return [
     {
       key: 'estado', label: 'Estado',
-      opciones: PIPELINE_STAGES.map((s) => ({ key: s.id, label: s.label, test: (l: Lead) => l.estado === s.id })),
+      opciones: estado
+        ? PIPELINE_STAGES.map((s) => ({ key: s.id, label: s.label, test: (l: Lead) => l.estado === s.id }))
+        : [],
+    },
+    {
+      key: 'prioridad', label: 'Prioridad',
+      opciones: prioridad
+        ? (['alta', 'media', 'baja'] as const).map((p) => ({
+            key: p, label: p[0].toUpperCase() + p.slice(1), test: (l: Lead) => l.prioridad === p,
+          }))
+        : [],
+    },
+    {
+      key: 'responsable', label: 'Vendedor',
+      opciones: responsables.map((r) => ({ key: r, label: r, test: (l: Lead) => l.responsable === r })),
     },
     {
       key: 'canales', label: 'Canales',
@@ -80,9 +111,10 @@ export function crearCategorias(nichos: { id: string; nombre: string; emoji?: st
 export type FiltrosSel = Record<string, string[]>
 
 /** Pasa si cumple todas las categorías con algo marcado (OR dentro, AND entre). */
-export function pasaFiltros(l: Lead, cats: Categoria[], sel: FiltrosSel, hoy: string, saltar?: string): boolean {
+export function pasaFiltros(l: Lead, cats: Categoria[], sel: FiltrosSel, hoy: string, saltar?: string | string[]): boolean {
+  const omitir = saltar === undefined ? [] : Array.isArray(saltar) ? saltar : [saltar]
   for (const c of cats) {
-    if (c.key === saltar) continue
+    if (omitir.includes(c.key)) continue
     const marcadas = sel[c.key]
     if (!marcadas?.length) continue
     if (!c.opciones.some((o) => marcadas.includes(o.key) && o.test(l, hoy))) return false
@@ -98,9 +130,11 @@ type Props = {
   hoy: string
   scoreMin: number
   onScoreMin: (n: number) => void
+  /** Controles propios de la pantalla, al final del desplegable «Más». */
+  extras?: ReactNode
 }
 
-export function LeadFiltros({ leads, categorias, value, onChange, hoy, scoreMin, onScoreMin }: Props) {
+export function LeadFiltros({ leads, categorias, value, onChange, hoy, scoreMin, onScoreMin, extras }: Props) {
   const [abierta, setAbierta] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -179,6 +213,7 @@ export function LeadFiltros({ leads, categorias, value, onChange, hoy, scoreMin,
                       <input type="range" min={0} max={100} value={scoreMin} onChange={(e) => onScoreMin(+e.target.value)} className="mt-1 block w-full accent-primary-400" />
                     </label>
                   )}
+                  {c.key === 'mas' && extras}
                   {(value[c.key]?.length ?? 0) > 0 && (
                     <button type="button" onClick={() => onChange({ ...value, [c.key]: [] })} className="mt-1 w-full rounded-lg border-t border-border px-2 py-2 text-left text-xs text-muted hover:text-fg">
                       Quitar {c.label.toLowerCase()}
