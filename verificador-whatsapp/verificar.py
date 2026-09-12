@@ -209,10 +209,19 @@ def normalizar(tel):
 # contactos pueden ser purgados en un arranque. No es grave: la siguiente
 # pasada los vuelve a insertar, porque cada número se comprueba antes.
 GUION_INSERTAR = r"""#!/system/bin/sh
+# La agenda se lee UNA sola vez, no una por numero. Cada invocacion de
+# `content` levanta su propia JVM dentro del Android y cuesta unos 6 s: con
+# la consulta de deduplicacion dentro del bucle, un lote de sesenta leads se
+# iba a media hora, pasaba el timeout de `insertar_contactos` y la pasada
+# entera moria en un 500 sin escribir ningun veredicto (8-sep-2026).
+AGENDA=/data/local/tmp/wa_agenda.txt
+content query --uri content://com.android.contacts/data --projection data1 \
+  --where "mimetype='vnd.android.cursor.item/phone_v2'" > $AGENDA 2>/dev/null
+
 for NUM in $(cat /data/local/tmp/wa_numeros.txt); do
-  YA=$(content query --uri content://com.android.contacts/data \
-        --projection data1 --where "data1='$NUM'" 2>/dev/null | head -1)
-  case "$YA" in *"$NUM"*) continue;; esac
+  # Las lineas son `Row: 0 data1=+18095550000`. El anclaje del final importa:
+  # sin el, un numero que sea prefijo de otro se daria por ya insertado.
+  grep -q "data1=${NUM}$" $AGENDA && continue
 
   content insert --uri content://com.android.contacts/raw_contacts \
     --bind account_name:s:CRM --bind account_type:s:CRM 2>/dev/null
@@ -221,7 +230,7 @@ for NUM in $(cat /data/local/tmp/wa_numeros.txt); do
         sed -n 's/.*_id=\([0-9]*\).*/\1/p')
   [ -n "$ID" ] || continue
 
-  # WhatsApp sólo mira contactos con nombre; uno sin nombre puede no salir.
+  # WhatsApp solo mira contactos con nombre; uno sin nombre puede no salir.
   content insert --uri content://com.android.contacts/data \
     --bind raw_contact_id:i:$ID \
     --bind mimetype:s:vnd.android.cursor.item/name \
@@ -250,7 +259,11 @@ def insertar_contactos(numeros):
 
     adb("push", f"{tmp}/wa_numeros.txt", "/data/local/tmp/wa_numeros.txt")
     adb("push", f"{tmp}/insertar.sh", "/data/local/tmp/wa_insertar.sh")
-    salida = adb("shell", "sh", "/data/local/tmp/wa_insertar.sh", timeout=900)
+    # Cada numero NUEVO cuesta cuatro invocaciones de `content`, a unos 6 s
+    # cada una. Un techo fijo no vale: el tamano del lote lo decide quien
+    # llama, y quedarse corto tira la pasada entera sin escribir nada.
+    margen = 300 + 30 * len(numeros)
+    salida = adb("shell", "sh", "/data/local/tmp/wa_insertar.sh", timeout=margen)
     if "LISTO" not in salida:
         raise FalloDeLectura(f"la inserción de contactos no terminó: {salida[-300:]}")
 
