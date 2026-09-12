@@ -115,6 +115,10 @@ services:
       AVISAR_A: ${AVISAR_A:-}
       LATIDO_URL: ${LATIDO_URL:-}
       BATERIA_MINIMA: ${BATERIA_MINIMA:-60}
+      # Rondas seguidas en fallo antes de avisar. Con rondas de 5 minutos,
+      # 3 son un cuarto de hora: filtra los tropiezos sueltos sin retrasar
+      # de forma apreciable un aviso de verdad.
+      RONDAS_PARA_AVISAR: ${RONDAS_PARA_AVISAR:-3}
     volumes:
       - vigilante_datos:/datos
       - /sys/class/power_supply:/sys/class/power_supply:ro

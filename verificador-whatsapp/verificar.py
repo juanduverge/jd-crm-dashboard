@@ -460,6 +460,29 @@ def rpc(nombre, cuerpo):
     return r.json()
 
 
+def consulta(tabla, params, timeout=15):
+    """
+    Una lectura normal de tabla, sin función por medio.
+
+    Está para que el vigilante pueda preguntar algo barato ("¿contestas?") sin
+    tener que llamar a la cola de verificación, que recorre medio CRM. El
+    timeout es corto a propósito: esto se usa para saber si Supabase está sano,
+    y una respuesta que tarda un minuto no lo está.
+    """
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise FalloDeLectura("faltan SUPABASE_URL o SUPABASE_SERVICE_KEY")
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/{tabla}",
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+        },
+        params=params, timeout=timeout,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
 # --- La pasada -------------------------------------------------
 def pasada(limite=None):
     limite = limite or LOTE

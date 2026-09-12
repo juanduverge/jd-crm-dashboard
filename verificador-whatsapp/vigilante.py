@@ -17,6 +17,10 @@ QUÉ VIGILA:
   - Espacio en disco.
   - Que Supabase conteste.
 
+NADA SE AVISA AL PRIMER FALLO. Hacen falta varias rondas seguidas mal
+(RONDAS_PARA_AVISAR) para que salga el mensaje. Un tropiezo aislado no es una
+avería, y tratarlo como tal sólo sirve para despertar a alguien en vano.
+
 CADA AVISO SE MANDA UNA VEZ. Repetir el mismo aviso cada cinco minutos
 convierte la alerta en ruido y acaba ignorándose; además, una cuenta de
 WhatsApp mandando el mismo mensaje en bucle es justo el patrón que hace que
@@ -37,6 +41,13 @@ import verificar as v
 
 # Dónde se recuerda qué ya se avisó, para no repetirlo.
 ESTADO = os.environ.get("ESTADO_VIGILANTE", "/datos/vigilante.json")
+
+# Cuántas rondas seguidas tiene que fallar algo antes de mandar el WhatsApp.
+# Con rondas de 5 minutos, tres son un cuarto de hora: un problema de verdad
+# dura más que eso, y un tropiezo suelto de la red o de Supabase, no. Avisar al
+# primer fallo llenaba el teléfono de "problema" + "ya se arregló solo" de
+# madrugada por cosas que nunca llegaron a afectar a nadie.
+RONDAS_PARA_AVISAR = int(os.environ.get("RONDAS_PARA_AVISAR", "3"))
 
 BATERIA_MINIMA = int(os.environ.get("BATERIA_MINIMA", "60"))
 DISCO_MINIMO_GB = int(os.environ.get("DISCO_MINIMO_GB", "5"))
@@ -138,8 +149,20 @@ def revisar_disco():
 
 
 def revisar_supabase():
+    """
+    Pregunta lo más barato que hay: una fila de `leads`, sin orden ni cálculo.
+
+    Antes esto llamaba a `leads_para_verificar_wa`, que es la consulta más cara
+    del sistema. Comprobar que Supabase vive con ella era como arrancar el
+    coche dándole una vuelta de 500 km: de vez en cuando tardaba de más, la
+    puerta de entrada de Supabase cortaba con un 504 y llegaba un WhatsApp de
+    madrugada por algo que no estaba roto. Lo que hay que saber es si Supabase
+    contesta, y eso lo dice igual de bien un `select` trivial.
+
+    Espera 15 segundos y no 60: si tarda más que eso, ya no está sano.
+    """
     try:
-        v.rpc("leads_para_verificar_wa", {"p_limite": 1})
+        v.consulta("leads", {"select": "id", "limit": "1"}, timeout=15)
     except Exception as e:
         return f"Supabase no contesta: {e}"
     return None
@@ -167,6 +190,7 @@ def latido():
 def ronda():
     estado = leer_estado()
     avisados = estado.get("avisados", {})
+    fallos = estado.get("fallos", {})
     todo_bien = True
 
     for nombre, revisar in REVISIONES.items():
@@ -177,19 +201,32 @@ def ronda():
 
         if problema:
             todo_bien = False
-            if nombre not in avisados:
-                print(f"[{nombre}] {problema}", flush=True)
-                v.avisar(f"Hola Juan. Problema en el servidor:\n\n{problema}")
-                avisados[nombre] = int(time.time())
-        elif nombre in avisados:
-            print(f"[{nombre}] resuelto", flush=True)
-            v.avisar(f"Hola Juan. Ya se arregló solo: {nombre}. Todo vuelve a estar bien.")
-            del avisados[nombre]
+            seguidas = fallos.get(nombre, 0) + 1
+            fallos[nombre] = seguidas
+            if nombre in avisados:
+                continue
+            if seguidas < RONDAS_PARA_AVISAR:
+                # Todavía puede ser un hipo. Queda anotado en el log por si
+                # luego hay que reconstruir qué pasó, pero no se molesta a
+                # nadie.
+                print(f"[{nombre}] fallo {seguidas}/{RONDAS_PARA_AVISAR}: {problema}",
+                      flush=True)
+                continue
+            print(f"[{nombre}] {problema}", flush=True)
+            v.avisar(f"Hola Juan. Problema en el servidor:\n\n{problema}")
+            avisados[nombre] = int(time.time())
+        else:
+            fallos.pop(nombre, None)
+            if nombre in avisados:
+                print(f"[{nombre}] resuelto", flush=True)
+                v.avisar(f"Hola Juan. Ya se arregló solo: {nombre}. Todo vuelve a estar bien.")
+                del avisados[nombre]
 
     if todo_bien:
         latido()
 
     estado["avisados"] = avisados
+    estado["fallos"] = fallos
     estado["ultima_ronda"] = int(time.time())
     guardar_estado(estado)
     return avisados
