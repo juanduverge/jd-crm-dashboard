@@ -1,23 +1,23 @@
 -- =============================================================
--- 0045_cola_wa_no_barre_el_crm_entero.sql — `leads_para_verificar_wa`
--- recorria y ordenaba TODOS los leads vivos en cada llamada, y por eso de vez
--- en cuando Supabase devolvia 504 y el vigilante mandaba un WhatsApp de
--- madrugada por un problema que no existia.
+-- 0045_cola_wa_no_barre_el_crm_entero.sql — deja registrado el indice
+-- `leads_cola_wa_idx`, que ya existia en produccion pero no en el repo.
 --
--- POR QUE ERA CARO. La funcion calcula los telefonos utilizables de cada lead
--- con un `cross join lateral` (unnest + wa_digitos) y luego ordena por
--- `whatsapp_verificado_en`. Sin indice, Postgres tenia que materializar ese
--- lateral para cada lead vivo y ordenar el conjunto entero ANTES de aplicar el
--- `limit`. Daba igual pedir 1 fila o 60: el trabajo era el mismo.
+-- POR QUE ESTA MIGRACION NO ARREGLA EL 504. Se escribio pensando que
+-- `leads_para_verificar_wa` barria el CRM entero y por eso Supabase devolvia
+-- 504 de madrugada. Medido: la tabla tiene ~400 leads vivos (2,6 MB) y la
+-- funcion tarda 8 ms. Nunca fue el problema. Los 504 vienen de fuera de la
+-- base — un hipo del proxy de Supabase o del enlace de casa — y lo que los
+-- convertia en un WhatsApp a las cinco de la manana era que el vigilante
+-- avisaba al primer fallo. Eso se arregla en `vigilante.py`, no aqui.
 --
--- QUE ARREGLA ESTO. Un indice que ya viene en el orden que la funcion pide
--- (`whatsapp_verificado_en asc nulls first, created_at desc`) y que solo
--- contiene los leads vivos. Postgres puede recorrerlo en orden, parar al
--- llegar al limite y calcular el lateral unicamente para las filas que se
--- lleva. Deja de leerse el CRM entero.
+-- QUE HACE ENTONCES. El indice esta creado en la base pero no lo puso ninguna
+-- migracion, asi que una base reconstruida desde cero no lo tendria. Queda
+-- aqui para que el repo describa lo que hay de verdad. Es `if not exists`:
+-- contra produccion no cambia nada.
 --
--- El indice es parcial (`where deleted_at is null`) porque es exactamente el
--- filtro de la funcion: asi ocupa menos y no guarda lo que nunca se consulta.
+-- NOTA: `idx_leads_verificar_wa` (0035) es ahora redundante — este indice
+-- empieza por la misma columna y sirve para lo mismo. Borrarlo es seguro,
+-- pero se deja para no tocar produccion en una migracion que solo documenta.
 -- =============================================================
 
 begin;
