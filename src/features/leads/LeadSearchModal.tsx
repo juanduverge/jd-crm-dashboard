@@ -1,12 +1,15 @@
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Search, Sparkles, Info, Bookmark, BookmarkPlus, History, X } from 'lucide-react'
+import { Search, Sparkles, Info, Bookmark, BookmarkPlus, History, X, Star, ChevronDown } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button, Input } from '@/components/ui'
 import { crmApi, type LeadSourceKey } from '@/services/crmApi'
 import {
   useHistorialBusquedas, useBusquedasGuardadas, useGuardarBusqueda, useBorrarBusqueda,
 } from '@/hooks/useData'
+import {
+  TERMINOS_BUSQUEDA, TERMINOS_FAVORITOS, claveTermino, type TerminoBusqueda,
+} from '@/lib/nichosBusqueda'
 import { cn } from '@/lib/utils'
 
 /** Fecha compacta para el historial: "12 ago". El año solo si no es este. */
@@ -20,11 +23,8 @@ function fechaCorta(iso: string): string {
   })
 }
 
-/** Sugerencias comunes de tipo de negocio (texto libre, esto solo autocompleta). */
-const SUGERENCIAS = [
-  'real estate agency', 'restaurantes', 'arquitectura', 'abogados',
-  'clínicas dentales', 'gimnasios', 'salones de belleza', 'talleres mecánicos',
-]
+/** Cuántos términos por grupo se pintan cuando no se está filtrando. */
+const MAX_POR_GRUPO_SIN_FILTRO = 8
 
 interface Fuente {
   id: LeadSourceKey
@@ -85,6 +85,171 @@ const FUENTES: Fuente[] = [
     ubicacionOpcional: true,
   },
 ]
+
+/**
+ * Campo "tipo de negocio" con el catálogo de términos detrás.
+ *
+ * Antes era un `<input list>` con ocho sugerencias a mano, y el resultado era
+ * el de la captura: un desplegable de cinco líneas del que no sale ninguna
+ * búsqueda que funcione, así que había que saberse de memoria cómo llama
+ * Google a cada sector. Ahora se abre un panel agrupado por sector con lo que
+ * de verdad devuelve resultados, y arriba dos atajos:
+ *
+ *   - "Lo que más te funciona": sale de `lead_imports` — los términos con los
+ *     que tú ya has capturado leads, ordenados por cuántos entraron. Es el
+ *     único dato de esta lista que no es una opinión.
+ *   - "Recomendados": los marcados `favorito` en el catálogo (negocio local,
+ *     ticket alto, web mala), para cuando aún no hay historial de un sector.
+ *
+ * Sigue siendo texto libre: escribir algo que no está en la lista funciona
+ * igual, la lista solo filtra mientras escribes.
+ */
+function SelectorNicho({
+  valor, onChange, placeholder, historial,
+}: {
+  valor: string
+  onChange: (v: string) => void
+  placeholder: string
+  historial: { tipo: string; insertados: number; veces: number }[]
+}) {
+  const [abierto, setAbierto] = useState(false)
+  const contenedor = useRef<HTMLDivElement>(null)
+
+  // Lo tuyo primero: mismo tipo buscado varias veces cuenta una sola, y manda
+  // cuántos leads entraron, no cuántas veces se lanzó (una búsqueda repetida
+  // que no trae nada no es un acierto).
+  const masUsados = useMemo(() => {
+    const m = new Map<string, { termino: string; insertados: number }>()
+    for (const h of historial) {
+      const t = h.tipo.trim()
+      if (!t) continue
+      const clave = claveTermino(t)
+      const ya = m.get(clave)
+      if (ya) ya.insertados += h.insertados
+      else m.set(clave, { termino: t, insertados: h.insertados })
+    }
+    return [...m.values()].sort((a, b) => b.insertados - a.insertados).slice(0, 8)
+  }, [historial])
+
+  const filtro = claveTermino(valor)
+  // Filtrar solo cuando el texto no es ya exactamente una opción elegida: si
+  // no, al hacer clic en "roofing contractor" el panel se queda con una única
+  // línea y parece que se ha roto.
+  const filtrando = filtro.length >= 2
+
+  const grupos = useMemo(() => {
+    return TERMINOS_BUSQUEDA.map((g) => {
+      const encajan = filtrando
+        ? g.terminos.filter((t) => claveTermino(t.termino).includes(filtro))
+        : g.terminos.slice(0, MAX_POR_GRUPO_SIN_FILTRO)
+      return { ...g, terminos: encajan, ocultos: filtrando ? 0 : g.terminos.length - encajan.length }
+    }).filter((g) => g.terminos.length > 0)
+  }, [filtro, filtrando])
+
+  const elegir = (t: string) => {
+    onChange(t)
+    setAbierto(false)
+  }
+
+  const Fila = ({ t, nota }: { t: TerminoBusqueda; nota?: string }) => (
+    <button
+      type="button"
+      onMouseDown={(e) => e.preventDefault()} // que no pierda el foco antes del clic
+      onClick={() => elegir(t.termino)}
+      className={cn(
+        'flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm transition-colors',
+        'hover:bg-primary-50 dark:hover:bg-primary-500/10',
+        claveTermino(t.termino) === filtro && 'bg-primary-50 dark:bg-primary-500/10',
+      )}
+    >
+      <span className="truncate">{t.termino}</span>
+      {(nota ?? t.nota) && (
+        <span className="shrink-0 text-[11px] text-muted">{nota ?? t.nota}</span>
+      )}
+    </button>
+  )
+
+  return (
+    <div
+      ref={contenedor}
+      className="relative"
+      onBlur={(e) => {
+        if (!contenedor.current?.contains(e.relatedTarget as Node)) setAbierto(false)
+      }}
+    >
+      <div className="relative">
+        <Input
+          value={valor}
+          onChange={(e) => { onChange(e.target.value); setAbierto(true) }}
+          onFocus={() => setAbierto(true)}
+          onKeyDown={(e) => { if (e.key === 'Escape' && abierto) { e.stopPropagation(); setAbierto(false) } }}
+          placeholder={placeholder}
+          className="pr-9"
+          autoComplete="off"
+        />
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setAbierto((v) => !v)}
+          className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-muted hover:text-fg"
+          aria-label={abierto ? 'Cerrar sugerencias' : 'Ver sectores'}
+        >
+          <ChevronDown className={cn('h-4 w-4 transition-transform', abierto && 'rotate-180')} />
+        </button>
+      </div>
+
+      {abierto && (
+        <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-y-auto overscroll-contain rounded-xl border border-border bg-bg p-1 shadow-lg">
+          {!filtrando && masUsados.length > 0 && (
+            <div className="mb-1">
+              <p className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                <History className="h-3 w-3" /> Lo que más te funciona
+              </p>
+              {masUsados.map((m) => (
+                <Fila
+                  key={`usado-${m.termino}`}
+                  t={{ termino: m.termino }}
+                  nota={m.insertados > 0 ? `${m.insertados} leads` : 'sin resultados'}
+                />
+              ))}
+            </div>
+          )}
+
+          {!filtrando && (
+            <div className="mb-1 border-t border-border pt-1">
+              <p className="flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                <Star className="h-3 w-3" /> Recomendados para vender webs
+              </p>
+              {TERMINOS_FAVORITOS.slice(0, 12).map((t) => (
+                <Fila key={`fav-${t.termino}`} t={t} />
+              ))}
+            </div>
+          )}
+
+          {grupos.map((g) => (
+            <div key={g.grupo} className="border-t border-border pt-1">
+              <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                {g.emoji} {g.grupo}
+              </p>
+              {g.terminos.map((t) => <Fila key={`${g.grupo}-${t.termino}`} t={t} />)}
+              {g.ocultos > 0 && (
+                <p className="px-2 pb-1 text-[11px] text-muted">
+                  +{g.ocultos} más — escribe para filtrar
+                </p>
+              )}
+            </div>
+          ))}
+
+          {filtrando && grupos.length === 0 && (
+            <p className="px-2 py-3 text-xs text-muted">
+              «{valor}» no está en la lista. Se puede buscar igual: se manda tal cual a Google Maps.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [tipo, setTipo] = useState('')
@@ -191,15 +356,12 @@ export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () 
 
         <div>
           <label className="mb-1 block text-xs font-medium text-muted">Tipo de negocio / nicho</label>
-          <Input
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
+          <SelectorNicho
+            valor={tipo}
+            onChange={setTipo}
             placeholder={fuenteActiva.placeholderTipo}
-            list="sugerencias-nicho"
+            historial={historial ?? []}
           />
-          <datalist id="sugerencias-nicho">
-            {SUGERENCIAS.map((s) => <option key={s} value={s} />)}
-          </datalist>
         </div>
 
         <div>
