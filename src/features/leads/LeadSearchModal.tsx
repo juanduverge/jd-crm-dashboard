@@ -5,10 +5,11 @@ import { Modal } from '@/components/ui/Modal'
 import { Button, Input } from '@/components/ui'
 import { crmApi, type LeadSourceKey } from '@/services/crmApi'
 import {
-  useHistorialBusquedas, useBusquedasGuardadas, useGuardarBusqueda, useBorrarBusqueda,
+  useHistorialBusquedas, useBusquedasGuardadas, useGuardarBusqueda, useBorrarBusqueda, useNichos,
 } from '@/hooks/useData'
+import type { Niche } from '@/lib/config'
 import {
-  TERMINOS_BUSQUEDA, TERMINOS_FAVORITOS, claveTermino, type TerminoBusqueda,
+  TERMINOS_BUSQUEDA, TERMINOS_FAVORITOS, NICHOS_EXTRA, claveTermino, type TerminoBusqueda,
 } from '@/lib/nichosBusqueda'
 import { cn } from '@/lib/utils'
 
@@ -114,6 +115,7 @@ function SelectorNicho({
 }) {
   const [abierto, setAbierto] = useState(false)
   const contenedor = useRef<HTMLDivElement>(null)
+  const nichos = useNichos()
 
   // Lo tuyo primero: mismo tipo buscado varias veces cuenta una sola, y manda
   // cuántos leads entraron, no cuántas veces se lanzó (una búsqueda repetida
@@ -137,21 +139,63 @@ function SelectorNicho({
   // línea y parece que se ha roto.
   const filtrando = filtro.length >= 2
 
+  // El agrupado lo manda el catálogo de nichos, no este archivo: los mismos
+  // sectores, nombres y emojis que ves en la tabla y en los filtros. Así un
+  // nicho que te crees en Ajustes aparece también aquí (con su propio nombre
+  // como término, que es lo único que se sabe de él), en vez de quedarse fuera
+  // del buscador.
   const grupos = useMemo(() => {
-    return TERMINOS_BUSQUEDA.map((g) => {
+    const porNicho = new Map<string, TerminoBusqueda[]>()
+    for (const t of TERMINOS_BUSQUEDA) {
+      const ya = porNicho.get(t.nicho)
+      if (ya) ya.push(t)
+      else porNicho.set(t.nicho, [t])
+    }
+
+    // Los nichos de `NICHOS_EXTRA` que la BD todavía no tenga (migración 0046
+    // sin aplicar): se pintan igual para que la lista no pierda sectores.
+    const conocidos = new Set(nichos.map((n) => n.id))
+    const catalogo: Niche[] = [
+      ...nichos,
+      ...NICHOS_EXTRA.filter((n) => !conocidos.has(n.id)).map((n) => ({ ...n, color: '#94a3b8' })),
+    ]
+
+    const salida: {
+      grupo: string
+      nicho: string
+      etiqueta: string
+      terminos: TerminoBusqueda[]
+      ocultos: number
+    }[] = []
+
+    for (const n of catalogo) {
+      // "Otros" no aporta nada como sector de búsqueda, y un nicho pendiente es
+      // texto crudo de Google sin revisar: no es un término que quieras buscar.
+      if (n.id === 'otros' || n.pendiente) continue
+      const propios = porNicho.get(n.id) ?? [{ termino: n.nombre.toLowerCase(), nicho: n.id }]
       const encajan = filtrando
-        ? g.terminos.filter((t) => claveTermino(t.termino).includes(filtro))
-        : g.terminos.slice(0, MAX_POR_GRUPO_SIN_FILTRO)
-      return { ...g, terminos: encajan, ocultos: filtrando ? 0 : g.terminos.length - encajan.length }
-    }).filter((g) => g.terminos.length > 0)
-  }, [filtro, filtrando])
+        ? propios.filter((t) => claveTermino(t.termino).includes(filtro))
+        : propios.slice(0, MAX_POR_GRUPO_SIN_FILTRO)
+      if (encajan.length === 0) continue
+      salida.push({
+        grupo: n.grupo,
+        nicho: n.id,
+        etiqueta: `${n.emoji} ${n.nombre}`,
+        terminos: encajan,
+        ocultos: filtrando ? 0 : propios.length - encajan.length,
+      })
+    }
+    return salida
+  }, [filtro, filtrando, nichos])
 
   const elegir = (t: string) => {
     onChange(t)
     setAbierto(false)
   }
 
-  const Fila = ({ t, nota }: { t: TerminoBusqueda; nota?: string }) => (
+  // `t` es un término del catálogo o uno del historial (que no tiene nicho:
+  // es texto que escribiste tú), así que sólo se pide lo que se pinta.
+  const Fila = ({ t, nota }: { t: { termino: string; nota?: string }; nota?: string }) => (
     <button
       type="button"
       onMouseDown={(e) => e.preventDefault()} // que no pierda el foco antes del clic
@@ -226,12 +270,17 @@ function SelectorNicho({
             </div>
           )}
 
-          {grupos.map((g) => (
-            <div key={g.grupo} className="border-t border-border pt-1">
-              <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                {g.emoji} {g.grupo}
-              </p>
-              {g.terminos.map((t) => <Fila key={`${g.grupo}-${t.termino}`} t={t} />)}
+          {grupos.map((g, i) => (
+            <div key={g.nicho} className="border-t border-border pt-1">
+              {/* El sector del catálogo sólo se repite cuando cambia: es la
+                  cabecera de arriba, y los nichos que cuelgan de él van dentro. */}
+              {g.grupo !== grupos[i - 1]?.grupo && (
+                <p className="px-2 pt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                  {g.grupo}
+                </p>
+              )}
+              <p className="px-2 py-0.5 text-xs font-medium text-fg">{g.etiqueta}</p>
+              {g.terminos.map((t) => <Fila key={`${g.nicho}-${t.termino}`} t={t} />)}
               {g.ocultos > 0 && (
                 <p className="px-2 pb-1 text-[11px] text-muted">
                   +{g.ocultos} más — escribe para filtrar
