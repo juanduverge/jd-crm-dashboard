@@ -14,6 +14,7 @@ import { metricsService } from '@/services/metricsService'
 import { timeService } from '@/services/timeService'
 import { eventosService, type EventoPayload } from '@/services/eventosService'
 import { followUpsService } from '@/services/followUpsService'
+import { colaService } from '@/services/colaService'
 import { supabase } from '@/lib/supabaseClient'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useCampaignsStore } from '@/store/campaignsStore'
@@ -207,6 +208,16 @@ export function useUltimasBusquedas() {
 }
 
 /** Solicitudes del formulario de la web pública (tabla `web_leads`). */
+/** Tareas de la cola que fallaron 5 veces (migración 0050). */
+export function useTareasFallidas() {
+  return useQuery({
+    queryKey: ['tareas_fallidas'],
+    queryFn: () => colaService.fallidas(),
+    refetchInterval: 60_000,
+    retry: 1,
+  })
+}
+
 export function useWebLeads() {
   return useQuery({
     queryKey: ['web_leads'],

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bell, Globe, Mail, Search } from 'lucide-react'
+import { AlertTriangle, Bell, Globe, Mail, Search } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
-import { useInbox, useUltimasBusquedas, useWebLeads } from '@/hooks/useData'
+import { useInbox, useTareasFallidas, useUltimasBusquedas, useWebLeads } from '@/hooks/useData'
+import { nombreTipoTarea } from '@/services/colaService'
 import { cn } from '@/lib/utils'
 
 const SEEN_STORAGE_KEY = 'jd-crm-notif-seen-at'
@@ -14,7 +15,7 @@ function loadSeenAt(): number {
 
 interface NotifEvent {
   id: string
-  type: 'message' | 'search' | 'webform'
+  type: 'message' | 'search' | 'webform' | 'fallo'
   title: string
   subtitle: string
   time: number
@@ -25,6 +26,7 @@ export function NotificationBell() {
   const { data: emails } = useInbox()
   const { data: searches } = useUltimasBusquedas()
   const { data: webLeads } = useWebLeads()
+  const { data: fallidas } = useTareasFallidas()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [seenAt, setSeenAt] = useState(() => loadSeenAt())
@@ -93,8 +95,20 @@ export function NotificationBell() {
         onClick: () => navigate('/web-leads'),
       }))
 
-    return [...msgEvents, ...searchEvents, ...webEvents].sort((a, b) => b.time - a.time).slice(0, 10)
-  }, [emails, searches, webLeads, navigate])
+    // Algo que la cola no pudo hacer sola tras 5 intentos: siempre arriba,
+    // no se pierde entre las novedades.
+    const falloEvents: NotifEvent[] = (fallidas ?? []).map((f) => ({
+      id: `fallo-${f.id}`,
+      type: 'fallo',
+      title: `No se pudo: ${nombreTipoTarea(f.tipo)}`,
+      subtitle: f.ultimoError || 'sin detalle del error',
+      time: new Date(f.fallidaEn).getTime() || 0,
+      onClick: () => navigate(f.tipo === 'avisar_formulario' ? '/web-leads' : '/settings'),
+    }))
+
+    const novedades = [...msgEvents, ...searchEvents, ...webEvents].sort((a, b) => b.time - a.time)
+    return [...falloEvents, ...novedades].slice(0, 10)
+  }, [emails, searches, webLeads, fallidas, navigate])
 
   const unseenCount = events.filter((e) => e.time > seenAt).length
 
@@ -139,10 +153,12 @@ export function NotificationBell() {
                   e.type === 'message' && 'bg-primary-400/10 text-primary-500',
                   e.type === 'search' && 'bg-amber-400/10 text-amber-500',
                   e.type === 'webform' && 'bg-emerald-400/10 text-emerald-500',
+                  e.type === 'fallo' && 'bg-red-500/10 text-red-500',
                 )}>
                   {e.type === 'message' && <Mail className="h-3.5 w-3.5" />}
                   {e.type === 'search' && <Search className="h-3.5 w-3.5" />}
                   {e.type === 'webform' && <Globe className="h-3.5 w-3.5" />}
+                  {e.type === 'fallo' && <AlertTriangle className="h-3.5 w-3.5" />}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-fg">{e.title}</span>

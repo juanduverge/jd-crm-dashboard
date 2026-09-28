@@ -1,13 +1,17 @@
 <!--
   JD Developer — Formulario de contacto web → CRM
   Pega este snippet en la web pública (jddeveloper.com).
-  Postea a un webhook n8n dedicado (crm-web-lead) que hace dedup + anti-spam.
+  Desde el 28-sep-2026 envía a la Edge Function `recibir-formulario` de
+  Supabase (en la nube), no a n8n: el contacto se guarda aunque el servidor
+  de casa esté apagado, y el aviso a info@ sale en cuanto n8n puede.
+  La función evita duplicados (doble clic) y filtra bots.
 
   Requisitos:
-   1. Reemplaza WEBHOOK_URL por el webhook público de n8n:
-      https://backoffice.jddeveloper.com/webhook/crm-web-lead
-   2. (Recomendado) Cloudflare Turnstile: reemplaza TURNSTILE_SITE_KEY.
-      Si no usas Turnstile, borra el <div class="cf-turnstile"> y su <script>.
+   1. WEBHOOK_URL ya apunta a la función. En Webflow basta con cambiar esa
+      línea en el código del formulario que ya está publicado.
+   2. (Recomendado) Cloudflare Turnstile: reemplaza TURNSTILE_SITE_KEY. Para
+      que se COMPRUEBE, añade el secreto TURNSTILE_SECRET en Supabase ->
+      Edge Functions -> Secrets. Sin ese secreto solo actúa el honeypot.
    3. El campo "website" es un HONEYPOT anti-bot: debe quedar oculto y vacío.
 -->
 <form id="jd-contact-form" novalidate>
@@ -30,7 +34,7 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <script>
 (function () {
-  var WEBHOOK_URL = "https://backoffice.jddeveloper.com/webhook/crm-web-lead";
+  var WEBHOOK_URL = "https://octzlhcwqlvxzrjgaptk.supabase.co/functions/v1/recibir-formulario";
   var form = document.getElementById("jd-contact-form");
   var msg = document.getElementById("jd-form-msg");
 

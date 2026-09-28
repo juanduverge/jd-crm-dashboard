@@ -1,0 +1,393 @@
+{
+  "name": "Trabajador de tareas (cola de Supabase)",
+  "nodes": [
+    {
+      "id": "t1",
+      "name": "Cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        300
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "t2",
+      "name": "Leer tareas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        220,
+        300
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/rpc/tareas_leer",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_cantidad: 10, p_segundos: 300 }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "t2b",
+      "name": "Hay tarea?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        330,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c0",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "number",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "t3",
+      "name": "Es aviso de formulario?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.tipo }}",
+              "rightValue": "avisar_formulario",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "t4",
+      "name": "Leer contacto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        660,
+        200
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      },
+      "alwaysOutputData": true,
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/web_leads?select=*&id=eq.' + $json.datos.web_lead_id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "t5",
+      "name": "Existe el contacto?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        880,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c2",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "t6",
+      "name": "Enviar aviso",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        100
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "qxrjS1UTOOOVymj8",
+          "name": "Email SMTP - JDDeveloper"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "fromEmail": "Formulario Web JD <info@jddeveloper.com>",
+        "toEmail": "info@jddeveloper.com",
+        "subject": "=🆕 Nuevo lead web: {{ $json.nombre }}{{ $json.empresa ? ' — ' + $json.empresa : '' }}",
+        "emailFormat": "html",
+        "html": "=<div style=\"font-family:Arial,sans-serif;max-width:560px\"><h2 style=\"color:#ff5c33\">Nuevo lead desde la web</h2><table style=\"border-collapse:collapse;font-size:14px\"><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Nombre</td><td><b>{{ $json.nombre }}</b></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Empresa</td><td>{{ $json.empresa || '—' }}</td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Email</td><td><a href=\"mailto:{{ $json.email }}\">{{ $json.email }}</a></td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Teléfono</td><td>{{ $json.telefono || '—' }}</td></tr><tr><td style=\"padding:4px 12px 4px 0;color:#666\">Asunto</td><td>{{ $json.asunto || '—' }}</td></tr></table><p style=\"margin-top:16px;padding:12px;background:#f6f6f6;border-radius:8px\">{{ $json.mensaje }}</p><p style=\"font-size:12px;color:#999\">Página: {{ $json.pagina || $json.url || '—' }} · Recibido {{ $json.created_at }} · Gestiónalo en el CRM → Inbox de Leads</p></div>",
+        "options": {
+          "replyTo": "={{ $json.email }}"
+        }
+      }
+    },
+    {
+      "id": "t7",
+      "name": "Marcar hecha",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1340,
+        160
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/rpc/tareas_hecha",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_id: $('Leer tareas').item.json.id }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "t8",
+      "name": "Marcar fallo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1340,
+        360
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/rpc/tareas_fallo",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_id: $('Leer tareas').item.json.id, p_error: String(($json.error && ($json.error.message || $json.error)) || 'fallo al enviar'), p_reintentar_en: 300 }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "t9",
+      "name": "Tipo desconocido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        660,
+        440
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      },
+      "parameters": {
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/rpc/tareas_fallo",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ p_id: $json.id, p_error: 'tipo de tarea sin trabajador: ' + $json.tipo, p_reintentar_en: 3600 }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cada minuto": {
+      "main": [
+        [
+          {
+            "node": "Leer tareas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer tareas": {
+      "main": [
+        [
+          {
+            "node": "Hay tarea?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Es aviso de formulario?": {
+      "main": [
+        [
+          {
+            "node": "Leer contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tipo desconocido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer contacto": {
+      "main": [
+        [
+          {
+            "node": "Existe el contacto?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Existe el contacto?": {
+      "main": [
+        [
+          {
+            "node": "Enviar aviso",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar hecha",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar aviso": {
+      "main": [
+        [
+          {
+            "node": "Marcar hecha",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar fallo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hay tarea?": {
+      "main": [
+        [
+          {
+            "node": "Es aviso de formulario?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none"
+  }
+}
