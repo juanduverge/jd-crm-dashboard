@@ -72,7 +72,10 @@ Deno.serve(async (req) => {
   // Campo trampa: un bot lo rellena. Se responde "ok" para no darle pistas.
   if (b.hp_confirm_jd || b.website) return responder({ ok: true })
 
-  const ip = (req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for') ?? '').split(',')[0].trim()
+  // La web (Cloudflare Pages, /api/contacto) reenvia desde su servidor: la IP
+  // real del visitante llega en x-visitante-ip, no en cf-connecting-ip.
+  const ip = (req.headers.get('x-visitante-ip') ?? req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for') ?? '')
+    .split(',')[0].trim()
   if (!(await turnstileOk(String(b.turnstile_token ?? b['cf-turnstile-response'] ?? ''), ip))) {
     return responder({ ok: false, error: 'verificacion anti-spam fallida' }, 400)
   }
@@ -83,8 +86,10 @@ Deno.serve(async (req) => {
     if (v !== undefined && v !== null && String(v).trim() !== '') p[c] = String(v)
   }
   if (!p.url && b.url_origen) p.url = String(b.url_origen)
+  // El formulario de jddeveloper.com llama `tema` a lo que aqui es el asunto.
+  if (!p.asunto && b.tema) p.asunto = String(b.tema)
   p.ip = ip
-  p.user_agent = req.headers.get('user-agent') ?? ''
+  p.user_agent = req.headers.get('x-visitante-ua') ?? req.headers.get('user-agent') ?? ''
 
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
     auth: { persistSession: false },
