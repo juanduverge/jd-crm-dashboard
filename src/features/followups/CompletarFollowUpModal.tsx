@@ -22,6 +22,14 @@ import type { FollowUp, FollowUpResultado, FollowUpTipo } from '@/types'
  * Las dos operaciones son RPCs separadas: si la segunda falla, la primera ya
  * quedó guardada (completar es lo importante) y se avisa por toast.
  */
+// Orden y textos pensados para el caso normal: se escribe y aún no contestan.
+// "Positivo" a secas se leía como "el toque salió bien" y no como "respondió".
+const OPCIONES_RESULTADO: { r: FollowUpResultado; label: string }[] = [
+  { r: 'sin_respuesta', label: 'Enviado, sin respuesta' },
+  { r: 'positivo', label: 'Respondió' },
+  { r: 'negativo', label: 'No le interesa' },
+]
+
 export function CompletarFollowUpModal({
   followUp,
   leadEmpresa,
@@ -34,20 +42,23 @@ export function CompletarFollowUpModal({
   const completar = useCompletarFollowUp()
   const programar = useProgramarFollowUp()
 
-  const [resultado, setResultado] = useState<FollowUpResultado>('positivo')
+  // Sin resultado por defecto. Venía 'positivo' preseleccionado y, como un
+  // toque positivo mueve el lead a «Respondió» (trigger de la 0038), cada
+  // "ya le escribí" guardado sin tocar nada acababa en esa columna.
+  const [resultado, setResultado] = useState<FollowUpResultado | null>(null)
   const [nota, setNota] = useState('')
   const [encadenar, setEncadenar] = useState(true)
-  const [siguienteFecha, setSiguienteFecha] = useState(() => fechaSiguienteToque('positivo'))
+  const [siguienteFecha, setSiguienteFecha] = useState(() => fechaSiguienteToque('sin_respuesta'))
   const [siguienteTipo, setSiguienteTipo] = useState<FollowUpTipo>('llamada')
   const [siguienteNota, setSiguienteNota] = useState('')
 
   // Al abrir, resetear y proponer el mismo canal del toque que se está cerrando.
   useEffect(() => {
     if (!followUp) return
-    setResultado('positivo')
+    setResultado(null)
     setNota('')
     setEncadenar(true)
-    setSiguienteFecha(fechaSiguienteToque('positivo'))
+    setSiguienteFecha(fechaSiguienteToque('sin_respuesta'))
     setSiguienteTipo(followUp.tipo)
     setSiguienteNota('')
   }, [followUp])
@@ -59,7 +70,7 @@ export function CompletarFollowUpModal({
   }
 
   const guardar = async () => {
-    if (!followUp) return
+    if (!followUp || !resultado) return
     try {
       await completar.mutateAsync({ id: followUp.id, resultado, nota: nota.trim() || undefined })
     } catch (e) {
@@ -100,7 +111,7 @@ export function CompletarFollowUpModal({
       footer={
         <>
           <Button variant="outline" onClick={onClose} disabled={guardando}>Cancelar</Button>
-          <Button onClick={guardar} disabled={guardando}>
+          <Button onClick={guardar} disabled={guardando || !resultado}>
             {guardando ? 'Guardando…' : 'Guardar'}
           </Button>
         </>
@@ -110,7 +121,7 @@ export function CompletarFollowUpModal({
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted">¿Cómo fue?</label>
           <div className="flex flex-wrap gap-2">
-            {(Object.keys(RESULTADO_META) as FollowUpResultado[]).map((r) => (
+            {OPCIONES_RESULTADO.map(({ r, label }) => (
               <button
                 key={r}
                 type="button"
@@ -122,10 +133,13 @@ export function CompletarFollowUpModal({
                     : 'bg-surface-2 text-muted hover:opacity-80',
                 )}
               >
-                {RESULTADO_META[r].label}
+                {label}
               </button>
             ))}
           </div>
+          {resultado === 'positivo' && (
+            <p className="mt-1.5 text-xs text-muted">El lead pasa a «Respondió».</p>
+          )}
         </div>
 
         <div>
