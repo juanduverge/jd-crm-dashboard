@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient'
 import type { InboxMessage } from '@/types'
+import { traerTodas } from '@/lib/traerTodas'
 
 /**
  * inboxService — lectura y gestión (marcar leído) del módulo Bandeja contra
@@ -38,12 +39,13 @@ function rowToInboxMessage(row: InboxRow): InboxMessage {
 export const inboxService = {
   /** Correos recibidos vía IMAP, más recientes primero. */
   async getInbox(): Promise<InboxMessage[]> {
-    const { data, error } = await supabase
+    const data = await traerTodas((desde, hasta) => supabase
       .from('inbox_messages')
       .select('id, lead_id, remitente, asunto, cuerpo, adjunto_path, leido, created_at')
       .order('created_at', { ascending: false })
-    if (error) throw error
-    return ((data ?? []) as InboxRow[]).map(rowToInboxMessage)
+      .order('id')
+      .range(desde, hasta))
+    return (data as InboxRow[]).map(rowToInboxMessage)
   },
 
   /** Marca un correo como leído (persistido en Supabase, no solo local). */

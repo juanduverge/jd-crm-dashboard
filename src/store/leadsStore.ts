@@ -225,7 +225,8 @@ export const useLeadsStore = create<LeadsState>((set, get) => ({
   },
   toggleSelect: (id) => {
     const s = new Set(get().selectedIds)
-    s.has(id) ? s.delete(id) : s.add(id)
+    if (s.has(id)) s.delete(id)
+    else s.add(id)
     set({ selectedIds: s })
   },
   clearSelection: () => set({ selectedIds: new Set() }),

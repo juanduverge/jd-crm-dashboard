@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Sparkles, Tags, Check, Merge, Loader2 } from 'lucide-react'
-import { Card, CardHeader, CardTitle, Button, Input, Select, Badge, Skeleton } from '@/components/ui'
+import { Card, Button, Input, Select, Skeleton } from '@/components/ui'
 import {
   useNichosQuery, useNichosPendientes, useConteoNichos, useGuardarNicho, useFusionarNichos,
 } from '@/hooks/useData'

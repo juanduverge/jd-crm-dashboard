@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient'
 import type { Tarea, TareaEstado, TareaSeccion, TareaTipo, WebLeadPriority } from '@/types'
+import { traerTodas } from '@/lib/traerTodas'
 
 /**
  * tasksService — CRUD del módulo Tareas (seguimientos manuales) contra
@@ -61,13 +62,14 @@ function rowToTarea(row: TaskRow): Tarea {
 export const tasksService = {
   /** Lee las tareas activas (no eliminadas) de Supabase. */
   async getTareas(): Promise<Tarea[]> {
-    const { data, error } = await supabase
+    const data = await traerTodas((desde, hasta) => supabase
       .from('tasks')
       .select('*, leads(empresa)')
       .is('deleted_at', null)
       .order('vencimiento', { ascending: true, nullsFirst: false })
-    if (error) throw error
-    return (data ?? []).map((r) => rowToTarea(r as unknown as TaskRow))
+      .order('id')
+      .range(desde, hasta))
+    return data.map((r) => rowToTarea(r as unknown as TaskRow))
   },
 
   async createTarea(payload: {

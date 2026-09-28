@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { crmApi, type LeadSourceKey } from './crmApi'
 import { RESPONSABLE_POR_DEFECTO } from '@/lib/equipo'
 import type { Lead, Contact, ContactType, Note } from '@/types'
+import { traerTodas } from '@/lib/traerTodas'
 
 /**
  * leadsService — CRUD del módulo Leads (leads + contactos + notas) contra
@@ -424,13 +425,14 @@ export const leadsService = {
 
   /** Lee los leads activos de Supabase (incluye sus columnas de pipeline). */
   async getLeads(): Promise<Lead[]> {
-    const { data: rows, error } = await supabase
+    const rows = await traerTodas((desde, hasta) => supabase
       .from('leads')
       .select('*')
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
-    if (error) throw error
-    return (rows ?? []).map((r) => rowToLead(r as LeadRow))
+      .order('id')
+      .range(desde, hasta))
+    return rows.map((r) => rowToLead(r as LeadRow))
   },
 
   /** Crea un lead nuevo en Supabase (incluye sus campos de pipeline si vienen en el patch). */

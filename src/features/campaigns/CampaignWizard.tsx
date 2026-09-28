@@ -74,7 +74,8 @@ export function CampaignWizard({
 
   const toggle = (id: string) => {
     const s = new Set(selected)
-    s.has(id) ? s.delete(id) : s.add(id)
+    if (s.has(id)) s.delete(id)
+    else s.add(id)
     setSelected(s)
   }
   const selectAllFiltered = () => setSelected(new Set(filteredLeads.map((l) => l.id)))

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient'
 import type { Niche } from '@/lib/config'
+import { traerTodas } from '@/lib/traerTodas'
 
 /**
  * Catálogo de nichos (migración 0033).
@@ -124,9 +125,8 @@ export const nichosService = {
 
   /** Cuántos leads vivos hay en cada nicho (para la bandeja de revisión). */
   async conteos(): Promise<Record<string, number>> {
-    const { data, error } = await supabase
-      .from('leads').select('nicho').is('deleted_at', null)
-    if (error) throw error
+    const data = await traerTodas((desde, hasta) => supabase
+      .from('leads').select('nicho').is('deleted_at', null).order('id').range(desde, hasta))
     const c: Record<string, number> = {}
     for (const r of data as { nicho: string | null }[]) {
       if (r.nicho) c[r.nicho] = (c[r.nicho] ?? 0) + 1

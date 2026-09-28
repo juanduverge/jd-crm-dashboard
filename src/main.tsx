@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider, MutationCache, QueryCache } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import App from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import './styles/index.css'
 import { useUiStore, applyTheme } from './store/uiStore'
 
@@ -68,7 +69,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        {/* Última red: si falla algo fuera de las pantallas (login, menú). */}
+        <ErrorBoundary>
+          <App />
+        </ErrorBoundary>
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,

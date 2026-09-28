@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
+import { traerTodas } from '@/lib/traerTodas'
 import type {
   FollowUp, FollowUpAgendaItem, FollowUpResultado, FollowUpTipo, LeadStatus,
 } from '@/types'
@@ -111,12 +112,13 @@ export const followUpsService = {
    * aquí ni arriesgarse a que se cuelen en la UI).
    */
   async getAgenda(): Promise<FollowUpAgendaItem[]> {
-    const { data, error } = await supabase
+    const data = await traerTodas((desde, hasta) => supabase
       .from('follow_ups_agenda')
       .select('*')
       .order('fecha_programada', { ascending: true })
-    if (error) throw error
-    return (data ?? []).map((r) => rowToAgendaItem(r as unknown as AgendaRow))
+      .order('id')
+      .range(desde, hasta))
+    return data.map((r) => rowToAgendaItem(r as unknown as AgendaRow))
   },
 
   /** Historial completo de un lead: todos sus toques, del más reciente al más antiguo. */

@@ -4,6 +4,7 @@ import { Sidebar, MobileNav } from './Sidebar'
 import { Topbar } from './Topbar'
 import { CommandPalette } from './CommandPalette'
 import { FollowUpsBanner } from './FollowUpsBanner'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export function AppLayout() {
   const location = useLocation()
@@ -27,7 +28,9 @@ export function AppLayout() {
               transition={{ duration: 0.2 }}
               className="mx-auto max-w-[1500px]"
             >
-              <Outlet />
+              <ErrorBoundary resetKey={location.pathname}>
+                <Outlet />
+              </ErrorBoundary>
             </motion.div>
           </AnimatePresence>
         </main>

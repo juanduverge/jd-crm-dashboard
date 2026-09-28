@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient'
 import type { Message } from '@/types'
+import { traerTodas } from '@/lib/traerTodas'
 
 /**
  * messagesService — lectura del módulo Mensajes contra Supabase.
@@ -96,18 +97,20 @@ export const messagesService = {
    * propia BD antes de que lleguen aquí.
    */
   async getMessages(): Promise<Message[]> {
-    const [{ data: outreach, error: outErr }, { data: inbox, error: inErr }] = await Promise.all([
-      supabase
+    const [outreach, inbox] = await Promise.all([
+      traerTodas((desde, hasta) => supabase
         .from('outreach_messages')
         .select('id, lead_id, campaign_id, destinatario, asunto, cuerpo, status, error, next_send_at, sent_at, created_at')
-        .order('created_at', { ascending: false }),
-      supabase
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(desde, hasta)),
+      traerTodas((desde, hasta) => supabase
         .from('inbox_messages')
         .select('id, lead_id, remitente, asunto, cuerpo, created_at')
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(desde, hasta)),
     ])
-    if (outErr) throw outErr
-    if (inErr) throw inErr
 
     return [
       ...((outreach ?? []) as OutreachRow[]).map(outreachToMessage),
