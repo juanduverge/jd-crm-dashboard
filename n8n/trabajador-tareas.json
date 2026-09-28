@@ -83,38 +83,6 @@
       }
     },
     {
-      "id": "t3",
-      "name": "Es aviso de formulario?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        500,
-        300
-      ],
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose"
-          },
-          "conditions": [
-            {
-              "id": "c1",
-              "leftValue": "={{ $json.tipo }}",
-              "rightValue": "avisar_formulario",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      }
-    },
-    {
       "id": "t4",
       "name": "Leer contacto",
       "type": "n8n-nodes-base.httpRequest",
@@ -206,8 +174,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1340,
-        160
+        1440,
+        300
       ],
       "credentials": {
         "supabaseApi": {
@@ -234,8 +202,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1340,
-        360
+        1440,
+        640
       ],
       "credentials": {
         "supabaseApi": {
@@ -262,8 +230,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        660,
-        440
+        760,
+        1140
       ],
       "credentials": {
         "supabaseApi": {
@@ -281,6 +249,237 @@
         "jsonBody": "={{ JSON.stringify({ p_id: $json.id, p_error: 'tipo de tarea sin trabajador: ' + $json.tipo, p_reintentar_en: 3600 }) }}",
         "options": {
           "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "s1",
+      "name": "Tipo de tarea",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r0",
+                    "leftValue": "={{ $json.tipo }}",
+                    "rightValue": "avisar_formulario",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "formulario"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r1",
+                    "leftValue": "={{ $json.tipo }}",
+                    "rightValue": "enviar_correo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "correo"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r2",
+                    "leftValue": "={{ $json.tipo }}",
+                    "rightValue": "^(puntuar_lead|analizar_lead)$",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ia"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "r3",
+                    "leftValue": "={{ $json.tipo }}",
+                    "rightValue": "buscar_leads",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "busqueda"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "desconocido"
+        }
+      }
+    },
+    {
+      "id": "w1",
+      "name": "Enviar correo (webhook)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        760,
+        560
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/crm-send-reply",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Leer tareas').item.json.datos) }}",
+        "options": {
+          "timeout": 120000
+        }
+      }
+    },
+    {
+      "id": "w2",
+      "name": "IA del lead (webhook)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        760,
+        760
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/crm-lead-ia",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Leer tareas').item.json.datos) }}",
+        "options": {
+          "timeout": 180000
+        }
+      }
+    },
+    {
+      "id": "w3",
+      "name": "Guardar resultado IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        760
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Lo mismo que hace leadsService al recibir la respuesta en el navegador.\nconst t = $('Leer tareas').item.json;\nconst r = $json;\nif (!r || r.ok === false) throw new Error('la IA no devolvio resultado');\nconst patch = { score: r.scoreIA, scored_at: new Date().toISOString() };\nif (t.tipo === 'analizar_lead') {\n  patch.score_reasoning = JSON.stringify({\n    observaciones: r.observaciones || '', recomendaciones: r.recomendaciones || '',\n    oportunidades: r.oportunidades || '', errores: r.errores || '',\n  });\n}\nreturn { json: { leadId: t.datos.leadId, patch } };"
+      }
+    },
+    {
+      "id": "w4",
+      "name": "Guardar en el lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1200,
+        760
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      },
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/leads?id=eq.' + $json.leadId }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.patch) }}",
+        "options": {
+          "timeout": 30000
+        }
+      }
+    },
+    {
+      "id": "w5",
+      "name": "Buscar prospectos (webhook)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        760,
+        960
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/crm-buscar-leads",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('Leer tareas').item.json.datos) }}",
+        "options": {
+          "timeout": 120000
         }
       }
     }
@@ -302,24 +501,6 @@
         [
           {
             "node": "Hay tarea?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Es aviso de formulario?": {
-      "main": [
-        [
-          {
-            "node": "Leer contacto",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Tipo desconocido",
             "type": "main",
             "index": 0
           }
@@ -377,12 +558,134 @@
       "main": [
         [
           {
-            "node": "Es aviso de formulario?",
+            "node": "Tipo de tarea",
             "type": "main",
             "index": 0
           }
         ],
         []
+      ]
+    },
+    "Tipo de tarea": {
+      "main": [
+        [
+          {
+            "node": "Leer contacto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar correo (webhook)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IA del lead (webhook)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar prospectos (webhook)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tipo desconocido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar correo (webhook)": {
+      "main": [
+        [
+          {
+            "node": "Marcar hecha",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar fallo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IA del lead (webhook)": {
+      "main": [
+        [
+          {
+            "node": "Guardar resultado IA",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar fallo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar resultado IA": {
+      "main": [
+        [
+          {
+            "node": "Guardar en el lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en el lead": {
+      "main": [
+        [
+          {
+            "node": "Marcar hecha",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar fallo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar prospectos (webhook)": {
+      "main": [
+        [
+          {
+            "node": "Marcar hecha",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar fallo",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     }
   },

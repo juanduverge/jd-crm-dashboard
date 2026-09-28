@@ -7,6 +7,7 @@ import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
 import { useLeads, useEmailAliases } from '@/hooks/useData'
 import { crmApi } from '@/services/crmApi'
 import { fileToBase64 } from '@/lib/utils'
+import { avisoEnCola } from '@/lib/cola'
 
 /** Composer libre: escribe a cualquier email, exista o no como lead en el CRM. */
 export function NewMessageModal({
@@ -78,7 +79,7 @@ export function NewMessageModal({
     setSending(true)
     try {
       const att = attachment ? await fileToBase64(attachment) : null
-      await crmApi.sendReply({
+      const r = await crmApi.sendReply({
         to: email,
         from,
         subject: subject.trim() || 'Mensaje de JD Developer',
@@ -91,7 +92,8 @@ export function NewMessageModal({
       // escribe con la credencial de servicio, asi que no depende del rol del
       // usuario ni de que la pestaña siga abierta. Registrarlo tambien aqui
       // duplicaria cada correo en el historial.
-      toast.success('Mensaje enviado')
+      if (r.encolado) avisoEnCola('el mensaje')
+      else toast.success('Mensaje enviado')
       reset()
       onSent?.()
       onClose()

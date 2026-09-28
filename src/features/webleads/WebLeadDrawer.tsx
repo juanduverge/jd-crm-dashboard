@@ -14,6 +14,7 @@ import { useUpdateWebLead, useConvertWebLead, useCreateTarea, useDeleteWebLead, 
 import { crmApi } from '@/services/crmApi'
 import type { WebLead } from '@/types'
 import { ESTADOS, ESTADO_ORDER, PRIORIDADES, PRIORIDAD_ORDER, initials, colorFromString } from './webLeadMeta'
+import { avisoEnCola } from '@/lib/cola'
 
 const TABS = ['Detalles', 'Gestión', 'Actividad'] as const
 
@@ -72,14 +73,15 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
     if (!replyBody.trim()) return
     setSending(true)
     try {
-      await crmApi.sendReply({
+      const r = await crmApi.sendReply({
         to: lead.email,
         subject: lead.asunto || 'Tu consulta en JD Developer',
         body: replyBody.trim(),
         from: replyFrom,
         leadId: lead.id,
       })
-      toast.success('Respuesta enviada')
+      if (r.encolado) avisoEnCola('la respuesta')
+      else toast.success('Respuesta enviada')
       setComposerOpen(false)
       setReplyBody('')
     } catch {

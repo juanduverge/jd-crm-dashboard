@@ -12,6 +12,7 @@ import { useEsMovil } from '@/hooks/useMediaQuery'
 import { crmApi } from '@/services/crmApi'
 import { cn, fuzzyMatch, fileToBase64, htmlToText, esCorreoPropio } from '@/lib/utils'
 import { fechaCorta, fechaLarga, claveDia, etiquetaDia } from '@/lib/fecha'
+import { avisoEnCola } from '@/lib/cola'
 
 /** Primera línea del correo, para la lista. */
 function resumen(cuerpo: string) {
@@ -82,7 +83,7 @@ export function InboxPage() {
     setSending(true)
     try {
       const att = replyAttachment ? await fileToBase64(replyAttachment) : null
-      await crmApi.sendReply({
+      const r = await crmApi.sendReply({
         to: selected.deEmail,
         from: replyFrom,
         subject: selected.asunto || '(sin asunto)',
@@ -92,7 +93,8 @@ export function InboxPage() {
       })
       // El registro en `outreach_messages` lo hace n8n (nodo "Registrar Envio"),
       // con la credencial de servicio. Ver NewMessageModal para el porque.
-      toast.success('Respuesta enviada')
+      if (r.encolado) avisoEnCola('la respuesta')
+      else toast.success('Respuesta enviada')
       setReplyOpen(false)
       setReplyText('')
       setReplyAttachment(null)

@@ -12,6 +12,7 @@ import {
   TERMINOS_BUSQUEDA, TERMINOS_FAVORITOS, NICHOS_EXTRA, claveTermino, type TerminoBusqueda,
 } from '@/lib/nichosBusqueda'
 import { cn } from '@/lib/utils'
+import { avisoEnCola } from '@/lib/cola'
 
 /** Fecha compacta para el historial: "12 ago". El año solo si no es este. */
 function fechaCorta(iso: string): string {
@@ -349,8 +350,9 @@ export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () 
     }
     setSending(true)
     try {
-      await crmApi.buscarLeads({ tipo_negocio: tipo.trim(), ciudad: ciudad.trim(), max, fuente })
-      toast.success('Búsqueda iniciada — los nuevos prospectos aparecerán en unos minutos', { duration: 6000 })
+      const r = await crmApi.buscarLeads({ tipo_negocio: tipo.trim(), ciudad: ciudad.trim(), max, fuente })
+      if (r.encolado) avisoEnCola('la búsqueda de prospectos')
+      else toast.success('Búsqueda iniciada — los nuevos prospectos aparecerán en unos minutos', { duration: 6000 })
       // Los campos se quedan puestos: lo normal es repetir la misma búsqueda
       // cambiando solo la ciudad, y vaciarlos obligaba a reescribir todo.
       onClose()

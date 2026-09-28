@@ -20,6 +20,7 @@ import {
   touchColor, touchLabel,
 } from '@/lib/touches'
 import { today } from '@/lib/followUps'
+import { avisoEnCola } from '@/lib/cola'
 
 const TABS = ['Detalles', 'Oportunidad', 'Seguimientos', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
 
@@ -114,6 +115,10 @@ export function LeadDrawer({
         pageSpeedMovil: lead.pageSpeedMovil, pageSpeedDesktop: lead.pageSpeedDesktop, tieneSSL: lead.tieneSSL,
         ratingGoogle: lead.ratingGoogle, numResenas: lead.numResenas, diagnosticoIA: lead.diagnosticoIA, notas: lead.notas,
       })
+      if (r.encolado) {
+        avisoEnCola('el análisis con IA')
+        return
+      }
       patchLocal(lead.id, {
         observacionesIA: r.observaciones, recomendacionesIA: r.recomendaciones,
         oportunidadesIA: r.oportunidades, erroresIA: r.errores,
@@ -134,6 +139,10 @@ export function LeadDrawer({
         pageSpeedMovil: lead.pageSpeedMovil, pageSpeedDesktop: lead.pageSpeedDesktop, tieneSSL: lead.tieneSSL,
         ratingGoogle: lead.ratingGoogle, numResenas: lead.numResenas,
       })
+      if (r.encolado || r.scoreIA === null) {
+        avisoEnCola('la puntuación con IA')
+        return
+      }
       patchLocal(lead.id, { scoreIA: r.scoreIA })
       toast.success(`Puntuación IA: ${r.scoreIA}/100`)
     } catch {

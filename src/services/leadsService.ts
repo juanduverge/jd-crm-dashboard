@@ -490,8 +490,10 @@ export const leadsService = {
     leadId: string; empresa?: string; nicho?: string; web?: string
     pageSpeedMovil?: number; pageSpeedDesktop?: number; tieneSSL?: boolean
     ratingGoogle?: number; numResenas?: number
-  }): Promise<{ ok: boolean; scoreIA: number }> {
+  }): Promise<{ ok: boolean; scoreIA: number | null; encolado?: boolean }> {
     const r = await crmApi.puntuarLead(payload)
+    // En cola: el trabajador de n8n guardará el resultado cuando lo tenga.
+    if (r.encolado) return r
     const { error } = await supabase
       .from('leads')
       .update({ score: r.scoreIA, scored_at: new Date().toISOString() })
@@ -505,8 +507,9 @@ export const leadsService = {
     leadId: string; empresa?: string; nicho?: string; web?: string; score?: number
     pageSpeedMovil?: number; pageSpeedDesktop?: number; tieneSSL?: boolean
     ratingGoogle?: number; numResenas?: number; diagnosticoIA?: string; notas?: string
-  }): Promise<{ ok: boolean; scoreIA: number; observaciones: string; recomendaciones: string; oportunidades: string; errores: string }> {
+  }): Promise<{ ok: boolean; scoreIA: number | null; observaciones: string; recomendaciones: string; oportunidades: string; errores: string; encolado?: boolean }> {
     const r = await crmApi.analizarLead(payload)
+    if (r.encolado) return r
     const reasoning: ScoreReasoning = {
       observaciones: r.observaciones, recomendaciones: r.recomendaciones,
       oportunidades: r.oportunidades, errores: r.errores,

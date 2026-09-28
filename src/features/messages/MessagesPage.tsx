@@ -12,6 +12,7 @@ import { cn, fuzzyMatch, fileToBase64, htmlToText, esCorreoPropio } from '@/lib/
 import { fechaCorta, soloHora, claveDia, etiquetaDia } from '@/lib/fecha'
 import { NewMessageModal } from './NewMessageModal'
 import type { Channel, Message } from '@/types'
+import { avisoEnCola } from '@/lib/cola'
 
 const channelIcon: Record<Channel, typeof Mail> = {
   email: Mail,
@@ -157,7 +158,7 @@ export function MessagesPage() {
     const asunto = `Mensaje de JD Developer${selected.lead?.empresa ? ` · ${selected.lead.empresa}` : ''}`
     try {
       const att = attachment ? await fileToBase64(attachment) : null
-      await crmApi.sendReply({
+      const r = await crmApi.sendReply({
         to: leadEmail,
         subject: asunto,
         body: compose.trim(),
@@ -166,7 +167,8 @@ export function MessagesPage() {
       })
       // El registro en `outreach_messages` lo hace n8n (nodo "Registrar Envio"),
       // con la credencial de servicio. Ver NewMessageModal para el porque.
-      toast.success('Mensaje enviado')
+      if (r.encolado) avisoEnCola('el mensaje')
+      else toast.success('Mensaje enviado')
       setCompose('')
       setAttachment(null)
       refetch()
