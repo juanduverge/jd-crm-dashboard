@@ -3,12 +3,13 @@ import toast from 'react-hot-toast'
 import { useQuery } from '@tanstack/react-query'
 import {
   Building2, CheckCircle2, XCircle, Loader2, ExternalLink, Workflow,
-  Mail as MailIcon, Plus, Trash2, AtSign, Tags, Plug,
+  Mail as MailIcon, Plus, Trash2, AtSign, Tags, Plug, KeyRound,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Textarea, Skeleton } from '@/components/ui'
 import { useConfig, useUpdateConfig, useWorkflows, useEmailAliases } from '@/hooks/useData'
 import { NichosCard } from './NichosCard'
+import { CuentaCard } from './CuentaCard'
 import { crmApi } from '@/services/crmApi'
 import { n8nService } from '@/services/n8nService'
 import { config } from '@/lib/config'
@@ -25,6 +26,7 @@ const SECCIONES = [
   { id: 'agencia', label: 'Agencia', icon: Building2 },
   { id: 'correo', label: 'Correo', icon: MailIcon },
   { id: 'nichos', label: 'Nichos', icon: Tags },
+  { id: 'cuenta', label: 'Cuenta', icon: KeyRound },
   { id: 'conexiones', label: 'Conexiones', icon: Plug },
 ]
 
@@ -233,6 +235,15 @@ export function SettingsPage() {
             sinCaja
           >
             <NichosCard />
+          </Seccion>
+
+          {/* ---------- Cuenta ---------- */}
+          <Seccion
+            id="cuenta"
+            titulo="Cuenta"
+            descripcion="Tu contraseña de acceso al CRM."
+          >
+            <CuentaCard />
           </Seccion>
 
           {/* ---------- Conexiones ---------- */}
