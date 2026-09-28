@@ -1,0 +1,371 @@
+{
+  "id": "3YCzZ0rcbhK4W4H2",
+  "name": "Seguimiento - Leer Respuestas Email",
+  "nodes": [
+    {
+      "parameters": {
+        "mailbox": "INBOX",
+        "postProcessAction": "nothing",
+        "format": "simple",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2,
+      "position": [
+        -2400,
+        280
+      ],
+      "id": "seg-trigger",
+      "name": "Email Trigger (IMAP)",
+      "credentials": {
+        "imap": {
+          "id": "jhCb594W5fgzxqEj",
+          "name": "Email IMAP - JDDeveloper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const emails = $input.all().map(item => item.json);\nreturn [{ json: { emails } }];\n",
+        "mode": "runOnceForAllItems"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2200,
+        280
+      ],
+      "id": "seg-guardar",
+      "name": "Guardar Emails"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/leads?select=id,email,email_contacto,estado&deleted_at=is.null",
+        "authentication": "predefinedCredentialType",
+        "sendHeaders": false,
+        "options": {},
+        "nodeCredentialType": "supabaseApi"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -2000,
+        280
+      ],
+      "id": "seg-leeroutreach",
+      "name": "Leer outreach",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const stored = $('Guardar Emails').first().json.emails;\nconst leads = $input.all().map(item => item.json);\nreturn stored.map(email => ({ json: { ...email, leads } }));",
+        "mode": "runOnceForAllItems"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1800,
+        280
+      ],
+      "id": "seg-recombinar",
+      "name": "Recombinar Emails"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1600,
+        280
+      ],
+      "id": "seg-loop",
+      "name": "Loop Over Items",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Decide si un correo entrante es la RESPUESTA de un lead.\n//\n// Arreglado el 28-sep-2026. Antes:\n//  - si no se podia leer el remitente, fromEmail quedaba en '' y casaba con\n//    el primer lead SIN email: movia un lead al azar;\n//  - cualquier correo contaba: autorespuestas, rebotes, lo nuestro propio;\n//  - no miraba la etapa: devolvia a «Respondió» leads en propuesta o perdidos.\nconst leads = $json.leads || [];\nconst fromRaw = $json.from || '';\nconst m = fromRaw.match(/<([^>]+)>/);\nconst fromEmail = (m ? m[1] : fromRaw).trim().toLowerCase();\nconst subject = $json.subject || '';\nconst textPlain = $json.textPlain || '';\n\n// Etapas desde las que un correo puede subir el lead a «Respondió». Más\n// arriba (reunión, propuesta...) ya respondió; ganado/perdido está cerrado.\nconst ETAPAS_QUE_SUBEN = ['nuevo', 'contactado', 'seguimiento'];\n\nconst REMITENTE_AUTOMATICO = /(mailer-daemon|postmaster|no-?reply|donotreply|do-not-reply|bounce|notifications?@)/i;\nconst ASUNTO_AUTOMATICO = /^(auto(matic)? ?reply|auto:|respuesta autom|out of (the )?office|fuera de (la )?oficina|ausente|undeliverable|undelivered|delivery status notification|mail delivery (failed|subsystem)|returned mail|no entregado)/i;\n\nlet motivo = '';\nlet idLead = '';\nif (!/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(fromEmail)) motivo = 'remitente ilegible';\nelse if (fromEmail.endsWith('@jddeveloper.com')) motivo = 'correo propio';\nelse if (REMITENTE_AUTOMATICO.test(fromEmail) || ASUNTO_AUTOMATICO.test(subject.trim())) motivo = 'correo automatico';\nelse {\n  for (const lead of leads) {\n    const ecList = (lead.email_contacto || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);\n    const email = (lead.email || '').trim().toLowerCase();\n    if ((email && email === fromEmail) || ecList.includes(fromEmail)) {\n      if (ETAPAS_QUE_SUBEN.includes(lead.estado)) idLead = lead.id;\n      else motivo = 'lead ya en ' + lead.estado;\n      break;\n    }\n  }\n}\n\nconst dateRaw = $json.date || '';\nconst dt = new Date(dateRaw);\nconst fecha = isNaN(dt.getTime()) ? dateRaw : dt.toISOString();\n\nreturn { json: {\n  matched: !!idLead,\n  idLead,\n  motivo,\n  remitente: fromRaw.trim(),\n  fromEmail,\n  subject,\n  textPlain,\n  fecha\n} };",
+        "mode": "runOnceForEachItem"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1400,
+        180
+      ],
+      "id": "seg-matchear",
+      "name": "Matchear Lead",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "seg-if-match-c1",
+              "leftValue": "={{ $json.matched }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1200,
+        180
+      ],
+      "id": "seg-if-match",
+      "name": "Coincide con lead?",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ 'https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/leads?id=eq.' + $('Matchear Lead').item.json.idLead }}",
+        "authentication": "predefinedCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ estado: 'respondio' }) }}",
+        "options": {
+          "timeout": 30000
+        },
+        "nodeCredentialType": "supabaseApi"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -800,
+        100
+      ],
+      "id": "seg-actualizar",
+      "name": "Actualizar Estado Respondio",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1400,
+        480
+      ],
+      "id": "seg-wait",
+      "name": "Wait",
+      "webhookId": "seg-wait-webhook-001"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -1400,
+        680
+      ],
+      "id": "seg-fin",
+      "name": "Proceso Completado"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/pipeline_events",
+        "authentication": "predefinedCredentialType",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ lead_id: $('Matchear Lead').item.json.idLead, etapa: 'respondio', notas: ('Automático: correo recibido de ' + $('Matchear Lead').item.json.fromEmail + ' · ' + $('Matchear Lead').item.json.subject).slice(0, 300) }) }}",
+        "options": {
+          "timeout": 30000
+        },
+        "nodeCredentialType": "supabaseApi"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -700,
+        100
+      ],
+      "id": "seg-pipeline-event",
+      "name": "Registrar Evento Pipeline",
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "supabaseApi": {
+          "id": "jdSupabaseSvcRole",
+          "name": "Supabase - JDDeveloper"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Email Trigger (IMAP)": {
+      "main": [
+        [
+          {
+            "node": "Guardar Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar Emails": {
+      "main": [
+        [
+          {
+            "node": "Leer outreach",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer outreach": {
+      "main": [
+        [
+          {
+            "node": "Recombinar Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recombinar Emails": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Proceso Completado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Matchear Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Matchear Lead": {
+      "main": [
+        [
+          {
+            "node": "Coincide con lead?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Coincide con lead?": {
+      "main": [
+        [
+          {
+            "node": "Actualizar Estado Respondio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Actualizar Estado Respondio": {
+      "main": [
+        [
+          {
+            "node": "Registrar Evento Pipeline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Evento Pipeline": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
