@@ -30,7 +30,7 @@ por Cloudflare Access (Zero-Trust) en el borde y Supabase Auth en la aplicación
 | Drag & drop | `@dnd-kit` (Kanban del pipeline) |
 | Backend datos | **Supabase** (Postgres + Auth + RLS) |
 | Automatización / email / IA | **n8n** (webhooks + workflows) |
-| Deploy | Docker + nginx en Oracle Cloud, expuesto por Cloudflare |
+| Deploy | Docker + nginx en el servidor de casa, expuesto por Cloudflare |
 
 ---
 
@@ -161,8 +161,8 @@ Dos capas complementarias:
 | **Supabase** | DB + Auth + RLS | `lib/supabaseClient.ts`, todos los `*Service` |
 | **n8n** | Email (SMTP/IMAP), IA (Claude), búsqueda | `crmApi`, `n8nService`, workflows |
 | **Claude (Anthropic)** | Puntuación y redacción IA — **vía n8n**, nunca directo | `crmApi.generateWithAI/puntuarLead` |
-| **Cloudflare** | Access (auth borde) + túnel a Oracle | Infra, no en código |
-| **Oracle Cloud** | Host del contenedor Docker | Infra (ver `deploy/`) |
+| **Cloudflare** | Access (auth borde) + túnel al servidor de casa | Infra, no en código |
+| **Servidor de casa** | Host de los contenedores Docker (CRM, n8n, Postgres) | Infra (ver `deploy/`, `docs/CI_CD.md`) |
 | **Formulario web** | Captación pública → webhook n8n → `web_leads` | `deploy/web-form-snippet.html` |
 
 ### 7.1 Proxy de la API de n8n (seguridad)
@@ -209,11 +209,12 @@ npm run lint     # ESLint
 - Imagen Docker multi-stage (`deploy/Dockerfile`) sirve `dist/` con nginx.
 - nginx (`deploy/nginx.conf.template`) proxia `/n8n-api` (inyecta la API key) y
   aplica CSP con Supabase permitido.
-- Host: Oracle Cloud (`129.159.191.41`), directorio `/home/ubuntu/jd-prod`.
+- Host: servidor de casa (`192.168.18.26`, usuario `juanduverge`), directorio `~/jd-prod`.
+  Oracle Cloud se retiró el 28-sep-2026.
 - Dominios vía Cloudflare: CRM = `workspace.jddeveloper.com` (tras Access),
   n8n = `backoffice.jddeveloper.com`.
-- Redeploy: `git pull` en el repo del server → `docker compose build crm-dashboard`
-  → `docker compose up -d crm-dashboard`.
+- Redeploy: `bash deploy/publicar.sh` desde el portátil (ver `docs/CI_CD.md`).
+  Un push a `main` no publica nada.
 
 ---
 
