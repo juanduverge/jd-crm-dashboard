@@ -1,0 +1,209 @@
+{
+  "name": "Radar - Investigar empresa",
+  "nodes": [
+    {
+      "id": "r1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "radar-investigar",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "radar-investigar",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "r2",
+      "name": "Solo desde el CRM",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "g1",
+              "leftValue": "={{ !String(($json.headers || {}).host || '').startsWith('backoffice.') && !String(($json.headers || {})['x-forwarded-host'] || '').startsWith('backoffice.') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "r3",
+      "name": "Rechazar acceso directo",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        480
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: false, error: 'acceso directo no permitido' }) }}",
+        "options": {
+          "responseCode": 403
+        }
+      }
+    },
+    {
+      "id": "r4",
+      "name": "Armar consulta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Nodo «Armar consulta» del workflow «Radar - Investigar empresa».\n// Convierte los datos del registro en la pregunta para Gemini con búsqueda en Google.\nconst b = $input.first().json.body || {};\nif (!b.nombre) throw new Error('falta el nombre de la empresa');\n\nconst lugar = [b.ciudad, b.estado].filter(Boolean).join(', ');\nconst dominios = (b.dominios || []).filter((d) => d.estado === 'ocupado').map((d) => d.dominio);\n\nconst datos = [\n  'Nombre legal: ' + b.nombre,\n  lugar ? 'Ubicacion: ' + lugar + ', Estados Unidos' : '',\n  b.direccion ? 'Direccion registrada: ' + b.direccion : '',\n  b.fecha_registro ? 'Fecha de registro: ' + b.fecha_registro : '',\n  b.actividad ? 'Actividad probable: ' + b.actividad : '',\n  b.contacto_nombre ? 'Persona en el registro (' + (b.contacto_rol || 'contacto') + '): ' + b.contacto_nombre : '',\n  dominios.length ? 'Dominios que existen con ese nombre (pueden ser de otra empresa): ' + dominios.join(', ') : '',\n].filter(Boolean).join('\\n');\n\nconst prompt = [\n  'Eres un investigador comercial. Busca en Google informacion publica de esta empresa recien registrada en Estados Unidos.',\n  '',\n  datos,\n  '',\n  'Averigua: si tiene pagina web propia, perfiles en redes (Instagram, Facebook, LinkedIn, TikTok, Yelp), ficha en Google Maps, telefono y correo publicos del negocio, y si la persona del registro es el dueno.',\n  '',\n  'REGLAS ESTRICTAS:',\n  '- Hay muchas empresas con nombres parecidos en otros estados. Solo cuenta un resultado si coincide la ciudad, el estado, la direccion o la persona. Si no puedes confirmarlo, marcalo \"dudosa\" o no lo incluyas.',\n  '- No inventes nada. Cada dato debe llevar la URL exacta de la pagina donde lo viste. Sin URL, no lo incluyas.',\n  '- Directorios que copian registros mercantiles (opencorporates, bizapedia, dnb, zoominfo y similares) NO cuentan como web de la empresa ni como fuente de contacto.',\n  '- Si no encuentras nada fiable, dilo: es una respuesta valida y frecuente en empresas tan nuevas.',\n  '',\n  'Responde SOLO con un objeto JSON, sin texto antes ni despues y sin bloque de codigo, con esta forma exacta:',\n  '{',\n  '  \"que_hace\": \"una frase en espanol sobre a que se dedica, o cadena vacia si no se sabe\",',\n  '  \"webs\": [{\"url\": \"\", \"confianza\": \"segura|probable|dudosa\", \"motivo\": \"por que crees que es suya\"}],',\n  '  \"redes\": [{\"red\": \"instagram|facebook|linkedin|tiktok|yelp|otra\", \"url\": \"\", \"confianza\": \"segura|probable|dudosa\", \"motivo\": \"\"}],',\n  '  \"telefonos\": [{\"valor\": \"\", \"fuente_url\": \"\", \"confianza\": \"segura|probable|dudosa\"}],',\n  '  \"correos\": [{\"valor\": \"\", \"fuente_url\": \"\", \"confianza\": \"segura|probable|dudosa\"}],',\n  '  \"google_maps\": {\"url\": \"\", \"resenas\": 0},',\n  '  \"dueno\": {\"nombre\": \"\", \"es_el_del_registro\": true, \"perfil_url\": \"\", \"confianza\": \"segura|probable|dudosa\", \"motivo\": \"\"},',\n  '  \"veredicto\": \"sin_web|web_floja|tiene_web|sin_rastro\",',\n  '  \"resumen\": \"dos frases en espanol: que encontraste y si merece la pena contactarla para venderle una pagina web\"',\n  '}',\n  'Usa listas vacias y null cuando no haya dato. \"sin_rastro\" = no aparece nada de esta empresa. \"sin_web\" = existe actividad (redes, ficha) pero no web propia. \"web_floja\" = tiene web pero es de plantilla, esta a medias o muy pobre.',\n].join('\\n');\n\nreturn [{\n  json: {\n    id: b.id || null,\n    nombre: b.nombre,\n    modelo: b.modelo || 'gemini-flash-latest',\n    cuerpo: {\n      contents: [{ role: 'user', parts: [{ text: prompt }] }],\n      tools: [{ google_search: {} }],\n      generationConfig: { temperature: 0.1 },\n    },\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "r5",
+      "name": "Preguntar a Gemini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        200
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "gbvMlss50rTZGA5i",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://generativelanguage.googleapis.com/v1beta/models/' + $json.modelo + ':generateContent' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googlePalmApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.cuerpo) }}",
+        "options": {
+          "timeout": 120000
+        }
+      }
+    },
+    {
+      "id": "r6",
+      "name": "Leer respuesta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Nodo «Leer respuesta» del workflow «Radar - Investigar empresa».\n// Saca el JSON de la respuesta de Gemini y marca qué datos están respaldados\n// por una página que el buscador de verdad consultó.\nconst r = $input.first().json;\nconst previo = $('Armar consulta').first().json;\nconst base = { id: previo.id, nombre: previo.nombre, modelo: previo.modelo };\n\n// El nodo HTTP sigue adelante aunque Gemini falle (cupo agotado, modelo\n// retirado): aquí se convierte en un fallo con mensaje legible.\nif (r.error || !r.candidates) {\n  const e = r.error || {};\n  const msg = (typeof e === 'string' ? e : e.message) || r.message || 'Gemini no devolvio respuesta';\n  return [{ json: { ...base, ok: false, error: String(msg).slice(0, 500), sin_cupo: /quota|rate|429|exhausted/i.test(String(msg)) } }];\n}\n\nconst cand = r.candidates[0] || {};\nconst texto = ((cand.content || {}).parts || []).map((p) => p.text || '').join('');\n\nlet datos = null;\nconst m = texto.match(/\\{[\\s\\S]*\\}/);\ntry { datos = JSON.parse(m ? m[0] : texto); } catch (e) { datos = null; }\nif (!datos) return [{ json: { ...base, ok: false, error: 'la respuesta no era JSON', crudo: texto.slice(0, 800) } }];\n\n// Páginas que Google consultó de verdad para esta respuesta. El título de cada\n// una suele ser su dominio; la URL es una redirección de Google.\nconst meta = cand.groundingMetadata || {};\nconst fuentes = (meta.groundingChunks || [])\n  .map((c) => c.web || {})\n  .filter((w) => w.uri)\n  .map((w) => ({ titulo: w.title || '', url: w.uri }));\nconst dominiosCitados = new Set(fuentes.map((f) => f.titulo.toLowerCase().replace(/^www\\./, '')));\n\nconst dominio = (u) => {\n  try { return new URL(u).hostname.toLowerCase().replace(/^www\\./, ''); } catch (e) { return ''; }\n};\n// «citada» = el dominio del dato aparece entre las páginas consultadas. Un dato\n// no citado no se borra, pero el CRM lo enseña como no verificado y no puntúa.\nconst citada = (u) => {\n  const d = dominio(u);\n  if (!d) return false;\n  for (const c of dominiosCitados) if (c === d || c.endsWith('.' + d) || d.endsWith('.' + c)) return true;\n  return false;\n};\nconst lista = (v) => (Array.isArray(v) ? v : []);\nconst conUrl = (arr, campo) => lista(arr)\n  .filter((x) => x && typeof x[campo] === 'string' && /^https?:\\/\\//i.test(x[campo]))\n  .map((x) => ({ ...x, citada: citada(x[campo]) }));\n\nconst investigacion = {\n  que_hace: String(datos.que_hace || ''),\n  webs: conUrl(datos.webs, 'url'),\n  redes: conUrl(datos.redes, 'url'),\n  telefonos: conUrl(datos.telefonos, 'fuente_url').filter((x) => x.valor),\n  correos: conUrl(datos.correos, 'fuente_url').filter((x) => x.valor),\n  google_maps: datos.google_maps && /^https?:\\/\\//i.test(datos.google_maps.url || '') ? datos.google_maps : null,\n  dueno: datos.dueno && datos.dueno.nombre ? datos.dueno : null,\n  resumen: String(datos.resumen || ''),\n  fuentes,\n  busquedas: meta.webSearchQueries || [],\n};\n\nconst VEREDICTOS = ['sin_web', 'web_floja', 'tiene_web', 'sin_rastro'];\nconst veredicto = VEREDICTOS.includes(datos.veredicto) ? datos.veredicto : 'sin_rastro';\n\nreturn [{ json: { ...base, ok: true, veredicto, investigacion } }];\n"
+      }
+    },
+    {
+      "id": "r7",
+      "name": "Responder",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Solo desde el CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Solo desde el CRM": {
+      "main": [
+        [
+          {
+            "node": "Armar consulta",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazar acceso directo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar consulta": {
+      "main": [
+        [
+          {
+            "node": "Preguntar a Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preguntar a Gemini": {
+      "main": [
+        [
+          {
+            "node": "Leer respuesta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer respuesta": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
