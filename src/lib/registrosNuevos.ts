@@ -25,6 +25,17 @@ export const ESTADOS_REGISTRO: { id: EstadoRegistro; nombre: string }[] = [
   { id: 'OR', nombre: 'Oregón' },
 ]
 
+/**
+ * La persona que el registro asocia a la empresa. El `rol` importa: un «Dueño»
+ * lo es; un «Agente registrado» es quien recibe las notificaciones legales, que
+ * en un negocio pequeño suele ser el propio dueño pero puede ser su abogado o
+ * su contable.
+ */
+export interface Contacto {
+  nombre: string
+  rol: 'Dueño' | 'Representante autorizado' | 'Agente registrado'
+}
+
 export interface EmpresaNueva {
   /** Clave única entre estados: "CO:20268245927". */
   id: string
@@ -37,6 +48,10 @@ export interface EmpresaNueva {
   ciudad: string
   correo?: string
   categoria?: string
+  /** Persona que da el registro. En Connecticut llega aparte, con `buscarDuenosCT`. */
+  contacto?: Contacto
+  /** Id interno del registro de Connecticut: con él se piden los dueños. */
+  idInterno?: string
   /** A qué se dedica, deducido del nombre. null si no se pudo saber. */
   actividad?: Actividad | null
   /** Enlace estable al registro oficial; es la clave de deduplicación en el CRM. */
@@ -63,8 +78,20 @@ async function socrata(dominio: string, dataset: string, params: Record<string, 
 const unir = (...partes: (string | undefined)[]) =>
   partes.map((p) => p?.trim()).filter(Boolean).join(', ')
 
+const persona = (...partes: (string | undefined)[]) => {
+  const n = partes.map((x) => x?.trim()).filter(Boolean).join(' ')
+  return n ? titulo(n) : undefined
+}
+
 const titulo = (s: string) =>
   s.toLowerCase().replace(/(^|[\s(-])([a-záéíóúñ])/g, (_, a, b) => a + b.toUpperCase())
+
+function agenteCO(f: Fila): Contacto | undefined {
+  // Si el agente es una empresa de agentes («United States Corporation
+  // Agents»), no hay persona que valga.
+  const nombre = f.agentorganizationname ? undefined : persona(f.agentfirstname, f.agentlastname)
+  return nombre ? { nombre, rol: 'Agente registrado' } : undefined
+}
 
 async function colorado(desde: string): Promise<EmpresaNueva[]> {
   const filas = await socrata('data.colorado.gov', '4ykn-tg5h', {
@@ -82,6 +109,7 @@ async function colorado(desde: string): Promise<EmpresaNueva[]> {
       fecha: (f.entityformdate ?? '').slice(0, 10),
       direccion: unir(f.principaladdress1, f.principaladdress2, f.principalcity, f.principalstate, f.principalzipcode),
       ciudad: f.principalcity ?? '',
+      contacto: agenteCO(f),
       urlRegistro: `https://data.colorado.gov/resource/4ykn-tg5h.json?entityid=${f.entityid}`,
     }]
   })
@@ -97,6 +125,7 @@ async function connecticut(desde: string): Promise<EmpresaNueva[]> {
     if (!f.name || !f.accountnumber) return []
     return [{
       id: `CT:${f.accountnumber}`,
+      idInterno: f.id,
       estado: 'CT' as const,
       nombre: f.name,
       tipo: f.business_type ?? '',
@@ -117,14 +146,23 @@ async function oregon(desde: string): Promise<EmpresaNueva[]> {
     $order: 'registry_date DESC',
     $limit: String(LIMITE * 3),
   })
-  // El dataset trae una fila por dirección asociada (postal, agente, etc.).
-  // Una sola por empresa, prefiriendo la postal.
+  // El dataset trae una fila por cada cosa asociada a la empresa: dirección
+  // postal, sede, agente registrado, representante. Se queda una dirección por
+  // empresa (prefiriendo la postal) y, aparte, la mejor persona que haya.
   const porEmpresa = new Map<string, Fila>()
+  const personas = new Map<string, Contacto>()
   for (const f of filas) {
     if (!f.registry_number || !f.business_name) continue
     const previa = porEmpresa.get(f.registry_number)
     if (!previa || (f.associated_name_type === 'MAILING ADDRESS' && previa.associated_name_type !== 'MAILING ADDRESS')) {
       porEmpresa.set(f.registry_number, f)
+    }
+    const nombre = persona(f.first_name, f.last_name)
+    if (!nombre) continue
+    if (f.associated_name_type === 'AUTHORIZED REPRESENTATIVE') {
+      personas.set(f.registry_number, { nombre, rol: 'Representante autorizado' })
+    } else if (f.associated_name_type === 'REGISTERED AGENT' && !personas.has(f.registry_number)) {
+      personas.set(f.registry_number, { nombre, rol: 'Agente registrado' })
     }
   }
   return [...porEmpresa.values()].map((f) => ({
@@ -135,8 +173,33 @@ async function oregon(desde: string): Promise<EmpresaNueva[]> {
     fecha: (f.registry_date ?? '').slice(0, 10),
     direccion: unir(f.address, f.city, f.state, f.zip),
     ciudad: titulo(f.city ?? ''),
+    contacto: personas.get(f.registry_number!),
     urlRegistro: `https://data.oregon.gov/resource/tckn-sxa6.json?registry_number=${f.registry_number}`,
   }))
+}
+
+/**
+ * Dueños de empresas de Connecticut. Vienen en un dataset aparte («Principals»)
+ * enlazado por el id interno, así que se piden solo para las que hagan falta y
+ * por tandas, no para las miles de la lista.
+ */
+export async function buscarDuenosCT(empresas: EmpresaNueva[]): Promise<Map<string, Contacto>> {
+  const conId = empresas.filter((e) => e.estado === 'CT' && e.idInterno)
+  const duenos = new Map<string, Contacto>()
+  for (let i = 0; i < conId.length; i += 40) {
+    const tanda = conId.slice(i, i + 40)
+    const filas = await socrata('data.ct.gov', 'ka36-64k6', {
+      $where: `business_id in (${tanda.map((e) => `'${e.idInterno!.replace(/'/g, '')}'`).join(',')})`,
+      $limit: '500',
+    })
+    for (const f of filas) {
+      const e = tanda.find((x) => x.idInterno === f.business_id)
+      const nombre = persona(f.firstname, f.lastname) ?? (f.name__c ? titulo(f.name__c) : undefined)
+      // Si hay varios socios se queda el primero; el resto está en el registro.
+      if (e && nombre && !duenos.has(e.id)) duenos.set(e.id, { nombre, rol: 'Dueño' })
+    }
+  }
+  return duenos
 }
 
 const FUENTES: Record<EstadoRegistro, (desde: string) => Promise<EmpresaNueva[]>> = {
@@ -178,6 +241,8 @@ export interface ResumenImportacion {
   insertados: number
   actualizados: number
   descartados: number
+  /** Personas que se añadieron como contacto del lead. */
+  contactos: number
 }
 
 /**
@@ -196,18 +261,19 @@ export async function importarEmpresasNuevas(
       name: e.nombre,
       // Clave de deduplicación para fuentes que no son Google Maps.
       profileUrl: e.urlRegistro,
-      city: e.ciudad || undefined,
+      // «Shelton, CT»: sin el estado, la ciudad sola no dice dónde está.
+      city: [e.ciudad, e.estado].filter(Boolean).join(', '),
       address: e.direccion || undefined,
       country: 'US',
       countryCode: 'US',
       email: e.correo,
       // El término del catálogo va primero: es el que `nicho_alias` sabe normalizar.
       category: e.actividad?.termino ?? e.categoria ?? (e.tipo ? `Empresa nueva (${e.tipo})` : 'Empresa nueva'),
-      bio: `Registrada el ${e.fecha} en ${e.estado}${e.tipo ? ` como ${e.tipo}` : ''}. Fuente: registro mercantil oficial.${extra ? ` ${extra}` : ''}`,
+      bio: `Registrada el ${e.fecha} en ${nombreEstado(e.estado)} (${e.estado})${e.tipo ? ` como ${e.tipo}` : ''}.${e.contacto ? ` ${e.contacto.rol}: ${e.contacto.nombre}.` : ''} Fuente: registro mercantil oficial.${extra ? ` ${extra}` : ''}`,
     }
   })
 
-  const total: ResumenImportacion = { recibidos: 0, insertados: 0, actualizados: 0, descartados: 0 }
+  const total: ResumenImportacion = { recibidos: 0, insertados: 0, actualizados: 0, descartados: 0, contactos: 0 }
   // Por tandas: una sola llamada con cientos de filas alarga la transacción.
   for (let i = 0; i < lote.length; i += 100) {
     const { data, error } = await supabase.rpc('importar_leads', {
@@ -222,5 +288,40 @@ export async function importarEmpresasNuevas(
     total.actualizados += r.actualizados
     total.descartados += r.descartados
   }
+  total.contactos = await guardarContactos(empresas)
   return total
 }
+
+/**
+ * `importar_leads` no sabe de personas, así que el contacto se añade después,
+ * buscando cada lead por la URL del registro. Si esto falla el lead ya está
+ * guardado y el nombre sigue en su descripción: no se tumba la importación.
+ */
+async function guardarContactos(empresas: EmpresaNueva[]): Promise<number> {
+  const conPersona = empresas.filter((e) => e.contacto)
+  if (conPersona.length === 0) return 0
+  try {
+    const { data: leads, error } = await supabase
+      .from('leads').select('id, perfil_url')
+      .in('perfil_url', conPersona.map((e) => e.urlRegistro))
+      .is('deleted_at', null)
+    if (error || !leads?.length) return 0
+    const { data: yaTienen } = await supabase
+      .from('contacts').select('lead_id')
+      .in('lead_id', leads.map((l) => l.id))
+      .is('deleted_at', null)
+    const conContacto = new Set((yaTienen ?? []).map((c) => c.lead_id))
+    const filas = leads.flatMap((l) => {
+      const e = conPersona.find((x) => x.urlRegistro === l.perfil_url)
+      if (!e?.contacto || conContacto.has(l.id)) return []
+      return [{ lead_id: l.id, nombre: e.contacto.nombre, cargo: e.contacto.rol }]
+    })
+    if (filas.length === 0) return 0
+    const { error: errInsert } = await supabase.from('contacts').insert(filas)
+    return errInsert ? 0 : filas.length
+  } catch {
+    return 0
+  }
+}
+
+const nombreEstado = (id: EstadoRegistro) => ESTADOS_REGISTRO.find((s) => s.id === id)?.nombre ?? id

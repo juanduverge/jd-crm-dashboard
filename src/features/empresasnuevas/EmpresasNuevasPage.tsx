@@ -6,8 +6,8 @@ import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, EmptyState, Input, Select, Skeleton } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import {
-  ESTADOS_REGISTRO, buscarEmpresasNuevas, importarEmpresasNuevas, pareceVehiculo,
-  type EmpresaNueva, type EstadoRegistro,
+  ESTADOS_REGISTRO, buscarDuenosCT, buscarEmpresasNuevas, importarEmpresasNuevas, pareceVehiculo,
+  type Contacto, type EmpresaNueva, type EstadoRegistro,
 } from '@/lib/registrosNuevos'
 import { comprobarVariasEmpresas, type DominiosEmpresa } from '@/lib/dominioEmpresa'
 import { calcularPotencial, type Potencial } from '@/lib/potencialEmpresa'
@@ -43,6 +43,9 @@ export function EmpresasNuevasPage() {
   const [dominios, setDominios] = useState<Map<string, DominiosEmpresa | null>>(new Map())
   const [enVuelo, setEnVuelo] = useState(0)
   const pedidas = useRef(new Set<string>())
+  // Dueños de Connecticut, que llegan aparte del listado.
+  const [duenos, setDuenos] = useState<Map<string, Contacto>>(new Map())
+  const duenosPedidos = useRef(new Set<string>())
   const automaticas = useRef(0)
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -147,7 +150,27 @@ export function EmpresasNuevasPage() {
   )
   useEffect(() => { if (abiertaEmpresa) void comprobar([abiertaEmpresa]) }, [abiertaEmpresa, comprobar])
 
-  const mostradas = lista.slice(0, visibles)
+  const mostradas = useMemo(() => lista.slice(0, visibles), [lista, visibles])
+
+  const contactoDe = useCallback((e: EmpresaNueva) => e.contacto ?? duenos.get(e.id), [duenos])
+
+  const pedirDuenos = useCallback(async (empresas: EmpresaNueva[]) => {
+    const nuevas = empresas.filter((e) => e.estado === 'CT' && !duenosPedidos.current.has(e.id))
+    if (nuevas.length === 0) return new Map<string, Contacto>()
+    for (const e of nuevas) duenosPedidos.current.add(e.id)
+    try {
+      const r = await buscarDuenosCT(nuevas)
+      setDuenos((prev) => new Map([...prev, ...r]))
+      return r
+    } catch {
+      // Que se pueda reintentar: sin dueño la empresa sigue siendo útil.
+      for (const e of nuevas) duenosPedidos.current.delete(e.id)
+      return new Map<string, Contacto>()
+    }
+  }, [])
+
+  // Los dueños de las que se ven se piden solos: una o dos consultas por página.
+  useEffect(() => { void pedirDuenos(mostradas) }, [mostradas, pedirDuenos])
   const todasElegidas = mostradas.length > 0 && mostradas.every((e) => elegidas.has(e.id))
   const conCorreo = useMemo(() => base.filter((e) => e.correo && enVista(e, 'recomendadas')).length, [base, enVista])
 
@@ -162,7 +185,10 @@ export function EmpresasNuevasPage() {
     if (empresas.length === 0) return
     setGuardando(true)
     try {
-      const r = await importarEmpresasNuevas(empresas, (e) => {
+      // Puede haber elegidas de páginas que no llegaron a pedir su dueño.
+      const recien = await pedirDuenos(empresas)
+      const conContacto = empresas.map((e) => ({ ...e, contacto: e.contacto ?? duenos.get(e.id) ?? recien.get(e.id) }))
+      const r = await importarEmpresasNuevas(conContacto, (e) => {
         const d = dominios.get(e.id)
         const web = !d ? ''
           : d.resumen === 'libre' ? ' Sin dominio propio.'
@@ -173,6 +199,7 @@ export function EmpresasNuevasPage() {
       toast.success(
         `${r.insertados} ${r.insertados === 1 ? 'nueva' : 'nuevas'} en Leads` +
         (r.actualizados ? ` · ${r.actualizados} ya estaban` : '') +
+        (r.contactos ? ` · ${r.contactos} con persona de contacto` : '') +
         (r.descartados ? ` · ${r.descartados} descartadas` : ''),
       )
       setElegidas((prev) => {
@@ -306,6 +333,7 @@ export function EmpresasNuevasPage() {
                 key={e.id}
                 empresa={e}
                 nota={nota(e)}
+                contacto={contactoDe(e)}
                 dominios={dominios.get(e.id)}
                 elegida={elegidas.has(e.id)}
                 onElegir={() => alternar(e.id)}
@@ -330,6 +358,7 @@ export function EmpresasNuevasPage() {
       <EmpresaFicha
         empresa={abiertaEmpresa}
         potencial={abiertaEmpresa ? potencial.get(abiertaEmpresa.id) ?? null : null}
+        contacto={abiertaEmpresa ? contactoDe(abiertaEmpresa) : undefined}
         dominios={abiertaEmpresa ? dominios.get(abiertaEmpresa.id) : undefined}
         comprobandoDominios={enVuelo > 0}
         guardando={guardando}
@@ -341,10 +370,11 @@ export function EmpresasNuevasPage() {
 }
 
 function Fila({
-  empresa: e, nota, dominios, elegida, onElegir, onAbrir,
+  empresa: e, nota, contacto, dominios, elegida, onElegir, onAbrir,
 }: {
   empresa: EmpresaNueva
   nota: number
+  contacto?: Contacto
   dominios?: DominiosEmpresa | null
   elegida: boolean
   onElegir: () => void
@@ -358,7 +388,7 @@ function Fila({
         <span className="min-w-0 flex-1">
           <span className="block truncate font-medium text-fg">{e.nombre}</span>
           <span className="block truncate text-xs text-muted">
-            {[e.actividad?.nombre, [e.ciudad, e.estado].filter(Boolean).join(', '), haceCuanto(e.fecha)].filter(Boolean).join(' · ')}
+            {[e.actividad?.nombre, [e.ciudad, e.estado].filter(Boolean).join(', '), haceCuanto(e.fecha), contacto?.nombre].filter(Boolean).join(' · ')}
           </span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center">

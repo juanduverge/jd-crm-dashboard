@@ -1,12 +1,12 @@
 import { differenceInCalendarDays, format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Download, ExternalLink, Mail, MapPin, Search, X } from 'lucide-react'
+import { Download, ExternalLink, Mail, MapPin, Search, User, X } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Badge, Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { DominiosEmpresa, EstadoDominio } from '@/lib/dominioEmpresa'
 import type { Potencial } from '@/lib/potencialEmpresa'
-import { ESTADOS_REGISTRO, type EmpresaNueva } from '@/lib/registrosNuevos'
+import { ESTADOS_REGISTRO, type Contacto, type EmpresaNueva } from '@/lib/registrosNuevos'
 
 /** Color de la nota: verde lo que merece la llamada, gris lo que no. */
 export function claseNota(nota: number) {
@@ -29,10 +29,11 @@ export function haceCuanto(fecha: string) {
 }
 
 export function EmpresaFicha({
-  empresa, potencial, dominios, comprobandoDominios, guardando, onGuardar, onClose,
+  empresa, potencial, contacto, dominios, comprobandoDominios, guardando, onGuardar, onClose,
 }: {
   empresa: EmpresaNueva | null
   potencial: Potencial | null
+  contacto?: Contacto
   dominios?: DominiosEmpresa | null
   comprobandoDominios: boolean
   guardando: boolean
@@ -52,6 +53,13 @@ export function EmpresaFicha({
     { texto: 'Facebook', url: google(`site:facebook.com ${consulta}`) },
     { texto: 'LinkedIn', url: google(`site:linkedin.com ${consulta}`) },
   ]
+
+  const lugar = [empresa.ciudad, empresa.estado].filter(Boolean).join(' ')
+  const busquedasPersona = contacto ? [
+    { texto: 'LinkedIn', url: google(`site:linkedin.com/in "${contacto.nombre}" ${lugar}`) },
+    { texto: 'Facebook', url: google(`site:facebook.com "${contacto.nombre}" ${lugar}`) },
+    { texto: 'Google', url: google(`"${contacto.nombre}" "${empresa.nombre}"`) },
+  ] : []
 
   return (
     <Drawer open onClose={onClose} width="max-w-lg">
@@ -101,6 +109,30 @@ export function EmpresaFicha({
           </ul>
         </Seccion>
 
+        <Seccion titulo="Persona de contacto">
+          {contacto ? (
+            <>
+              <p className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 shrink-0 text-muted" />
+                <span className="font-medium text-fg">{contacto.nombre}</span>
+                <Badge>{contacto.rol}</Badge>
+              </p>
+              {contacto.rol === 'Agente registrado' && (
+                <p className="t-hint mt-1.5">El agente recibe las notificaciones legales. En negocios pequeños suele ser el dueño, pero puede ser su abogado o contable.</p>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {busquedasPersona.map((b) => (
+                  <a key={b.texto} href={b.url} target="_blank" rel="noreferrer" className="btn btn-outline h-8 px-3 text-xs">
+                    <Search className="h-3.5 w-3.5" /> {b.texto}
+                  </a>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="t-hint">El registro no da el nombre de ninguna persona para esta empresa.</p>
+          )}
+        </Seccion>
+
         <Seccion titulo="Dominios con su nombre">
           {dominios ? (
             <ul className="space-y-1.5">
@@ -125,7 +157,7 @@ export function EmpresaFicha({
           )}
         </Seccion>
 
-        <Seccion titulo="Investigarla">
+        <Seccion titulo="Buscar el negocio">
           <div className="flex flex-wrap gap-2">
             {busquedas.map((b) => (
               <a key={b.texto} href={b.url} target="_blank" rel="noreferrer" className="btn btn-outline h-8 px-3 text-xs">
