@@ -4,7 +4,7 @@
 //
 // Salen tres ficheros en n8n/:
 //   radar-recolector.json   cada mañana: baja las empresas nuevas, las criba y las guarda
-//   radar-leer-paginas.json cada 5 min: abre las webs de las que están en cola y decide
+//   radar-leer-paginas.json cada 15 min: abre las webs de las que están en cola y decide
 //   radar-investigar.json   búsqueda en Google con Gemini (necesita facturación en Google)
 //
 // El código de los nodos vive en ficheros sueltos para poder leerlo y
@@ -152,8 +152,10 @@ function leerPaginas() {
     name: 'Radar - Leer paginas',
     nodes: [
       {
-        id: 'p1', name: 'Cada 5 minutos', type: 'n8n-nodes-base.scheduleTrigger', typeVersion: 1.2, position: [220, 120],
-        parameters: { rule: { interval: [{ field: 'minutes', minutesInterval: 5 }] } },
+        id: 'p1', name: 'Cada 15 minutos', type: 'n8n-nodes-base.scheduleTrigger', typeVersion: 1.2, position: [220, 120],
+        // Despacio a proposito: el 8-oct dos cortes del tunel de Cloudflare
+        // coincidieron con corridas de este workflow cuando iba cada 5 minutos.
+        parameters: { rule: { interval: [{ field: 'minutes', minutesInterval: 15 }] } },
       },
       webhook('p2', 'radar-cola'),
       candado('p3', [220, 480]),
@@ -162,7 +164,7 @@ function leerPaginas() {
       }),
       // El tope diario lo impone esta función, en la base.
       supabase('p5', 'Tomar de la cola', [680, 300], {
-        url: SB + 'rpc/radar_tomar_para_investigar', body: '={{ JSON.stringify({ p_limite: 6 }) }}',
+        url: SB + 'rpc/radar_tomar_para_investigar', body: '={{ JSON.stringify({ p_limite: 3 }) }}',
       }),
       {
         id: 'p6', name: 'Abrir sus paginas', type: 'n8n-nodes-base.code', typeVersion: 2, position: [900, 300],
@@ -212,7 +214,7 @@ function leerPaginas() {
       }),
     ],
     connections: {
-      'Cada 5 minutos': { main: une('Recuperar colgadas') },
+      'Cada 15 minutos': { main: une('Recuperar colgadas') },
       Webhook: { main: une('Solo desde el CRM') },
       'Solo desde el CRM': { main: une('Recuperar colgadas') },
       'Recuperar colgadas': { main: une('Tomar de la cola') },

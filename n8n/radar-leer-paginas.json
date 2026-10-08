@@ -3,7 +3,7 @@
   "nodes": [
     {
       "id": "p1",
-      "name": "Cada 5 minutos",
+      "name": "Cada 15 minutos",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -15,7 +15,7 @@
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": 5
+              "minutesInterval": 15
             }
           ]
         }
@@ -122,7 +122,7 @@
         "nodeCredentialType": "supabaseApi",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ p_limite: 6 }) }}",
+        "jsonBody": "={{ JSON.stringify({ p_limite: 3 }) }}",
         "options": {
           "timeout": 60000
         }
@@ -280,7 +280,7 @@
     }
   ],
   "connections": {
-    "Cada 5 minutos": {
+    "Cada 15 minutos": {
       "main": [
         [
           {
