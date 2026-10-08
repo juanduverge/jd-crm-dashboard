@@ -69,7 +69,9 @@ const LIMITE = 2000
 type Fila = Record<string, string | undefined>
 
 async function socrata(dominio: string, dataset: string, params: Record<string, string>): Promise<Fila[]> {
-  const q = new URLSearchParams(params)
+  // A mano y no con URLSearchParams: este módulo también corre dentro de n8n
+  // (recolector diario), cuyo entorno de código no la trae.
+  const q = Object.entries(params).map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&')
   const res = await fetch(`https://${dominio}/resource/${dataset}.json?${q}`)
   if (!res.ok) throw new Error(`${dominio} respondió ${res.status}`)
   return res.json()
