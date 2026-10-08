@@ -115,7 +115,7 @@ for (const item of $input.all()) {
       'CRITERIO',
       '- "si": la pagina nombra la misma ciudad o estado, la misma direccion o la misma persona.',
       '- "probable": misma actividad y nada que lo contradiga, pero sin confirmacion de lugar ni persona.',
-      '- "no": otra ciudad o estado, otra actividad, o una empresa claramente mas antigua (la nuestra se acaba de registrar).',
+      '- "no": otra ciudad o estado, otra actividad, o una empresa claramente mas antigua (la nuestra se acaba de registrar). Un telefono o una direccion de OTRO estado es motivo suficiente para "no".',
       '- "sin_contenido": en construccion, plantilla sin rellenar o pagina vacia.',
       '- calidad: "buena" si es una web terminada y cuidada; "floja" si es de plantilla, pobre o incompleta; "no_aplica" si no es suya.',
       'No supongas: si el texto no da para decidir, responde "probable" o "no" y dilo en el motivo.',

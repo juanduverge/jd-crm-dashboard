@@ -57,13 +57,17 @@ const webs = paginas.map((p) => {
   };
 });
 
-const suyas = webs.filter((w) => w.es_suya === 'si' || w.es_suya === 'probable');
-const propia = suyas.find((w) => w.es_suya === 'si') || suyas[0];
+// Solo «si» cuenta como suya. Una «probable» se enseña para que alguien la
+// abra, pero ni decide el veredicto ni presta sus contactos: en la primera
+// corrida real una «probable» resultó tener teléfono de otro estado.
+const suyas = webs.filter((w) => w.es_suya === 'si');
+const propia = suyas[0];
+const dudosa = webs.find((w) => w.es_suya === 'probable');
 
 let veredicto;
 if (propia) veredicto = propia.calidad === 'buena' ? 'tiene_web' : 'web_floja';
+else if (dudosa || webs.some((w) => w.es_suya === 'sin_juicio')) veredicto = 'sin_decidir';
 else if (webs.some((w) => w.es_suya === 'sin_contenido')) veredicto = 'web_en_construccion';
-else if (webs.some((w) => w.es_suya === 'sin_juicio')) veredicto = 'sin_decidir';
 else veredicto = 'dominio_ajeno';
 
 // La nota por reglas ya restó puntos por «hay una página con su nombre». Ahora
@@ -84,8 +88,8 @@ const dePaginasSuyas = (campo) => {
       const clave = typeof v === 'string' ? v : v.url;
       if (!vistos.some((x) => (x.valor || x.url) === clave)) {
         vistos.push(typeof v === 'string'
-          ? { valor: v, fuente_url: w.url, confianza: w.es_suya === 'si' ? 'segura' : 'probable' }
-          : { ...v, fuente_url: w.url, confianza: w.es_suya === 'si' ? 'segura' : 'probable' });
+          ? { valor: v, fuente_url: w.url, confianza: 'segura' }
+          : { ...v, fuente_url: w.url, confianza: 'segura' });
       }
     }
   }
@@ -97,7 +101,7 @@ const FRASE = {
   web_floja: 'Tiene web propia, pero floja o a medias: hay margen para ofrecerle una mejor.',
   web_en_construccion: 'Hay un dominio con su nombre y la pagina esta vacia o en construccion. No se sabe si es suyo, pero web hecha no tiene.',
   dominio_ajeno: 'Los dominios con su nombre estan en venta, no abren o son de otra empresa: no se le encontro web propia.',
-  sin_decidir: 'No se pudo decidir de quien es la pagina; conviene abrirla.',
+  sin_decidir: 'Hay una pagina que podria ser suya, pero nada lo confirma. Abrela antes de contactar.',
 };
 
 return {
