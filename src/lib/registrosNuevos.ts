@@ -169,7 +169,7 @@ export async function buscarEmpresasNuevas(dias: number): Promise<ResultadoBusqu
 const NOMBRE_DE_VEHICULO = /\b(holdings?|invest\w*|capital|propert\w*|realty|real estate|trust|funds?|assets?|equity|acquisitions?|ventures?|partners|family|estates?|lending|mortgage)\b/i
 
 /** «320 North Ave LLC»: una sociedad con nombre de dirección suele existir solo para tener ese inmueble. */
-const NOMBRE_DE_DIRECCION = /^\d+\s.*(ave(nue)?|st(reet)?|r(oa)?d|blvd|boulevard|l(a)?ne?|dr(ive)?|way|c(our)?t|pl(ace)?|h(igh)?wy|terrace|circle)/i
+const NOMBRE_DE_DIRECCION = /^\d+\s.*\b(ave(nue)?|st(reet)?|r(oa)?d|blvd|boulevard|l(a)?ne?|dr(ive)?|way|c(our)?t|pl(ace)?|h(igh)?wy|terrace|circle)\b/i
 
 export const pareceVehiculo = (e: EmpresaNueva) => NOMBRE_DE_VEHICULO.test(e.nombre) || NOMBRE_DE_DIRECCION.test(e.nombre)
 
