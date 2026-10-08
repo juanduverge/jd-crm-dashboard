@@ -16,7 +16,6 @@
 import { format, subDays } from 'date-fns'
 import { supabase } from '@/lib/supabaseClient'
 import { clasificarActividad, type Actividad } from '@/lib/actividadEmpresa'
-import type { ResultadoDominio } from '@/lib/dominioEmpresa'
 
 export type EstadoRegistro = 'CO' | 'CT' | 'OR'
 
@@ -169,7 +168,10 @@ export async function buscarEmpresasNuevas(dias: number): Promise<ResultadoBusqu
  */
 const NOMBRE_DE_VEHICULO = /\b(holdings?|invest\w*|capital|propert\w*|realty|real estate|trust|funds?|assets?|equity|acquisitions?|ventures?|partners|family|estates?|lending|mortgage)\b/i
 
-export const pareceVehiculo = (e: EmpresaNueva) => NOMBRE_DE_VEHICULO.test(e.nombre)
+/** «320 North Ave LLC»: una sociedad con nombre de dirección suele existir solo para tener ese inmueble. */
+const NOMBRE_DE_DIRECCION = /^\d+\s.*(ave(nue)?|st(reet)?|r(oa)?d|blvd|boulevard|l(a)?ne?|dr(ive)?|way|c(our)?t|pl(ace)?|h(igh)?wy|terrace|circle)/i
+
+export const pareceVehiculo = (e: EmpresaNueva) => NOMBRE_DE_VEHICULO.test(e.nombre) || NOMBRE_DE_DIRECCION.test(e.nombre)
 
 export interface ResumenImportacion {
   recibidos: number
@@ -185,14 +187,11 @@ export interface ResumenImportacion {
  */
 export async function importarEmpresasNuevas(
   empresas: EmpresaNueva[],
-  dominios?: Map<string, ResultadoDominio>,
+  /** Texto que se añade a la descripción del lead: la nota y lo que se vio de sus dominios. */
+  notaExtra?: (e: EmpresaNueva) => string,
 ): Promise<ResumenImportacion> {
   const lote = empresas.map((e) => {
-    const d = dominios?.get(e.id)
-    const notaDominio = !d ? ''
-      : d.estado === 'libre' ? ` Dominio ${d.dominio}: libre.`
-      : d.estado === 'sin_pagina' ? ` Dominio ${d.dominio}: registrado, sin página.`
-      : ` Dominio ${d.dominio}: ocupado (comprobar si es suyo).`
+    const extra = notaExtra?.(e)
     return {
       name: e.nombre,
       // Clave de deduplicación para fuentes que no son Google Maps.
@@ -204,7 +203,7 @@ export async function importarEmpresasNuevas(
       email: e.correo,
       // El término del catálogo va primero: es el que `nicho_alias` sabe normalizar.
       category: e.actividad?.termino ?? e.categoria ?? (e.tipo ? `Empresa nueva (${e.tipo})` : 'Empresa nueva'),
-      bio: `Registrada el ${e.fecha} en ${e.estado}${e.tipo ? ` como ${e.tipo}` : ''}. Fuente: registro mercantil oficial.${notaDominio}`,
+      bio: `Registrada el ${e.fecha} en ${e.estado}${e.tipo ? ` como ${e.tipo}` : ''}. Fuente: registro mercantil oficial.${extra ? ` ${extra}` : ''}`,
     }
   })
 
