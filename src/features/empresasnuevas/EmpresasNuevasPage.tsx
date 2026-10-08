@@ -161,8 +161,8 @@ export function EmpresasNuevasPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Empresas nuevas"
-        subtitle="Negocios recién registrados en los registros oficiales de EE. UU. Aún no tienen quien les haga la web."
+        title="Radar de negocios"
+        subtitle="Negocios que se acaban de registrar en EE. UU. Llega antes de que busquen quien les haga la web."
         actions={
           <>
             <Button variant="outline" onClick={() => refetch()}>
@@ -172,7 +172,7 @@ export function EmpresasNuevasPage() {
               <Globe className="h-4 w-4" /> {comprobando ? 'Parar' : 'Comprobar dominios'}
             </Button>
             <Button onClick={importar} disabled={elegidas.size === 0 || importando}>
-              <Download className="h-4 w-4" /> {importando ? 'Importando…' : `Importar al CRM (${elegidas.size})`}
+              <Download className="h-4 w-4" /> {importando ? 'Guardando…' : `Guardar en Leads (${elegidas.size})`}
             </Button>
           </>
         }

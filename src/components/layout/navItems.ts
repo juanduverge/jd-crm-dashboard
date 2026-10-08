@@ -1,7 +1,7 @@
 import {
   Home, Users, Target, KanbanSquare, Inbox, MessageSquare,
   BarChart3, Settings, Globe, CheckSquare, Trash2, CalendarClock, Archive,
-  Clock, CalendarDays, Gauge, Flag, Timer, Rocket, Building2,
+  Clock, CalendarDays, Gauge, Flag, Timer, Rocket, Radar,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -57,7 +57,7 @@ export type NavItem = NavLinkItem | NavGroupItem | NavSectionItem
 export const navItems: NavItem[] = [
   { kind: 'link', to: '/', label: 'Resumen', icon: Home, end: true },
   { kind: 'link', to: '/leads', label: 'Leads', icon: Users },
-  { kind: 'link', to: '/empresas-nuevas', label: 'Empresas nuevas', icon: Building2 },
+  { kind: 'link', to: '/empresas-nuevas', label: 'Radar de negocios', icon: Radar },
   { kind: 'link', to: '/web-leads', label: 'Inbox de Leads', icon: Globe },
   { kind: 'link', to: '/seguimientos', label: 'Seguimientos', icon: CalendarClock },
 
