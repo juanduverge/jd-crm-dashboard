@@ -10,7 +10,7 @@ const LeadsPage = lazy(() => import('./features/leads/LeadsPage').then((m) => ({
 const CampaignsPage = lazy(() => import('./features/campaigns/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
 const PipelinePage = lazy(() => import('./features/pipeline/PipelinePage').then((m) => ({ default: m.PipelinePage })))
 const InboxPage = lazy(() => import('./features/inbox/InboxPage').then((m) => ({ default: m.InboxPage })))
-const EmpresasNuevasPage = lazy(() => import('./features/empresasnuevas/EmpresasNuevasPage').then((m) => ({ default: m.EmpresasNuevasPage })))
+const RadarPage = lazy(() => import('./features/empresasnuevas/RadarPage').then((m) => ({ default: m.RadarPage })))
 const WebLeadsPage = lazy(() => import('./features/webleads/WebLeadsPage').then((m) => ({ default: m.WebLeadsPage })))
 // Productividad: cada módulo es su propio chunk. Antes las seis vistas
 // compartían uno solo de ~50KB que se cargaba entero para ver una.
@@ -65,7 +65,7 @@ export default function App() {
           <Route path="campaigns" element={<Suspense fallback={<RouteFallback />}><CampaignsPage /></Suspense>} />
           <Route path="pipeline" element={<Suspense fallback={<RouteFallback />}><PipelinePage /></Suspense>} />
           <Route path="inbox" element={<Suspense fallback={<RouteFallback />}><InboxPage /></Suspense>} />
-          <Route path="empresas-nuevas" element={<Suspense fallback={<RouteFallback />}><EmpresasNuevasPage /></Suspense>} />
+          <Route path="empresas-nuevas" element={<Suspense fallback={<RouteFallback />}><RadarPage /></Suspense>} />
           <Route path="web-leads" element={<Suspense fallback={<RouteFallback />}><WebLeadsPage /></Suspense>} />
 
           {/* Productividad */}

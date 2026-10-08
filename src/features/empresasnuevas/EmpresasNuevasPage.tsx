@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Building2, Download, Globe, Mail, Radar, RefreshCw, Search, Sparkles } from 'lucide-react'
@@ -27,7 +27,7 @@ const VISTAS: { id: Vista; texto: string }[] = [
   { id: 'todas', texto: 'Todas' },
 ]
 
-export function EmpresasNuevasPage() {
+export function ExplorarRegistros({ selector }: { selector: ReactNode }) {
   const qc = useQueryClient()
   const [dias, setDias] = useState(3)
   const [estado, setEstado] = useState<'todos' | EstadoRegistro>('todos')
@@ -221,7 +221,7 @@ export function EmpresasNuevasPage() {
     <div className="space-y-5">
       <PageHeader
         title="Radar de negocios"
-        subtitle="Negocios que se acaban de registrar en EE. UU., ya filtrados y puntuados."
+        subtitle="Todo lo que se registró en EE. UU., en directo, para buscar lo que el Radar no eligió."
         actions={
           <>
             <Button variant="outline" onClick={() => refetch()}>
@@ -233,6 +233,8 @@ export function EmpresasNuevasPage() {
           </>
         }
       />
+
+      {selector}
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Cifra icono={Building2} etiqueta="Registradas" valor={data?.empresas.length ?? 0} tono="neutro" />
@@ -402,11 +404,11 @@ function Fila({
   )
 }
 
-function Chip({ clase, children }: { clase: string; children: React.ReactNode }) {
+export function Chip({ clase, children }: { clase: string; children: React.ReactNode }) {
   return <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium', clase)}>{children}</span>
 }
 
-function Cifra({ icono: Icono, etiqueta, valor, tono }: { icono: typeof Globe; etiqueta: string; valor: number; tono: 'neutro' | 'primario' | 'verde' }) {
+export function Cifra({ icono: Icono, etiqueta, valor, tono }: { icono: typeof Globe; etiqueta: string; valor: number; tono: 'neutro' | 'primario' | 'verde' }) {
   const tonos = {
     neutro: 'text-fg bg-surface-2',
     primario: 'text-primary-600 bg-primary-50 dark:text-primary-300 dark:bg-primary-400/15',

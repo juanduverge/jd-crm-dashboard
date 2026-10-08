@@ -1,12 +1,13 @@
 import { differenceInCalendarDays, format } from 'date-fns'
 import { es } from 'date-fns/locale'
-import { Download, ExternalLink, Mail, MapPin, Search, User, X } from 'lucide-react'
+import { Download, ExternalLink, EyeOff, Mail, MapPin, Phone, Search, User, X } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Badge, Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { DominiosEmpresa, EstadoDominio } from '@/lib/dominioEmpresa'
 import type { Potencial } from '@/lib/potencialEmpresa'
 import { ESTADOS_REGISTRO, type Contacto, type EmpresaNueva } from '@/lib/registrosNuevos'
+import type { Investigacion, WebJuzgada } from '@/services/radarService'
 
 /** Color de la nota: verde lo que merece la llamada, gris lo que no. */
 export function claseNota(nota: number) {
@@ -21,6 +22,16 @@ const DOMINIO: Record<EstadoDominio, { texto: string; clase: string }> = {
   ocupado: { texto: 'Con página', clase: 'bg-surface-2 text-muted' },
 }
 
+const JUICIO: Record<WebJuzgada['es_suya'], { texto: string; clase: string }> = {
+  si: { texto: 'Es suya', clase: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
+  probable: { texto: 'Probablemente suya', clase: 'bg-amber-400/20 text-amber-800 dark:text-amber-300' },
+  no: { texto: 'De otra empresa', clase: 'bg-surface-2 text-muted' },
+  sin_contenido: { texto: 'Vacía o en construcción', clase: 'bg-amber-400/20 text-amber-800 dark:text-amber-300' },
+  aparcado: { texto: 'En venta', clase: 'bg-surface-2 text-muted' },
+  no_abre: { texto: 'No abre', clase: 'bg-surface-2 text-muted' },
+  sin_juicio: { texto: 'Sin decidir', clase: 'bg-surface-2 text-muted' },
+}
+
 export function haceCuanto(fecha: string) {
   const dias = differenceInCalendarDays(new Date(), new Date(`${fecha}T00:00:00`))
   if (dias < 0) return 'fecha futura'
@@ -29,8 +40,11 @@ export function haceCuanto(fecha: string) {
 }
 
 export function EmpresaFicha({
-  empresa, potencial, contacto, dominios, comprobandoDominios, guardando, onGuardar, onClose,
+  empresa, potencial, contacto, dominios, investigacion, comprobandoDominios, guardando, onGuardar, onDescartar, onClose,
 }: {
+  /** Lo que el Radar averiguó leyendo sus páginas. Solo en «Listas para contactar». */
+  investigacion?: Investigacion | null
+  onDescartar?: () => void
   empresa: EmpresaNueva | null
   potencial: Potencial | null
   contacto?: Contacto
@@ -87,10 +101,69 @@ export function EmpresaFicha({
               <Mail className="h-3.5 w-3.5" /> Escribir
             </a>
           )}
+          {onDescartar && (
+            <button className="btn btn-ghost h-8 px-3 text-xs text-muted" onClick={onDescartar}>
+              <EyeOff className="h-3.5 w-3.5" /> No me interesa
+            </button>
+          )}
         </div>
       </div>
 
       <div className="space-y-6 p-5">
+        {investigacion && (
+          <Seccion titulo="Lo que se encontró">
+            <p className="text-sm text-fg">{investigacion.resumen}</p>
+            {investigacion.que_hace && <p className="t-hint mt-1">{investigacion.que_hace}</p>}
+
+            {investigacion.webs.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {investigacion.webs.map((w) => (
+                  <li key={w.dominio} className="rounded-lg border border-border p-2.5 text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <a href={w.url} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 truncate font-medium text-fg underline hover:text-primary-500">
+                        {w.dominio} <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                      <Badge className={JUICIO[w.es_suya].clase}>{JUICIO[w.es_suya].texto}</Badge>
+                    </div>
+                    {w.motivo && <p className="t-hint mt-1">{w.motivo}</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {(investigacion.correos.length + investigacion.telefonos.length + investigacion.redes.length) > 0 && (
+              <ul className="mt-3 space-y-1.5 text-sm">
+                {investigacion.correos.map((c) => (
+                  <li key={c.valor} className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 shrink-0 text-muted" />
+                    <a href={`mailto:${c.valor}`} className="min-w-0 break-all hover:text-primary-500">{c.valor}</a>
+                    <Badge>{c.confianza}</Badge>
+                  </li>
+                ))}
+                {investigacion.telefonos.map((t) => (
+                  <li key={t.valor} className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 shrink-0 text-muted" />
+                    <a href={`tel:${t.valor}`} className="hover:text-primary-500">{t.valor}</a>
+                    <Badge>{t.confianza}</Badge>
+                  </li>
+                ))}
+                {investigacion.redes.map((r) => (
+                  <li key={r.url} className="flex items-center gap-2">
+                    <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted" />
+                    <a href={r.url} target="_blank" rel="noreferrer" className="min-w-0 truncate capitalize hover:text-primary-500">{r.red}</a>
+                    <Badge>{r.confianza}</Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="t-hint mt-2">
+              {investigacion.metodo === 'paginas+ia'
+                ? 'Se abrieron sus páginas y una IA decidió si eran de esta empresa. No se buscó en Google ni en redes.'
+                : 'Se abrieron los dominios con su nombre. No hizo falta IA ni se buscó en Google.'}
+            </p>
+          </Seccion>
+        )}
+
         <Seccion titulo={`Por qué un ${potencial.nota} de 10`}>
           <ul className="space-y-2">
             {potencial.motivos.map((m, i) => (

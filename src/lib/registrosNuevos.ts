@@ -256,10 +256,13 @@ export async function importarEmpresasNuevas(
   empresas: EmpresaNueva[],
   /** Texto que se añade a la descripción del lead: la nota y lo que se vio de sus dominios. */
   notaExtra?: (e: EmpresaNueva) => string,
+  /** Campos de más para el importador (web, correos, redes encontrados al investigarla). */
+  camposExtra?: (e: EmpresaNueva) => Record<string, unknown>,
 ): Promise<ResumenImportacion> {
   const lote = empresas.map((e) => {
     const extra = notaExtra?.(e)
     return {
+      ...camposExtra?.(e),
       name: e.nombre,
       // Clave de deduplicación para fuentes que no son Google Maps.
       profileUrl: e.urlRegistro,
