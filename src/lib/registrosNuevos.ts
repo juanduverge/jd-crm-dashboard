@@ -15,6 +15,8 @@
 
 import { format, subDays } from 'date-fns'
 import { supabase } from '@/lib/supabaseClient'
+import { clasificarActividad, type Actividad } from '@/lib/actividadEmpresa'
+import type { ResultadoDominio } from '@/lib/dominioEmpresa'
 
 export type EstadoRegistro = 'CO' | 'CT' | 'OR'
 
@@ -36,6 +38,8 @@ export interface EmpresaNueva {
   ciudad: string
   correo?: string
   categoria?: string
+  /** A qué se dedica, deducido del nombre. null si no se pudo saber. */
+  actividad?: Actividad | null
   /** Enlace estable al registro oficial; es la clave de deduplicación en el CRM. */
   urlRegistro: string
 }
@@ -154,6 +158,7 @@ export async function buscarEmpresasNuevas(dias: number): Promise<ResultadoBusqu
     if (r.status === 'fulfilled') empresas.push(...r.value)
     else fallidos.push(ids[i])
   })
+  for (const e of empresas) e.actividad = clasificarActividad(e.nombre, e.categoria)
   empresas.sort((a, b) => b.fecha.localeCompare(a.fecha))
   return { empresas, fallidos }
 }
@@ -178,19 +183,30 @@ export interface ResumenImportacion {
  * usa la búsqueda de Apify: no duplica, solo rellena huecos y respeta los
  * leads que ya se borraron a propósito.
  */
-export async function importarEmpresasNuevas(empresas: EmpresaNueva[]): Promise<ResumenImportacion> {
-  const lote = empresas.map((e) => ({
-    name: e.nombre,
-    // Clave de deduplicación para fuentes que no son Google Maps.
-    profileUrl: e.urlRegistro,
-    city: e.ciudad || undefined,
-    address: e.direccion || undefined,
-    country: 'US',
-    countryCode: 'US',
-    email: e.correo,
-    category: e.categoria ?? (e.tipo ? `Empresa nueva (${e.tipo})` : 'Empresa nueva'),
-    bio: `Registrada el ${e.fecha} en ${e.estado}${e.tipo ? ` como ${e.tipo}` : ''}. Fuente: registro mercantil oficial.`,
-  }))
+export async function importarEmpresasNuevas(
+  empresas: EmpresaNueva[],
+  dominios?: Map<string, ResultadoDominio>,
+): Promise<ResumenImportacion> {
+  const lote = empresas.map((e) => {
+    const d = dominios?.get(e.id)
+    const notaDominio = !d ? ''
+      : d.estado === 'libre' ? ` Dominio ${d.dominio}: libre.`
+      : d.estado === 'sin_pagina' ? ` Dominio ${d.dominio}: registrado, sin página.`
+      : ` Dominio ${d.dominio}: ocupado (comprobar si es suyo).`
+    return {
+      name: e.nombre,
+      // Clave de deduplicación para fuentes que no son Google Maps.
+      profileUrl: e.urlRegistro,
+      city: e.ciudad || undefined,
+      address: e.direccion || undefined,
+      country: 'US',
+      countryCode: 'US',
+      email: e.correo,
+      // El término del catálogo va primero: es el que `nicho_alias` sabe normalizar.
+      category: e.actividad?.termino ?? e.categoria ?? (e.tipo ? `Empresa nueva (${e.tipo})` : 'Empresa nueva'),
+      bio: `Registrada el ${e.fecha} en ${e.estado}${e.tipo ? ` como ${e.tipo}` : ''}. Fuente: registro mercantil oficial.${notaDominio}`,
+    }
+  })
 
   const total: ResumenImportacion = { recibidos: 0, insertados: 0, actualizados: 0, descartados: 0 }
   // Por tandas: una sola llamada con cientos de filas alarga la transacción.
