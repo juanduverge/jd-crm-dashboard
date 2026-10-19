@@ -123,6 +123,39 @@
       "typeVersion": 4.2,
       "position": [1540, 0],
       "credentials": { "supabaseApi": { "id": "jdSupabaseSvcRole", "name": "Supabase - JDDeveloper" } }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "combinator": "and",
+          "conditions": [{ "id": "s1", "leftValue": "={{ $json.cambios.status }}", "rightValue": "enviado", "operator": { "type": "string", "operation": "equals" } }]
+        },
+        "options": {}
+      },
+      "id": "epc-salio",
+      "name": "Salio?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1540, 220]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://imap-archivador:8090/archivar",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "X-Token", "value": "<mismo token que «Archivar en Enviados» de CRM API - Enviar Respuesta>" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ from: $('Armar correo').item.json.from, to: $('Armar correo').item.json.to, subject: $('Armar correo').item.json.asunto, html: $('Armar correo').item.json.html, messageId: $json.cambios.message_id || '' }) }}",
+        "options": {}
+      },
+      "id": "epc-archivar",
+      "name": "Archivar en Enviados",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1760, 220],
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -132,7 +165,8 @@
     "Leer firma y direccion": { "main": [[{ "node": "Armar correo", "type": "main", "index": 0 }]] },
     "Armar correo": { "main": [[{ "node": "Enviar por SMTP", "type": "main", "index": 0 }]] },
     "Enviar por SMTP": { "main": [[{ "node": "Resultado", "type": "main", "index": 0 }]] },
-    "Resultado": { "main": [[{ "node": "Registrar en CRM", "type": "main", "index": 0 }]] }
+    "Resultado": { "main": [[{ "node": "Registrar en CRM", "type": "main", "index": 0 }, { "node": "Salio?", "type": "main", "index": 0 }]] },
+    "Salio?": { "main": [[{ "node": "Archivar en Enviados", "type": "main", "index": 0 }], []] }
   },
   "settings": { "executionOrder": "v1", "saveDataSuccessExecution": "none", "saveDataErrorExecution": "all" }
 }
