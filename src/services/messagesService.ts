@@ -101,6 +101,9 @@ export const messagesService = {
       traerTodas((desde, hasta) => supabase
         .from('outreach_messages')
         .select('id, lead_id, campaign_id, destinatario, asunto, cuerpo, status, error, next_send_at, sent_at, created_at')
+        // Las secuencias que aún no han salido (0053) viven en «Correos
+        // programados»; en el hilo parecerían enviadas.
+        .not('status', 'in', '(por_aprobar,programado,enviando,cancelado)')
         .order('created_at', { ascending: false })
         .order('id')
         .range(desde, hasta)),

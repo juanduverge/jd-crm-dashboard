@@ -22,6 +22,7 @@ const MetricasPage = lazy(() => import('./features/productividad/metricas/Metric
 const FollowUpsPage = lazy(() => import('./features/followups/FollowUpsPage').then((m) => ({ default: m.FollowUpsPage })))
 const ArchivoPage = lazy(() => import('./features/archivo/ArchivoPage').then((m) => ({ default: m.ArchivoPage })))
 const MessagesPage = lazy(() => import('./features/messages/MessagesPage').then((m) => ({ default: m.MessagesPage })))
+const CorreosProgramadosPage = lazy(() => import('./features/correos/CorreosProgramadosPage').then((m) => ({ default: m.CorreosProgramadosPage })))
 const AnalyticsPage = lazy(() => import('./features/analytics/AnalyticsPage').then((m) => ({ default: m.AnalyticsPage })))
 const SettingsPage = lazy(() => import('./features/settings/SettingsPage').then((m) => ({ default: m.SettingsPage })))
 const TrashPage = lazy(() => import('./features/trash/TrashPage').then((m) => ({ default: m.TrashPage })))
@@ -81,6 +82,7 @@ export default function App() {
           <Route path="seguimientos" element={<Suspense fallback={<RouteFallback />}><FollowUpsPage /></Suspense>} />
           <Route path="archivo" element={<Suspense fallback={<RouteFallback />}><ArchivoPage /></Suspense>} />
           <Route path="messages" element={<Suspense fallback={<RouteFallback />}><MessagesPage /></Suspense>} />
+          <Route path="correos" element={<Suspense fallback={<RouteFallback />}><CorreosProgramadosPage /></Suspense>} />
           <Route path="analytics" element={<Suspense fallback={<RouteFallback />}><AnalyticsPage /></Suspense>} />
           <Route path="settings" element={<Suspense fallback={<RouteFallback />}><SettingsPage /></Suspense>} />
           <Route path="papelera" element={<Suspense fallback={<RouteFallback />}><TrashPage /></Suspense>} />

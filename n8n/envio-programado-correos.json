@@ -1,0 +1,138 @@
+{
+  "name": "Envio programado de correos",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 10 }] }
+      },
+      "id": "epc-cron",
+      "name": "Cada 10 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/rpc/liberar_envios_colgados",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "epc-liberar",
+      "name": "Liberar colgados",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "credentials": { "supabaseApi": { "id": "jdSupabaseSvcRole", "name": "Supabase - JDDeveloper" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/rpc/tomar_correos_programados",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{ \"p_tanda\": 2 }",
+        "options": { "timeout": 30000 }
+      },
+      "id": "epc-tomar",
+      "name": "Tomar tanda",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "alwaysOutputData": false,
+      "credentials": { "supabaseApi": { "id": "jdSupabaseSvcRole", "name": "Supabase - JDDeveloper" } }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/settings?select=key,value&user_id=is.null&key=in.(firma_email,direccion_fisica)",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "options": { "timeout": 30000 }
+      },
+      "id": "epc-config",
+      "name": "Leer firma y direccion",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0],
+      "executeOnce": true,
+      "credentials": { "supabaseApi": { "id": "jdSupabaseSvcRole", "name": "Supabase - JDDeveloper" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// Arma cada correo: cuerpo en parrafos + firma de Ajustes + pie CAN-SPAM.\n// El cuerpo llega en texto plano (ChatGPT); se escapa y se parte en <p>.\nconst cfg = {};\nfor (const it of $('Leer firma y direccion').all()) cfg[it.json.key] = it.json.value || '';\nconst firma = cfg.firma_email || '';\nconst direccion = (cfg.direccion_fisica || '').trim();\nif (!direccion) throw new Error('Falta direccion_fisica en Ajustes: no se envia nada sin ella (CAN-SPAM).');\n\nconst esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst out = [];\nfor (const it of $('Tomar tanda').all()) {\n  const r = it.json;\n  if (!r || !r.id) continue;\n  const parrafos = String(r.cuerpo || '').trim().split(/\\n\\s*\\n/)\n    .map((p) => `<p style=\"margin:0 0 14px;\">${esc(p).replace(/\\n/g, '<br>')}</p>`).join('');\n  const pie = `<p style=\"margin:24px 0 0;font-size:11px;line-height:1.5;color:#9ca3af;\">${esc(direccion)}<br>If you'd rather not hear from me, just reply \"unsubscribe\" and I won't write again.</p>`;\n  const html = `<div style=\"font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#1f2937;max-width:560px;\">${parrafos}</div>${firma}${pie}`;\n  const texto = `${String(r.cuerpo || '').trim()}\\n\\n--\\n${direccion}\\nIf you'd rather not hear from me, just reply \"unsubscribe\".`;\n  out.push({ json: { id: r.id, leadId: r.lead_id, toque: r.toque, to: r.destinatario, from: r.remitente || 'sales@jddeveloper.com', asunto: r.asunto, html, texto } });\n}\nreturn out;"
+      },
+      "id": "epc-armar",
+      "name": "Armar correo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 0]
+    },
+    {
+      "parameters": {
+        "fromEmail": "={{ $json.from }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.asunto }}",
+        "emailFormat": "both",
+        "text": "={{ $json.texto }}",
+        "html": "={{ $json.html }}",
+        "options": { "appendAttribution": false }
+      },
+      "id": "epc-enviar",
+      "name": "Enviar por SMTP",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1100, 0],
+      "onError": "continueRegularOutput",
+      "credentials": { "smtp": { "id": "qxrjS1UTOOOVymj8", "name": "Email SMTP - JDDeveloper" } }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const c = $('Armar correo').item.json;\nconst rejected = $json.rejected || [];\nconst ok = !$json.error && rejected.length === 0;\nreturn { json: {\n  id: c.id,\n  cambios: ok\n    ? { status: 'enviado', sent_at: new Date().toISOString(), message_id: $json.messageId || null, error: null }\n    : { status: 'error', error: String(($json.error && ($json.error.message || $json.error)) || ('Rechazado: ' + rejected.join(', '))).slice(0, 500) }\n} };"
+      },
+      "id": "epc-resultado",
+      "name": "Resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1320, 0]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://octzlhcwqlvxzrjgaptk.supabase.co/rest/v1/outreach_messages?id=eq.{{ $json.id }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": { "parameters": [{ "name": "Prefer", "value": "return=minimal" }] },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.cambios) }}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "epc-registrar",
+      "name": "Registrar en CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1540, 0],
+      "credentials": { "supabaseApi": { "id": "jdSupabaseSvcRole", "name": "Supabase - JDDeveloper" } }
+    }
+  ],
+  "connections": {
+    "Cada 10 minutos": { "main": [[{ "node": "Liberar colgados", "type": "main", "index": 0 }]] },
+    "Liberar colgados": { "main": [[{ "node": "Tomar tanda", "type": "main", "index": 0 }]] },
+    "Tomar tanda": { "main": [[{ "node": "Leer firma y direccion", "type": "main", "index": 0 }]] },
+    "Leer firma y direccion": { "main": [[{ "node": "Armar correo", "type": "main", "index": 0 }]] },
+    "Armar correo": { "main": [[{ "node": "Enviar por SMTP", "type": "main", "index": 0 }]] },
+    "Enviar por SMTP": { "main": [[{ "node": "Resultado", "type": "main", "index": 0 }]] },
+    "Resultado": { "main": [[{ "node": "Registrar en CRM", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "saveDataSuccessExecution": "none", "saveDataErrorExecution": "all" }
+}
