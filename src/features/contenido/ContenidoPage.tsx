@@ -36,6 +36,9 @@ export default function ContenidoPage() {
   const types = useCmsTypes()
   const ids = (types.data ?? []).map(type => type.id)
   const groups = useQuery({ queryKey: ['cms', 'groups', ids], queryFn: () => cmsService.groups(ids), enabled: types.isSuccess })
+  const leads = useQuery({ queryKey: ['cms', 'leads-por-articulo'], queryFn: cmsService.leadsPorArticulo })
+  const leadsDe = (group: CmsGroup) => group.items.reduce((n, i) =>
+    n + (leads.data?.[`${i.lang === 'es' ? '/es' : ''}/blog/${i.slug}`] ?? 0), 0)
   const canWrite = useAuthStore(state => state.user?.role === 'admin' || state.user?.role === 'vendedor')
   const [status, setStatus] = useState<'' | CmsStatus>('')
   const [search, setSearch] = useState('')
@@ -94,8 +97,10 @@ export default function ContenidoPage() {
               <button type="button" onClick={() => abrir(group)} className="text-left after:absolute after:inset-0">
                 <h2 className="line-clamp-2 text-[0.9375rem] font-semibold leading-snug">{groupTitle(group)}</h2>
               </button>
-              <p className="mt-1 truncate text-xs text-muted">
-                {[SCOPES[group.alcance], OPTION_LABELS.article_type[tipo], ref?.fecha ? fechaArticulo(ref.fecha) : null].filter(Boolean).join(' · ')}
+              <p className="mt-1 flex min-w-0 items-center gap-2 text-xs text-muted">
+                <span className="truncate">{[SCOPES[group.alcance], OPTION_LABELS.article_type[tipo], ref?.fecha ? fechaArticulo(ref.fecha) : null].filter(Boolean).join(' · ')}</span>
+                {/* Leads cuyo último artículo leído fue este, antes de escribir por el formulario. */}
+                {leadsDe(group) > 0 && <span className="badge-ok shrink-0">{leadsDe(group)} {leadsDe(group) === 1 ? 'lead' : 'leads'}</span>}
               </p>
             </div>
             <div className="relative z-10 flex shrink-0 flex-col gap-1.5 sm:flex-row">

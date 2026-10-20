@@ -26,6 +26,8 @@ interface WebLeadRow {
   utm_source: string | null
   utm_medium: string | null
   utm_campaign: string | null
+  landing: string | null
+  articulo: string | null
   ip: string | null
   user_agent: string | null
   fuente: string | null
@@ -58,6 +60,8 @@ function rowToWebLead(row: WebLeadRow): WebLead {
     utmSource: row.utm_source ?? undefined,
     utmMedium: row.utm_medium ?? undefined,
     utmCampaign: row.utm_campaign ?? undefined,
+    landing: row.landing ?? undefined,
+    articulo: row.articulo ?? undefined,
     ip: row.ip ?? undefined,
     userAgent: row.user_agent ?? undefined,
     fuente: row.fuente || 'web',

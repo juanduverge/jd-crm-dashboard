@@ -195,6 +195,9 @@ export function WebLeadDrawer({ lead, onClose }: { lead: WebLead | null; onClose
               <div className="grid gap-1.5 text-xs text-muted">
                 <p><span className="font-medium text-fg">Recibido:</span> {fecha(lead.fechaHora)}</p>
                 <p><span className="font-medium text-fg">Formulario:</span> {lead.formulario ?? 'contacto'}</p>
+                {lead.articulo && <p className="min-w-0 truncate" title={lead.articulo}><span className="font-medium text-fg">Leyó el artículo:</span>{' '}
+                  <a href={`https://jddeveloper.com${lead.articulo}`} target="_blank" rel="noreferrer" className="text-primary-600 hover:underline">{lead.articulo}</a></p>}
+                {lead.landing && <p className="min-w-0 truncate" title={lead.landing}><span className="font-medium text-fg">Entró por:</span> {lead.landing}</p>}
                 {lead.pagina && <p><span className="font-medium text-fg">Página:</span> {lead.pagina}</p>}
                 {lead.url && <p className="min-w-0 truncate" title={lead.url}><span className="font-medium text-fg">URL:</span> {lead.url}</p>}
                 {(lead.utmSource || lead.utmCampaign) && <p><span className="font-medium text-fg">UTM:</span> {lead.utmSource}/{lead.utmMedium}/{lead.utmCampaign}</p>}

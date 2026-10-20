@@ -21,6 +21,8 @@ const CAMPOS = [
   'nombre', 'email', 'telefono', 'mensaje', 'detalle', 'empresa', 'asunto',
   'pagina', 'url', 'referrer', 'utm_source', 'utm_medium', 'utm_campaign',
   'fuente', 'formulario',
+  // De dónde llegó (0061): primera página de la visita y último artículo leído.
+  'landing', 'articulo',
 ] as const
 
 function cabeceras(origen: string): HeadersInit {
@@ -72,10 +74,12 @@ Deno.serve(async (req) => {
   // Campo trampa: un bot lo rellena. Se responde "ok" para no darle pistas.
   if (b.hp_confirm_jd || b.website) return responder({ ok: true })
 
-  // La web (Cloudflare Pages, /api/contacto) reenvia desde su servidor: la IP
-  // real del visitante llega en x-visitante-ip, no en cf-connecting-ip.
-  const ip = (req.headers.get('x-visitante-ip') ?? req.headers.get('cf-connecting-ip') ?? req.headers.get('x-forwarded-for') ?? '')
-    .split(',')[0].trim()
+  // La IP solo se guarda si la web la manda a propósito (x-visitante-ip, la web
+  // vieja). La nueva no la manda: su política de privacidad dice que no se
+  // guarda. Antes se caía a cf-connecting-ip, que es la IP del servidor de
+  // Cloudflare y además contradecía esa política. Turnstile sí la usa, sin guardarla.
+  const ipVisitante = (req.headers.get('x-visitante-ip') ?? '').split(',')[0].trim()
+  const ip = ipVisitante || (req.headers.get('cf-connecting-ip') ?? '').split(',')[0].trim()
   if (!(await turnstileOk(String(b.turnstile_token ?? b['cf-turnstile-response'] ?? ''), ip))) {
     return responder({ ok: false, error: 'verificacion anti-spam fallida' }, 400)
   }
@@ -88,7 +92,7 @@ Deno.serve(async (req) => {
   if (!p.url && b.url_origen) p.url = String(b.url_origen)
   // El formulario de jddeveloper.com llama `tema` a lo que aqui es el asunto.
   if (!p.asunto && b.tema) p.asunto = String(b.tema)
-  p.ip = ip
+  if (ipVisitante) p.ip = ipVisitante
   p.user_agent = req.headers.get('x-visitante-ua') ?? req.headers.get('user-agent') ?? ''
 
   const sb = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {

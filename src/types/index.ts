@@ -255,6 +255,10 @@ export interface WebLead {
   utmSource?: string
   utmMedium?: string
   utmCampaign?: string
+  /** Primera página de la visita (0061). */
+  landing?: string
+  /** Último artículo del blog que leyó antes de escribir (0061). */
+  articulo?: string
   ip?: string
   userAgent?: string
   fuente: string

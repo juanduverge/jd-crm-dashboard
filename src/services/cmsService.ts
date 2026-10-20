@@ -138,6 +138,14 @@ export const cmsService = {
     if (error) throw cmsError(error)
     return (data ?? []) as CmsPublicacion[]
   },
+  /** Leads del formulario por artículo leído (0061): { '/blog/slug': 3 }. */
+  async leadsPorArticulo(): Promise<Record<string, number>> {
+    const { data, error } = await supabase.from('web_leads').select('articulo').not('articulo', 'is', null).is('deleted_at', null)
+    if (error) throw cmsError(error)
+    const cuenta: Record<string, number> = {}
+    for (const { articulo } of (data ?? []) as { articulo: string }[]) cuenta[articulo] = (cuenta[articulo] ?? 0) + 1
+    return cuenta
+  },
   async uploadCover(itemId: string, file: File): Promise<string> {
     if (!['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'].includes(file.type)) throw new Error('Elige una imagen JPG, PNG, WebP, AVIF o GIF.')
     if (file.size > 10 * 1024 * 1024) throw new Error('La portada puede ocupar hasta 10 MB.')
