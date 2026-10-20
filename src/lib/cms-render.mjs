@@ -24,13 +24,27 @@ export function renderArticulo(datos) {
   const words = body.split(/\s+/).length;
   const firstPara = body.trim().split("\n\n")[0].replace(/[*_`]/g, "");
 
-  // Una fila de enlaces al final de un párrafo cita las fuentes de lo anterior.
-  const label = lang === "en" ? "Sources" : "Fuentes";
-  const LINKS = String.raw`(?:<a [^>]*>[^<]*<\/a>(?:,\s*|;\s*)?){2,}`;
+  // Los enlaces externos que cierran un párrafo, después del punto, son las fuentes de lo
+  // anterior. Antes se pintaban como una fila «Fuentes: …» bajo cada párrafo y ensuciaban el
+  // texto; ahora son números pequeños (¹ ²) que abren la fuente, y la lista completa va al final
+  // con la misma numeración (fuentesHtml). Toda cifra sigue llevando su fuente al lado.
+  const refs = [];
+  const num = (url) => { let i = refs.indexOf(url); if (i < 0) { refs.push(url); i = refs.length - 1; } return i + 1; };
+  const sinEntidades = (s) => s.replace(/&amp;/g, "&");
+  const enlaces = (grupo) => [...grupo.matchAll(/<a href="([^"]*)"[^>]*>([^<]*)<\/a>/g)];
+  const sup = (grupo) => `<sup class="jd-ref">${enlaces(grupo).map(([, href, texto]) =>
+    `<a href="${href}" title="${texto}" target="_blank" rel="noopener noreferrer">${num(sinEntidades(href))}</a>`).join(", ")}</sup>`;
+  // Solo se numeran enlaces externos: un enlace interno al final (a un servicio) se queda como está.
+  const externos = (grupo) => enlaces(grupo).every(([, href]) => /^https?:\/\//.test(href));
+  const LINKS = String.raw`(?:<a [^>]*>[^<]*<\/a>(?:,\s*|;\s*)?)+`;
   const html = marked
     .parse(body, { async: false })
-    .replace(new RegExp(String.raw`<p>((?:(?!<\/p>)[\s\S])*?[.!?])\s+(${LINKS})<\/p>`, "g"), `<p>$1</p><p class="jd-cite"><span>${label}:</span> $2</p>`)
-    .replace(new RegExp(String.raw`<p>(${LINKS})<\/p>`, "g"), `<p class="jd-cite"><span>${label}:</span> $1</p>`);
+    .replace(new RegExp(String.raw`<p>((?:(?!<\/p>)[\s\S])*?[.!?:])\s+(${LINKS})<\/p>`, "g"),
+      (todo, texto, grupo) => (externos(grupo) ? `<p>${texto}${sup(grupo)}</p>` : todo))
+    .replace(new RegExp(String.raw`<p>(${LINKS})<\/p>`, "g"),
+      (todo, grupo) => (externos(grupo) ? `<p class="jd-ref-sola">${sup(grupo)}</p>` : todo));
+  // La lista final sigue la numeración del texto; las fuentes no citadas van después.
+  const sources = [...refs, ...(datos.sources ?? []).filter((u) => !refs.includes(u))];
 
   const date = datos.fecha;
   const d = new Date(date + "T12:00:00");
@@ -53,9 +67,19 @@ export function renderArticulo(datos) {
     cover: datos.cover,
     html,
     excerpt: firstPara.length > 170 ? firstPara.slice(0, 167).replace(/\s+\S*$/, "").replace(/[.,;:\s]+$/, "") + "…" : firstPara,
-    sources: datos.sources,
+    sources,
     gemela: datos.gemela ?? null,
   };
+}
+
+/** Lista de fuentes al pie, plegada y numerada como los ¹ ² del texto. */
+export function fuentesHtml(post) {
+  if (!post.sources.length) return "";
+  const label = post.lang === "en" ? "Sources" : "Fuentes";
+  const esc = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  const items = post.sources.map((u) =>
+    `<li><a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(u.replace(/^https?:\/\/(www\.)?/, ""))}</a></li>`).join("");
+  return `<details class="jd-sources"><summary>${label} (${post.sources.length})</summary><ol>${items}</ol></details>`;
 }
 
 export function ordenarPosts(posts) {

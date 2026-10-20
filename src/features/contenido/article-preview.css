@@ -25,3 +25,10 @@ article { max-width: 768px; margin: 0 auto; padding: 0 24px clamp(72px,10vw,128p
 .jd-prose .jd-cite span { font-weight: 700; color: #0C0B10; letter-spacing: .04em; text-transform: uppercase; font-size: 12px; margin-right: 4px; }
 .jd-prose img, .jd-prose video { max-width: 100%; height: auto; }
 .jd-prose pre { max-width: 100%; overflow-x: auto; font-size: 15px; }
+.jd-prose sup.jd-ref { font-size: 12px; line-height: 0; font-weight: 700; margin-left: 2px; white-space: nowrap; }
+.jd-prose sup.jd-ref a { color: #B23A0C; text-decoration: none; }
+.jd-prose .jd-ref-sola { margin-top: -24px; }
+.jd-prose .jd-sources { border-top: 1px solid #E7D9CA; padding-top: 20px; font-size: 15px; color: #737373; }
+.jd-prose .jd-sources summary { cursor: pointer; font-weight: 700; color: #0C0B10; }
+.jd-prose .jd-sources ol { margin-top: 14px; gap: 6px; font-size: 14px; }
+.jd-prose .jd-sources li a { color: #737373; overflow-wrap: anywhere; }

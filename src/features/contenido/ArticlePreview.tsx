@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { renderArticulo } from '@/lib/cms-render.mjs'
+import { fuentesHtml, renderArticulo } from '@/lib/cms-render.mjs'
 import type { CmsDraft, CmsLang } from '@/types/cms'
 import textFont from './assets/manrope-500.woff2?inline'
 import boldFont from './assets/manrope-700.woff2?inline'
@@ -19,7 +19,8 @@ export function ArticlePreview({ draft, lang, title = 'Vista previa del artícul
     const service = post.serviceLink.replace(/^\/es/, '')
     const servicePath = lang === 'es' ? `/es${service.replace('/services/', '/servicios/')}` : service
     const serviceHtml = service.startsWith('/') && !service.startsWith('//') ? `<p><a href="https://jddeveloper.com${e(servicePath)}">${lang === 'es' ? 'Ver el servicio relacionado →' : 'See the related service →'}</a></p>` : ''
-    const footer = `${serviceHtml}<h2>${lang === 'en' ? 'Sources' : 'Fuentes'}</h2><ul>${sources.map(url => `<li><a href="${e(url)}">${e(url.replace(/^https?:\/\/(www\.)?/, ''))}</a></li>`).join('')}</ul>`
+    // Misma lista plegada y numerada que la web; solo las fuentes que son URL válidas.
+    const footer = `${serviceHtml}${fuentesHtml({ lang, sources })}`
     return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data: blob:; font-src data:; style-src 'unsafe-inline'"><base target="_blank"><style>
       @font-face{font-family:Manrope;src:url('${textFont}');font-weight:500;font-display:swap}
       @font-face{font-family:Manrope;src:url('${boldFont}');font-weight:700;font-display:swap}

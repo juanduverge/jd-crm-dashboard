@@ -22,6 +22,7 @@ declare module '@/lib/cms-render.mjs' {
   }
   export function renderArticulo(datos: RenderInput): RenderedPost
   export function ordenarPosts(posts: RenderedPost[]): RenderedPost[]
+  export function fuentesHtml(post: Pick<RenderedPost, 'lang' | 'sources'>): string
   export function construirNav(posts: RenderedPost[]): Record<'en' | 'es', { slug: string; title: string; date: string }[]>
   export const TYPE_LABEL: Record<string, Record<'en' | 'es', string>>
   export const MONTHS: Record<'en' | 'es', string[]>
