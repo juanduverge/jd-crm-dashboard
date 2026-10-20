@@ -100,7 +100,37 @@ Los botones de estado y publicación son la T07.
 ---
 
 ## Informe del agente
-_(lo rellena ChatGPT al terminar)_
+**ChatGPT (Codex), 20-oct-2026. Implementada en `cms/T06`, desde `main` (`87c5c3f`, coincidente con la referencia local `origin/main`). Pendiente de revisión de Claude.**
+
+### Implementación
+
+- Menú **Contenido** y las tres rutas con carga `lazy`: lista, ficha del grupo y editor. La lista consulta solo tipos activos, muestra una fila por grupo y combina idioma/estado/búsqueda sobre la misma versión.
+- Creación con alcance, idioma, título de trabajo, slug propuesto y opción **Solo la idea**. Se pide un slug válido desde el primer paso porque la base no permite guardarlo vacío. Se comprueba su disponibilidad y se interpreta claramente el error del índice único. Si falla la creación del item, se intenta retirar el grupo vacío mediante `deleted_at`.
+- Ficha EN/ES con columnas que se apilan en móvil; edición de alcance, intención y notas. No permite excluir del alcance un idioma que ya tiene versión. La gemela se crea solo en grupos universales, pide un slug nuevo y copia exclusivamente `author`, `fecha`, `sources`, `og_image` y `fields`: los títulos, meta, palabra clave y cuerpo comienzan vacíos.
+- Editor con contadores SEO, comprobación de slug con espera breve, campos comunes, fuentes, portada y cuerpo Markdown. Los campos del tipo salen de `cms_types.campos` e implementan los siete tipos pedidos; también preservan valores desconocidos. Las ideas pueden guardarse incompletas. Los avisos SEO y de localización no impiden guardar.
+- Guardar mantiene el estado existente salvo cambios explícitos `idea`↔`borrador`. El servicio usa una lista de campos permitidos y comprueba `updated_at`/estado para evitar sobrescribir cambios de otra sesión; ante un conflicto conserva el texto del formulario. Los publicados muestran el aviso solicitado. Los usuarios `viewer` tienen controles de solo lectura.
+- Portada por URL o subida JPG/PNG/WebP/AVIF/GIF (hasta 10 MB), ruta `articulos/<itemId>/<nombre único>`, registro en `cms_media` y asociación a `og_image` al guardar el artículo. Los fallos al registrar un archivo ya subido indican su ruta para revisión, sin intentar borrar archivos de Storage.
+- Vista previa con la **copia exacta** del conversor de la web, salvo el comentario inicial de procedencia. `scripts/check-cms-render.mjs` compara los bytes del módulo, admite LF/CRLF únicamente en ese comentario y falla si el código se separa del original. Se copiaron las fuentes locales y las reglas `.jd-prose`/`.jd-cite`; la vista previa incluye autor, fecha, lectura, portada, servicio y fuentes.
+- El HTML se presenta en un iframe sin permisos de ejecución y con política de contenido restrictiva, para aislar el Markdown/HTML de la sesión del CRM. En móvil hay pestañas Escribir / Vista previa; la otra versión aparece solo lectura. Diálogo propio para conservar o descartar cambios al navegar, más protección `beforeunload` al cerrar/recargar.
+- Única dependencia añadida: **`marked@^15.0.12`**, instalada en **15.0.12**, igual que la web. No se cambiaron versiones de las otras dependencias ni scripts de `package.json`.
+
+### Validación
+
+- `node scripts/check-cms-render.mjs`: **OK**, identidad del conversor.
+- `npx tsc -b`: **código 0**. `npm run build` (incluye `tsc -b`): **código 0**, genera las tres pantallas en chunks independientes. Conserva el aviso existente de chunks grandes del CRM.
+- `npm run lint`: **código 0, 0 errores y los mismos 21 avisos previos**, comprobados antes de editar. Lint de los archivos nuevos de T06: sin errores ni avisos.
+- Pruebas del servicio y del modelo con Supabase simulado: slugs, filtros combinados, validación desde el esquema, creación y retirada del grupo tras un fallo, gemela sin textos propios y sin compartir arrays mutables, errores de unicidad, estados restringidos, exclusión de campos de publicación, conflictos entre sesiones y subida/registro de portada: **OK**.
+- Comparación con los Markdown y los JSON actuales de la web: el conversor del CRM produce **exactamente el mismo HTML de cuerpo de los tres artículos**. No fue necesario consultar ni editar esos registros en producción.
+- Pruebas de navegador con las pantallas y el servicio reales, sustituyendo únicamente Supabase y la sesión por simulaciones locales: lista/filtros, ficha bilingüe, creación de gemela, creación de idea con idioma según alcance y slug propuesto, guardado de borrador con avisos SEO, vista previa, referencia del otro idioma y perfil solo lectura: **OK**. Se comprobó el diálogo de salida, cancelar sin perder el texto y descartar para volver al grupo.
+- A **375 px**, lista, ficha, editor, pestañas y otra versión sin desplazamiento horizontal (se midieron `scrollWidth` y `clientWidth`); también se revisó escritorio a 1280 px. Las comprobaciones visuales se hicieron con datos simulados que empiezan por `PRUEBA T06`. Una prueba de HTML con script no alteró el CRM; el iframe permanece sin permisos de scripts.
+- Pruebas auxiliares y servidor simulado conservados en `C:\Users\juanm\Documents\Codex\2026-10-20\abre-codex-en-jd-developer-jd\work\T06\`, fuera del repositorio. Captura de la revisión en `outputs/T06-editor-prueba.png` del mismo chat.
+- Revisión del diff y `git diff --check`: solo se incluyen los archivos de T06 y este informe. Los cambios ajenos que ya existían en n8n, WhatsApp, `.claude/` y `docs/PROYECTO_CAPTACION_PROPIA.md` se conservan fuera del commit.
+
+### Límites de la prueba y pendientes
+
+El CRM local abrió la pantalla de acceso y **no había una sesión disponible**. Por tanto, no se probó el CRUD ni Storage con una sesión real: Claude y Juan deben comprobarlo al revisar. No se crearon datos de prueba en producción, no hay IDs reales que borrar y no se guardaron ni editaron los tres artículos publicados. La revisión móvil se hizo sobre las pantallas reales en el servidor de pruebas, sin la sesión ni el resto del contenedor autenticado del CRM.
+
+Sin SQL, migraciones, claves, cambios de `.env`, n8n, WhatsApp o despliegue. No hay botones de publicación ni cambios de estado fuera de Idea/Borrador; quedan para T07. No se fusionó ni se hizo push. No se detectaron campos o tablas que requieran migraciones.
 
 ## Revisión (Claude)
 _(veredicto)_

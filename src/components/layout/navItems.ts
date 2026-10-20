@@ -1,7 +1,7 @@
 import {
   Home, Users, Target, KanbanSquare, Inbox, MessageSquare,
   BarChart3, Settings, Globe, CheckSquare, Trash2, CalendarClock, Archive,
-  Clock, CalendarDays, Gauge, Flag, Timer, Rocket, Send,
+  Clock, CalendarDays, Gauge, Flag, Timer, Rocket, Send, FileText,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -85,6 +85,7 @@ export const navItems: NavItem[] = [
   { kind: 'link', to: '/inbox', label: 'Bandeja', icon: Inbox },
   { kind: 'link', to: '/messages', label: 'Mensajes', icon: MessageSquare },
   { kind: 'link', to: '/correos', label: 'Correos programados', icon: Send },
+  { kind: 'link', to: '/contenido', label: 'Contenido', icon: FileText },
   { kind: 'link', to: '/analytics', label: 'Analíticas', icon: BarChart3 },
 
   { kind: 'link', to: '/archivo', label: 'Archivo', icon: Archive },
