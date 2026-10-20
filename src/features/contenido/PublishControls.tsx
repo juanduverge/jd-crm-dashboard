@@ -196,7 +196,7 @@ function ProgramarDialog({ actual, pending, onClose, onSave }: {
     <div className="space-y-3">
       <Input type="datetime-local" value={valor} onChange={e => setValor(e.target.value)} />
       {!valida && <p className="aviso-error">Elige una fecha futura.</p>}
-      <p className="t-hint">A esa hora se publica sola (lo hace n8n cada 15 minutos). Hasta entonces puedes seguir editándolo.</p>
+      <p className="t-hint">Se publica sola en los 15 minutos siguientes a esa hora, aunque el servidor de casa esté apagado. Hasta entonces puedes seguir editándolo.</p>
     </div>
   </Modal>
 }

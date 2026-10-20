@@ -20,6 +20,11 @@
 ## Prueba de punta a punta (20-oct, 19:38)
 «Actualizar la web» desde el CRM: pedido 19:38:16 → GitHub empezó 19:38:24 → ok 19:40:06.
 
-## Pendiente
-- «Programar» guarda la fecha, pero **todavía nada publica a esa hora**: falta el workflow de n8n
-  (T10), que necesitará poder llamar a `cms-publicar` como sistema.
+## Programados (T10, hecho el mismo día)
+- Con **pg_cron de Supabase**, no con n8n: así no depende del servidor de casa (1.8 §6.1) y no se
+  toca ningún workflow. Migración **0060**.
+- Cada 15 min, el job `cms-programados` llama a `cms-publicar` (cabecera `x-cms-cron`) **solo si**
+  hay algún `programado` cuya hora pasó. El código vive cifrado en Vault (`cms_cron_secret`) y lo
+  valida `cms_cron_ok()`, ejecutable solo por service_role.
+- Probado: código falso → 401; código real sin nada pendiente → `{"ok":true,"publicados":0}`.
+- Pendiente opcional (1.8 §6.5.3): comprobación diaria publicado ↔ sitemap.
