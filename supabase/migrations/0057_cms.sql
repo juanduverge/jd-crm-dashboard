@@ -136,8 +136,9 @@ create index if not exists idx_cms_items_programado
 
 -- El tipo del item tiene que ser el de su grupo.
 create or replace function cms_items_mismo_tipo()
-returns trigger language plpgsql set search_path = public as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 begin
+  -- security definer: la comprobación no puede depender de qué grupos ve quien escribe.
   if new.type is distinct from (select type from cms_groups where id = new.group_id) then
     raise exception 'cms: el tipo del contenido no coincide con el de su grupo';
   end if;
@@ -165,6 +166,10 @@ begin
   end if;
   return new;
 end $$;
+
+-- Es función de trigger: nadie tiene que poder llamarla por /rest/v1/rpc.
+revoke execute on function cms_items_guardia_publicar() from public, anon, authenticated;
+revoke execute on function cms_items_mismo_tipo() from public, anon, authenticated;
 
 drop trigger if exists trg_cms_items_guardia on cms_items;
 create trigger trg_cms_items_guardia
