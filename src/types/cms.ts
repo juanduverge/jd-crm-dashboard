@@ -1,6 +1,8 @@
 export type CmsLang = 'en' | 'es'
 export type CmsScope = 'universal' | 'solo_en' | 'solo_es'
 export type CmsStatus = 'idea' | 'borrador' | 'revision' | 'programado' | 'publicado' | 'archivado'
+/** País para el que se investiga la palabra clave (0058). No cambia URL ni hreflang. */
+export type CmsMercado = 'us' | 'ca' | 'global_en' | 'hispano' | 'do' | 'mx' | 'es' | 'latam'
 export type CmsValue = string | number | boolean | null | CmsValue[] | { [key: string]: CmsValue }
 export interface CmsField {
   clave: string
@@ -21,6 +23,7 @@ export interface CmsItem {
   title_seo: string
   meta_description: string
   primary_keyword: string | null
+  mercado: CmsMercado | null
   author: string
   fecha: string | null
   sources: string[]
@@ -39,7 +42,7 @@ export interface CmsGroup {
   updated_at: string
   items: CmsItem[]
 }
-export type CmsDraft = Pick<CmsItem, 'slug' | 'title_h1' | 'title_seo' | 'meta_description' | 'primary_keyword' | 'author' | 'fecha' | 'sources' | 'og_image' | 'fields' | 'body'>
+export type CmsDraft = Pick<CmsItem, 'slug' | 'title_h1' | 'title_seo' | 'meta_description' | 'primary_keyword' | 'mercado' | 'author' | 'fecha' | 'sources' | 'og_image' | 'fields' | 'body'>
 export interface CmsNewGroup {
   type: string
   alcance: CmsScope

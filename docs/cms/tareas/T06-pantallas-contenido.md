@@ -133,4 +133,30 @@ El CRM local abrió la pantalla de acceso y **no había una sesión disponible**
 Sin SQL, migraciones, claves, cambios de `.env`, n8n, WhatsApp o despliegue. No hay botones de publicación ni cambios de estado fuera de Idea/Borrador; quedan para T07. No se fusionó ni se hizo push. No se detectaron campos o tablas que requieran migraciones.
 
 ## Revisión (Claude)
-_(veredicto)_
+**Lógica APROBADA; pantallas REHECHAS por Claude a petición de Juan · 20-oct-2026**
+
+Se conserva lo de ChatGPT que estaba bien: `cmsService` (lista de campos permitidos, control de
+conflictos por `updated_at`, limpieza del grupo vacío), `hooks` (aviso de cambios sin guardar),
+la copia del conversor con su comprobación y la vista previa aislada en iframe.
+
+Se rehízo la interfaz porque era un formulario, no un sitio para escribir:
+- Menú y título: **Blog CMS** (pedido por Juan).
+- Lista: pestañas por estado con contador, miniatura de portada, píldoras EN/ES con el color del
+  estado; la píldora punteada crea la versión que falta.
+- Editor tipo documento: portada, título grande y texto que crecen solos (una sola barra de
+  desplazamiento), barra de formato Markdown, Ctrl+S. Cambio de idioma EN | ES arriba.
+- Panel lateral (hoja en el móvil): SEO con vista de Google y comprobaciones de la palabra clave,
+  mercado objetivo, artículo, fuentes, estado, «La pieza» y la otra versión.
+- Vista previa a pantalla completa, escritorio / móvil. La ficha de grupo redirige al editor.
+- Alcance con nombres correctos: Los dos idiomas / Solo inglés / Solo español (no «Solo RD»).
+- Servicio relacionado: desplegable con la ruta exacta de cada idioma (antes texto libre).
+- Migración **0058** (campo `mercado`), aplicada.
+
+Arreglos encontrados al revisar:
+- La web quitaba **cualquier** línea que empezara por «By »/«Por » como si fuera la firma: un
+  párrafo «Por eso…» habría desaparecido. Ahora solo quita la firma exacta del autor
+  (`jd-developer-site` `fix/firma`, fusionado; copia del CRM actualizada).
+- El cuerpo de los 3 artículos ya no repite el «# título» ni la firma (el título va aparte). La web
+  genera exactamente el mismo resultado (comparado byte a byte).
+
+**Pendiente:** prueba de Juan con su sesión (crear, guardar, subir portada, versión gemela, móvil).

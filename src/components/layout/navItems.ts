@@ -85,7 +85,7 @@ export const navItems: NavItem[] = [
   { kind: 'link', to: '/inbox', label: 'Bandeja', icon: Inbox },
   { kind: 'link', to: '/messages', label: 'Mensajes', icon: MessageSquare },
   { kind: 'link', to: '/correos', label: 'Correos programados', icon: Send },
-  { kind: 'link', to: '/contenido', label: 'Contenido', icon: FileText },
+  { kind: 'link', to: '/contenido', label: 'Blog CMS', icon: FileText },
   { kind: 'link', to: '/analytics', label: 'Analíticas', icon: BarChart3 },
 
   { kind: 'link', to: '/archivo', label: 'Archivo', icon: Archive },

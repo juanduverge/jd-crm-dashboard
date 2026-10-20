@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabaseClient'
 import type { CmsDraft, CmsGroup, CmsItem, CmsLang, CmsNewGroup, CmsScope, CmsType } from '@/types/cms'
-import { scopeAllows, twinValues, validSlug } from '@/features/contenido/model'
+import { MERCADO_POR_DEFECTO, scopeAllows, twinValues, validSlug } from '@/features/contenido/model'
 
 export function cmsError(error: unknown): Error {
   const e = error as { code?: string; message?: string; details?: string }
@@ -63,7 +63,8 @@ export const cmsService = {
       .insert({ type: input.type, alcance: input.alcance, created_by }).select('id').single()
     if (groupError) throw cmsError(groupError)
     const { data, error } = await supabase.from('cms_items').insert({ group_id: group.id, type: input.type,
-      lang: input.lang, slug: input.slug, title_h1: input.title, status: input.idea ? 'idea' : 'borrador', created_by }).select('*').single()
+      lang: input.lang, slug: input.slug, title_h1: input.title, mercado: MERCADO_POR_DEFECTO[input.lang],
+      status: input.idea ? 'idea' : 'borrador', created_by }).select('*').single()
     if (error) {
       // Sin RPC transaccional, retiramos el grupo vacío si falla el segundo paso.
       const cleanup = await supabase.from('cms_groups').update({ deleted_at: new Date().toISOString() }).eq('id', group.id)
@@ -80,7 +81,7 @@ export const cmsService = {
     if (!source) throw new Error('Falta el artículo de origen para esta versión.')
     if (!validSlug(slug)) throw new Error('Escribe un slug válido para el nuevo idioma.')
     if (await cmsService.slugExists(group.type, lang, slug)) throw new Error('Ya existe ese slug en este idioma. Elige otro.')
-    const { data, error } = await supabase.from('cms_items').insert({ ...twinValues(source), slug, group_id: groupId,
+    const { data, error } = await supabase.from('cms_items').insert({ ...twinValues(source, lang), slug, group_id: groupId,
       type: group.type, lang, status: 'borrador', created_by: await userId() }).select('*').single()
     if (error) throw cmsError(error)
     return data as CmsItem
@@ -98,7 +99,7 @@ export const cmsService = {
     if (status !== undefined && (!['idea', 'borrador'].includes(status) || !['idea', 'borrador'].includes(item.status))) throw new Error('En este editor solo puedes cambiar entre Idea y Borrador.')
     // Lista explícita: un objeto de formulario nunca puede sobrescribir publicación ni grupo/idioma.
     const payload = { slug: draft.slug, title_h1: draft.title_h1, title_seo: draft.title_seo,
-      meta_description: draft.meta_description, primary_keyword: draft.primary_keyword, author: draft.author,
+      meta_description: draft.meta_description, primary_keyword: draft.primary_keyword, mercado: draft.mercado, author: draft.author,
       fecha: draft.fecha || null, sources: draft.sources, og_image: draft.og_image || null, fields: draft.fields, body: draft.body,
       ...(status !== undefined ? { status } : {}) }
     const { data, error } = await supabase.from('cms_items').update(payload).eq('id', item.id)

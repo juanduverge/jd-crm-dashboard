@@ -16,7 +16,11 @@ export const MONTHS = {
 export function renderArticulo(datos) {
   const lang = datos.lang === "es" ? "es" : "en";
   // El H1 y la firma ya se muestran en la cabecera de la página.
-  const body = datos.body.replace(/\r\n/g, "\n").replace(/^\s*# .*\n/, "").replace(/^\s*By .*\n/m, "").replace(/^\s*Por .*\n/m, "");
+  // Solo se quita la firma exacta del autor: con «cualquier línea que empiece por Por»
+  // desaparecía de la web un párrafo como «Por eso…» en un artículo sin firma.
+  const autor = String(datos.author ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const firma = new RegExp(`^\\s*(?:By|Por) ${autor}[ \\t]*\\n`, "m");
+  const body = datos.body.replace(/\r\n/g, "\n").replace(/^\s*# .*\n/, "").replace(firma, "");
   const words = body.split(/\s+/).length;
   const firstPara = body.trim().split("\n\n")[0].replace(/[*_`]/g, "");
 

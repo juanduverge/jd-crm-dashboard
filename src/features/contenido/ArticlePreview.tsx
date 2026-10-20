@@ -9,7 +9,7 @@ import { isWebUrl } from './model'
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
 
-export function ArticlePreview({ draft, lang, title = 'Vista previa del artículo' }: { draft: CmsDraft; lang: CmsLang; title?: string }) {
+export function ArticlePreview({ draft, lang, title = 'Vista previa del artículo', className }: { draft: CmsDraft; lang: CmsLang; title?: string; className?: string }) {
   const document = useMemo(() => {
     const post = renderArticulo({ ...draft, lang,
       fecha: draft.fecha || '2000-01-01', cover: draft.og_image || '',
@@ -29,5 +29,5 @@ export function ArticlePreview({ draft, lang, title = 'Vista previa del artícul
   }, [draft, lang])
   // El Markdown admite HTML. El iframe sin permisos evita que ejecute scripts
   // o acceda a la sesión del CRM; las fuentes se incluyen como datos locales.
-  return <iframe title={title} sandbox="" referrerPolicy="no-referrer" srcDoc={document} className="block h-[75vh] min-h-[480px] w-full min-w-0 rounded-xl border border-border bg-[#FBF3EB]" />
+  return <iframe title={title} sandbox="" referrerPolicy="no-referrer" srcDoc={document} className={className ?? 'block h-full w-full min-w-0 bg-[#FBF3EB]'} />
 }

@@ -84,8 +84,12 @@ funcionan. Solo cambia **de dónde salen los datos**.
 #### Cómo trabaja el redactor un artículo en dos idiomas (1.8 §4)
 Cada idioma es **su propio artículo** (su propia fila), con su slug, título SEO, H1, meta, palabra
 clave, encabezados, ejemplos y cuerpo. Lo único que los une es el `translation_group_id`.
-- Al crear un artículo se elige el alcance: **Universal** (los dos idiomas), **Solo EE. UU.** (solo
-  inglés) o **Solo RD/hispano** (solo español). Solo los universales piden la gemela.
+- Al crear un artículo se elige el alcance: **Los dos idiomas**, **Solo inglés** (EE. UU. y resto del
+  mundo) o **Solo español** (los 21 países hispanohablantes: RD, México, España, Latinoamérica; así
+  reparte la web por país, ver 1.3 y `src/middleware.ts`). Solo los de dos idiomas piden la gemela.
+- Para Google hay una sola versión `es` para todos esos países. El país concreto para el que se
+  investiga la palabra clave va en el campo **Mercado objetivo** de cada versión (0058); no cambia
+  la URL ni el hreflang.
 - La ficha del grupo muestra **dos columnas, EN y ES**, cada una con su estado. La que falta aparece
   como «Crear versión en español/inglés».
 - **Crear la versión gemela no copia el texto.** Copia solo lo que debe ser idéntico (autor, fecha,
