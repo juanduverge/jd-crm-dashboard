@@ -13,7 +13,7 @@ import { BackToContent, ContentError, LangChip, LoadingContent, StatusBadge, Uns
 import { Cover, FormatBar, PreviewOverlay, useAutosize } from './EditorParts'
 import { EditorPanel } from './EditorPanel'
 import { useCmsGroup, useCmsItem, useCmsTypes, useDebounced, useUnsavedChanges } from './hooks'
-import { draftFromItem, isWebUrl, LANGUAGES, localizationWarnings, nombreMercado, OPTION_LABELS, scopeAllows, validateTypeFields, validSlug } from './model'
+import { draftFromItem, isWebUrl, LANGUAGES, localizationWarnings, nombreMercado, OPTION_LABELS, scopeAllows, suggestSlug, validateTypeFields, validSlug } from './model'
 import { NewContentDialog } from './NewContentDialog'
 import { PublishControls, PublishStatus } from './PublishControls'
 
@@ -55,6 +55,13 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
   const other = group.items.find(i => i.lang !== item.lang)
   const dirty = JSON.stringify(draft) !== JSON.stringify(draftFromItem(item))
   const set = useCallback(<K extends keyof CmsDraft>(key: K, value: CmsDraft[K]) => setDraft(prev => ({ ...prev, [key]: value })), [])
+  // Como en Webflow: la dirección sigue al título mientras nadie la haya tocado
+  // a mano y el artículo no esté publicado (cambiarla entonces rompe enlaces).
+  const slugAuto = item.status !== 'publicado' && item.status !== 'archivado'
+  const setTitle = (title: string) => setDraft(prev => {
+    const sigue = slugAuto && (!prev.slug || prev.slug === suggestSlug(prev.title_h1))
+    return { ...prev, title_h1: title, slug: sigue && suggestSlug(title) ? suggestSlug(title) : prev.slug }
+  })
 
   const settledSlug = useDebounced(draft.slug)
   const slugCheck = useQuery({
@@ -174,7 +181,7 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
           {OPTION_LABELS.article_type[String(draft.fields.article_type ?? '')] && <><span aria-hidden>·</span><span>{OPTION_LABELS.article_type[String(draft.fields.article_type)]}</span></>}
         </div>
 
-        <textarea ref={titleRef} rows={1} value={draft.title_h1} disabled={disabled} onChange={e => set('title_h1', e.target.value.replace(/\n/g, ' '))}
+        <textarea ref={titleRef} rows={1} value={draft.title_h1} disabled={disabled} onChange={e => setTitle(e.target.value.replace(/\n/g, ' '))}
           placeholder="Título del artículo" aria-label="Título del artículo" spellCheck lang={item.lang}
           className="block w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[1.75rem] font-bold leading-tight tracking-tight text-fg placeholder:text-muted/50 focus:outline-none focus:ring-0 sm:text-[2.25rem]" />
 

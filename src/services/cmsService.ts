@@ -73,7 +73,7 @@ export const cmsService = {
     }
     return data as CmsItem
   },
-  async createTwin(groupId: string, lang: CmsLang, slug: string): Promise<CmsItem> {
+  async createTwin(groupId: string, lang: CmsLang, slug: string, title = ''): Promise<CmsItem> {
     const group = await cmsService.group(groupId)
     if (group.alcance !== 'universal') throw new Error('Solo un grupo universal puede tener las dos versiones.')
     if (group.items.some(item => item.lang === lang)) throw new Error('La versión ya existe. Actualiza la ficha.')
@@ -81,7 +81,7 @@ export const cmsService = {
     if (!source) throw new Error('Falta el artículo de origen para esta versión.')
     if (!validSlug(slug)) throw new Error('Escribe un slug válido para el nuevo idioma.')
     if (await cmsService.slugExists(group.type, lang, slug)) throw new Error('Ya existe ese slug en este idioma. Elige otro.')
-    const { data, error } = await supabase.from('cms_items').insert({ ...twinValues(source, lang), slug, group_id: groupId,
+    const { data, error } = await supabase.from('cms_items').insert({ ...twinValues(source, lang), title_h1: title.trim(), slug, group_id: groupId,
       type: group.type, lang, status: 'borrador', created_by: await userId() }).select('*').single()
     if (error) throw cmsError(error)
     return data as CmsItem

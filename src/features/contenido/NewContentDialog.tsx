@@ -29,7 +29,7 @@ export function NewContentDialog({ type, group, lang: targetLang, onClose }: {
   const [idea, setIdea] = useState(false)
   const create = useMutation({
     mutationFn: () => group
-      ? cmsService.createTwin(group.id, lang, slug)
+      ? cmsService.createTwin(group.id, lang, slug, title)
       : cmsService.create({ type: type.id, alcance: scope, lang, slug, title, idea }),
     onSuccess: async item => {
       await client.invalidateQueries({ queryKey: ['cms'] })
@@ -60,7 +60,11 @@ export function NewContentDialog({ type, group, lang: targetLang, onClose }: {
           texto se escriben de nuevo para {lang === 'es' ? 'quien busca en español' : 'quien busca en inglés'}: es otra
           pieza de SEO, no una traducción.
         </p>
-      </div> : <>
+      </div> : null}
+      {group && <Field label={`Título en ${LANGUAGES[lang].toLowerCase()}`} hint="Escríbelo sobre la palabra clave de este idioma. La dirección sale sola.">
+        <Input autoFocus value={title} onChange={e => { setTitle(e.target.value); if (!manualSlug) setSlug(suggestSlug(e.target.value)) }} />
+      </Field>}
+      {!group && <>
         <fieldset className="space-y-2">
           <legend className="t-label mb-2">¿Para quién es?</legend>
           {(Object.keys(SCOPES) as CmsScope[]).map(value => <label key={value}
@@ -82,7 +86,7 @@ export function NewContentDialog({ type, group, lang: targetLang, onClose }: {
         </Field>
       </>}
       <Field label="Dirección (slug)" hint={<span className="break-all">{publicUrl(lang, slug)}</span>}>
-        <Input autoFocus={!!group} required pattern="[a-z0-9]+(-[a-z0-9]+)*" value={slug}
+        <Input required pattern="[a-z0-9]+(-[a-z0-9]+)*" value={slug}
           onChange={e => { setManualSlug(true); setSlug(e.target.value) }}
           placeholder={lang === 'en' ? 'palabra-clave-en-ingles' : 'palabra-clave-en-espanol'} />
       </Field>

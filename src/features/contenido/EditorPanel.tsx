@@ -62,15 +62,18 @@ export function EditorPanel(p: PanelProps) {
         <Textarea value={draft.meta_description} disabled={p.disabled} onChange={e => set('meta_description', e.target.value)} className="min-h-[84px]"
           placeholder="Lo que verá la gente bajo el título en Google. Una promesa concreta." />
       </Field>
-      <Field label="Dirección (slug)" hint={<span className="break-all">{publicUrl(item.lang, draft.slug)}</span>}>
+      <Field label={<span className="flex items-center justify-between gap-2">Dirección (slug)
+        {slugTitulo === draft.slug && item.status !== 'publicado' && item.status !== 'archivado' && <span className="text-xs font-normal text-muted">Sigue al título</span>}</span>}
+        hint={<span className="break-all">{publicUrl(item.lang, draft.slug)}</span>}>
         <Input required pattern="[a-z0-9]+(-[a-z0-9]+)*" value={draft.slug} disabled={p.disabled}
           onChange={e => set('slug', e.target.value)} aria-invalid={p.slugState.duplicate} />
       </Field>
       {p.slugState.duplicate && <p role="alert" className="aviso-error">Ya hay un artículo en {LANGUAGES[item.lang].toLowerCase()} con esa dirección.</p>}
       {p.slugState.checking && <p className="t-hint">Comprobando la dirección…</p>}
       {p.slugState.failed && <p className="t-hint">No se pudo comprobar ahora; se vuelve a comprobar al guardar.</p>}
-      {slugTitulo && slugTitulo !== draft.slug && !p.disabled && item.status !== 'publicado' && <button type="button" onClick={() => set('slug', slugTitulo)}
-        className="-mt-2 text-left text-xs font-medium text-primary-600 hover:underline">Usar «{slugTitulo}»</button>}
+      {slugTitulo && slugTitulo !== draft.slug && !p.disabled && item.status !== 'publicado' && item.status !== 'archivado' &&
+        <button type="button" onClick={() => set('slug', slugTitulo)}
+          className="-mt-2 text-left text-xs font-medium text-primary-600 hover:underline">Volver a generarla del título</button>}
       {item.status === 'publicado' && <p className="t-hint -mt-2">Ojo: cambiar la dirección de un artículo publicado rompe los enlaces que ya apuntan a él.</p>}
       <ul className="space-y-1.5 rounded-xl bg-surface-2 p-3" aria-label="Comprobaciones SEO">
         {checks.map(c => <li key={c.texto} className="flex items-start gap-2 text-[0.8125rem]">
