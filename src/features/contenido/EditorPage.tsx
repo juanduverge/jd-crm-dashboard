@@ -13,8 +13,9 @@ import { BackToContent, ContentError, LangChip, LoadingContent, StatusBadge, Uns
 import { Cover, FormatBar, PreviewOverlay, useAutosize } from './EditorParts'
 import { EditorPanel } from './EditorPanel'
 import { useCmsGroup, useCmsItem, useCmsTypes, useDebounced, useUnsavedChanges } from './hooks'
-import { draftFromItem, isWebUrl, LANGUAGES, localizationWarnings, nombreMercado, OPTION_LABELS, scopeAllows, validateTypeFields, validSlug } from './model'
+import { draftFromItem, isWebUrl, LANGUAGES, localizationWarnings, nombreMercado, OPTION_LABELS, scopeAllows, suggestSlug, validateTypeFields, validSlug } from './model'
 import { NewContentDialog } from './NewContentDialog'
+import { PublishControls, PublishStatus } from './PublishControls'
 
 /**
  * Editor de un artículo.
@@ -39,9 +40,9 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
   const client = useQueryClient()
   const navigate = useNavigate()
   const canWrite = useAuthStore(state => state.user?.role === 'admin' || state.user?.role === 'vendedor')
+  const isAdmin = useAuthStore(state => state.user?.role === 'admin')
   const [item, setItem] = useState(initial)
   const [draft, setDraft] = useState<CmsDraft>(() => draftFromItem(initial))
-  const [status, setStatus] = useState(initial.status)
   const [panelOpen, setPanelOpen] = useState(false)
   const [preview, setPreview] = useState<'mine' | 'other' | null>(null)
   const [twinLang, setTwinLang] = useState<CmsLang | null>(null)
@@ -52,8 +53,15 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
   useAutosize(bodyRef, draft.body)
 
   const other = group.items.find(i => i.lang !== item.lang)
-  const dirty = JSON.stringify(draft) !== JSON.stringify(draftFromItem(item)) || status !== item.status
+  const dirty = JSON.stringify(draft) !== JSON.stringify(draftFromItem(item))
   const set = useCallback(<K extends keyof CmsDraft>(key: K, value: CmsDraft[K]) => setDraft(prev => ({ ...prev, [key]: value })), [])
+  // Como en Webflow: la dirección sigue al título mientras nadie la haya tocado
+  // a mano y el artículo no esté publicado (cambiarla entonces rompe enlaces).
+  const slugAuto = item.status !== 'publicado' && item.status !== 'archivado'
+  const setTitle = (title: string) => setDraft(prev => {
+    const sigue = slugAuto && (!prev.slug || prev.slug === suggestSlug(prev.title_h1))
+    return { ...prev, title_h1: title, slug: sigue && suggestSlug(title) ? suggestSlug(title) : prev.slug }
+  })
 
   const settledSlug = useDebounced(draft.slug)
   const slugCheck = useQuery({
@@ -64,10 +72,10 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
   const duplicate = draft.slug === settledSlug && slugCheck.data === true
 
   const save = useMutation({
-    mutationFn: (values: CmsDraft) => cmsService.saveItem(item, values,
-      status !== item.status && (status === 'idea' || status === 'borrador') ? status : undefined),
+    // El estado lo cambian los botones de publicación (PublishControls), no el guardado.
+    mutationFn: (values: CmsDraft) => cmsService.saveItem(item, values),
     onSuccess: async saved => {
-      setItem(saved); setDraft(draftFromItem(saved)); setStatus(saved.status); setValidation('')
+      setItem(saved); setDraft(draftFromItem(saved)); setValidation('')
       await client.invalidateQueries({ queryKey: ['cms'] })
       toast.success('Guardado')
     },
@@ -90,7 +98,7 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
     if (sources.some(s => !isWebUrl(s))) return fail('Cada fuente tiene que ser una dirección completa que empiece por https://.')
     if (draft.og_image && !isWebUrl(draft.og_image)) return fail('La URL de la portada tiene que empezar por https://.')
     if (duplicate || !validSlug(draft.slug)) return fail('Corrige la dirección (slug): solo minúsculas, números y guiones, y que no esté repetida.')
-    const typeError = validateTypeFields(draft, type.campos, status === 'idea')
+    const typeError = validateTypeFields(draft, type.campos, item.status === 'idea')
     if (typeError) return fail(typeError)
     setValidation('')
     save.mutate({ ...draft, sources })
@@ -115,7 +123,7 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
   const words = draft.body.trim() ? draft.body.trim().split(/\s+/).length : 0
   const saveLabel = save.isPending ? 'Guardando…' : dirty ? 'Sin guardar' : 'Guardado'
   const panelProps = {
-    item, group, type, draft, set, status, setStatus, disabled, canWrite, other,
+    item, group, type, draft, set, disabled, canWrite, other,
     slugState: { duplicate, checking: slugCheck.isFetching, failed: slugCheck.isError },
     onShowOther: () => setPreview('other'),
   }
@@ -138,17 +146,23 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
         <Button type="button" variant="outline" size="sm" className="lg:hidden" onClick={() => setPanelOpen(true)} aria-label="Ajustes">
           <SlidersHorizontal size={15} />
         </Button>
-        {canWrite && <Button type="submit" size="sm" disabled={disabled || !dirty || duplicate}>
-          <Save size={15} />{save.isPending ? 'Guardando…' : 'Guardar'}
+        {canWrite && <Button type="submit" size="sm" variant={dirty ? 'primary' : 'outline'} disabled={disabled || !dirty || duplicate} aria-label="Guardar">
+          <Save size={15} /><span className="hidden sm:inline">{save.isPending ? 'Guardando…' : 'Guardar'}</span>
         </Button>}
+        <PublishControls item={item} dirty={dirty} canWrite={canWrite} isAdmin={isAdmin} onChange={setItem} />
       </div>
     </div>
 
     <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div className="mx-auto w-full min-w-0 max-w-[760px] space-y-4">
+        <PublishStatus item={item} onRetry={isAdmin ? () => { void cmsService.publish('reconstruir')
+          .then(() => client.invalidateQueries({ queryKey: ['cms'] })).catch((e: Error) => toast.error(e.message)) } : undefined} />
         {item.status === 'publicado' && <p className="rounded-xl px-3 py-2 text-[0.8125rem]"
           style={{ color: 'rgb(var(--warn))', background: 'rgb(var(--warn-soft) / 0.55)' }}>
-          Está publicado. Lo que cambies se verá en la web cuando se vuelva a publicar.
+          Está publicado. Lo que guardes llega a la web al pulsar «Actualizar la web».
+        </p>}
+        {item.status === 'programado' && item.programado_para && <p className="rounded-xl bg-surface-2 px-3 py-2 text-[0.8125rem]">
+          Programado para el {new Date(item.programado_para).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' })}.
         </p>}
         {warnings.length > 0 && <div className="rounded-xl border border-amber-300/60 bg-amber-50/70 px-3 py-2 text-[0.8125rem] text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
           <p className="font-semibold">Revisa la localización</p>
@@ -167,7 +181,7 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
           {OPTION_LABELS.article_type[String(draft.fields.article_type ?? '')] && <><span aria-hidden>·</span><span>{OPTION_LABELS.article_type[String(draft.fields.article_type)]}</span></>}
         </div>
 
-        <textarea ref={titleRef} rows={1} value={draft.title_h1} disabled={disabled} onChange={e => set('title_h1', e.target.value.replace(/\n/g, ' '))}
+        <textarea ref={titleRef} rows={1} value={draft.title_h1} disabled={disabled} onChange={e => setTitle(e.target.value.replace(/\n/g, ' '))}
           placeholder="Título del artículo" aria-label="Título del artículo" spellCheck lang={item.lang}
           className="block w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[1.75rem] font-bold leading-tight tracking-tight text-fg placeholder:text-muted/50 focus:outline-none focus:ring-0 sm:text-[2.25rem]" />
 

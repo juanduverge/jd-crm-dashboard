@@ -12,6 +12,7 @@ import { ContentError, LangChip, LoadingContent } from './components'
 import { useCmsTypes } from './hooks'
 import { fechaArticulo, filterGroups, groupTitle, OPTION_LABELS, scopeAllows, SCOPES } from './model'
 import { NewContentDialog } from './NewContentDialog'
+import { PublishStatus } from './PublishControls'
 
 /**
  * Contenido — los artículos de la web, uno por fila aunque tengan dos idiomas.
@@ -56,6 +57,7 @@ export default function ContenidoPage() {
     <PageHeader title="Blog CMS" subtitle="Los artículos del blog de jddeveloper.com, en inglés y en español."
       actions={canWrite && type ? <Button onClick={() => setCreating(true)}><Plus size={16} />Nuevo artículo</Button> : undefined} />
 
+    <div className="mb-4 empty:hidden"><PublishStatus /></div>
     <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div role="tablist" aria-label="Filtrar por estado"
         className="-mx-3 flex gap-1 overflow-x-auto px-3 sin-barra scroll-aislado lg:mx-0 lg:px-0">
