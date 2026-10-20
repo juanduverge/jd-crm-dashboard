@@ -1,7 +1,7 @@
 # T03 · Conversión común de artículos
 
 **Para:** ChatGPT (Codex) · **Repo:** `JD Developer/jd-developer-site` · **Rama:** `cms/T03`
-**Depende de:** — · **Estado:** PENDIENTE
+**Depende de:** — · **Estado:** HECHA (fusionada en `main` el 20-oct, `7df483c`)
 
 ## Objetivo
 Sacar de `scripts/blog-nav.cjs` la lógica que convierte un artículo (Markdown + datos) en lo que la
@@ -67,7 +67,44 @@ git diff --stat main...cms/T03
 ---
 
 ## Informe del agente
-_(lo rellena ChatGPT al terminar: qué hizo, qué no, dudas, cómo lo probó)_
+**ChatGPT (Codex), 20-oct-2026. Implementada; pendiente de revisión de Claude.**
+
+- **Repo / rama / commit:** `jd-developer-site` · `cms/T03` (desde `main`, coincidente con la referencia local `origin/main`) · `66cdfee` — `refactor(cms): extraer conversión común de artículos (T03)`.
+- Copié los dos JSON originales a `scripts/.referencia/` antes de modificar el generador y añadí esa carpeta a `.gitignore`, como pide el paso 1. Las referencias son locales y no se incluyen en el commit.
+- Creé `src/cms/render.mjs`: ESM puro, importa únicamente `marked`, recibe los campos indicados y devuelve el `Post` con el mismo orden de claves. Contiene `TYPE_LABEL`, `MONTHS`, `renderArticulo`, `ordenarPosts` y `construirNav`. Conserva la conversión, las citas, la fecha legible, el extracto y los minutos de lectura; también acepta cuerpos con CRLF. La ordenación es estable y devuelve una copia del array.
+- Renombré el generador a `scripts/blog-nav.mjs`: lee y separa los Markdown, mapea sus campos, mantiene `COVER`, llama al módulo común y escribe los JSON. En `package.json` solo cambiaron `prebuild` y `predev`.
+- Añadí `scripts/check-render.mjs`: regenera y compara ambos archivos como bytes. Ante diferencias sale con código 1 e indica artículo/campo; también detecta cambios del orden de claves, serialización y referencias ausentes. Funciona aunque se ejecute desde otra carpeta y no crea ni sustituye referencias automáticamente.
+
+**Comprobaciones realizadas:**
+
+- `node scripts/check-render.mjs`: **OK**, los 3 artículos y los dos JSON son idénticos byte a byte. Repetido después de compilar y desde otra carpeta.
+- `npm run build`: **OK, código 0**, Next **15.5.28**, `prebuild` ejecutado y 84 páginas generadas. Muestra avisos previos por `cacheComponents`/`partialPrefetching` y el error de configuración de ESLint descrito abajo; aun así termina correctamente.
+- `npx tsc --noEmit`: **OK, código 0**, antes y después del cambio.
+- `npx eslint src`: **NO PASA por un problema preexistente**, reproducido antes de modificar código y después: `ERR_MODULE_NOT_FOUND` al importar `eslint-config-next/core-web-vitals` desde `eslint.config.mjs` (sugiere `core-web-vitals.js`). No llega a analizar `src`. No modifiqué esa configuración porque queda fuera del alcance permitido. Este criterio queda pendiente; no se presenta como aprobado.
+- Comprobación adicional de los tres archivos nuevos con ESLint sin la configuración rota, reglas `no-unused-vars` y `no-undef` y globales de Node declarados: **OK**. Es una comprobación parcial y no sustituye a `npx eslint src`.
+- Pruebas adicionales en memoria: campos y orden de `Post`, EN/ES, eliminación de H1 y firma By/Por, CRLF, citas en párrafos y citas aisladas, tipo desconocido, portada recibida, extracto largo, minutos de lectura, orden estable sin mutar la entrada y navegación vacía: **OK**.
+- Pruebas negativas del verificador: cambios de título y fecha en navegación, orden de claves, salto de línea adicional y referencia ausente: **código 1 y diagnóstico esperado**. Las referencias se restauraron al terminar y se volvió a comprobar la igualdad.
+- `node --check` para los tres archivos nuevos, comprobación de ausencia de imports de Node/`require` en el módulo, `git diff --check` y `git diff --stat main...cms/T03`: **OK**. Solo cambian los archivos permitidos y `.gitignore`, solicitado expresamente en el paso 1; los JSON generados no tienen diff. Árbol de trabajo del sitio limpio tras el commit.
+
+**Alcance:** sin cambios de dependencias, Next, contenido, páginas, configuración de despliegue ni base de datos. Sin despliegue, fusión ni push. En el CRM solo se rellena este informe, sin hacer commit. No quedan dudas sobre la conversión; falta la revisión de Claude y resolver por separado la configuración previa de ESLint para poder validar el lint completo.
 
 ## Revisión (Claude)
-_(veredicto: APROBADA o CAMBIOS, con la lista concreta)_
+**APROBADA · 20-oct-2026 · commit `66cdfee`**
+
+Comprobado por separado, no solo con el informe:
+- `node scripts/check-render.mjs` → idéntico. Además comparé la salida de la rama con los JSON
+  **versionados en `main`** (no con la referencia local que creó el agente): `cmp` sin diferencias.
+- `npx tsc --noEmit` → 0. `npm run build` → 0, 84 páginas, «blog: 3 artículos».
+- `src/cms/render.mjs` no importa nada de Node. Solo cambian los archivos permitidos (+ `.gitignore`, pedido).
+- La conversión es una extracción fiel de `blog-nav.cjs` (mismas expresiones regulares y orden de
+  claves). Añade normalización de CRLF en el cuerpo: inocua y útil para lo que llegue del CRM.
+- ESLint: confirmado que **también falla en `main`** (`eslint-config-next/core-web-vitals` no
+  resuelve). No es de esta tarea → queda como tarea aparte (T03b).
+
+Notas para más adelante (no bloquean):
+- `new Date(fecha + "T12:00:00")` depende de la zona horaria de quien compila; viene del script
+  original y a mediodía no cambia el día. Se deja igual.
+- El campo `excerpt` de Supabase todavía no se usa: el extracto se calcula del primer párrafo. Se
+  decidirá en T06 si el editor permite escribirlo a mano.
+
+**Pendiente:** ok de Juan para fusionar `cms/T03` en `main` (no despliega nada; el resultado es idéntico).

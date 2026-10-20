@@ -1,7 +1,7 @@
 # T04 · La compilación de la web lee los artículos de Supabase
 
 **Para:** ChatGPT (Codex) · **Repo:** `JD Developer/jd-developer-site` · **Rama:** `cms/T04` (desde `main` con T03 ya fusionada)
-**Depende de:** T03 aprobada y fusionada · **Estado:** PENDIENTE (no empezar hasta que T03 esté HECHA)
+**Depende de:** T03 (HECHA) · **Estado:** PENDIENTE — se puede empezar
 
 ## Objetivo
 Al compilar, la web saca los artículos publicados de Supabase en vez de `content/blog/*.md`.
