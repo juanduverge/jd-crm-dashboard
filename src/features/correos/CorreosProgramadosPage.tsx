@@ -39,14 +39,18 @@ function pestanaDe(l: LeadSecuencia): Pestana {
   return 'cancelado'
 }
 
-function AvisoWhatsapp({ estado }: { estado: string | null }) {
+function AvisoWhatsapp({ estado, intentos, ultimoIntento }: { estado: string | null; intentos: number; ultimoIntento: string | null }) {
   if (estado === 'no_aparece') {
     return <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"><Check size={12} />Sin WhatsApp</Badge>
   }
   if (estado === 'confirmado') {
     return <Badge className="bg-red-500/10 text-red-700 dark:text-red-300"><MessageCircle size={12} />Tiene WhatsApp, no se envía</Badge>
   }
-  return <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-300"><Clock size={12} />Espera verificar WhatsApp</Badge>
+  // Sin veredicto no es «no tiene»: WhatsApp no sincronizó el contacto.
+  const detalle = intentos > 0 && ultimoIntento
+    ? `Sin resultado tras ${intentos} ${intentos === 1 ? 'intento' : 'intentos'} · último ${fechaCorta(ultimoIntento)}`
+    : 'Aún sin verificar WhatsApp'
+  return <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-300"><Clock size={12} />{detalle}</Badge>
 }
 
 function EstadoCorreo({ c }: { c: CorreoSecuencia }) {
@@ -124,7 +128,7 @@ function TarjetaLead({ l, pestana }: { l: LeadSecuencia; pestana: Pestana }) {
           <p className="t-card truncate">{l.empresa}</p>
           <p className="t-hint truncate">{[l.ciudad, destino].filter(Boolean).join(' · ')}</p>
         </button>
-        <AvisoWhatsapp estado={l.whatsappEstado} />
+        <AvisoWhatsapp estado={l.whatsappEstado} intentos={l.whatsappIntentos} ultimoIntento={l.whatsappUltimoIntento} />
       </div>
 
       {revisar.length > 0 && pestana === 'por_aprobar' && (

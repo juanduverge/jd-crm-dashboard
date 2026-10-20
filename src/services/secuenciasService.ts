@@ -35,6 +35,8 @@ export interface LeadSecuencia {
   ciudad: string | null
   web: string | null
   whatsappEstado: string | null
+  whatsappIntentos: number
+  whatsappUltimoIntento: string | null
   correos: CorreoSecuencia[]
 }
 
@@ -52,7 +54,7 @@ interface Fila {
   sent_at: string | null
   motivo_cancelacion: string | null
   error: string | null
-  leads: { empresa: string | null; ciudad: string | null; web: string | null; whatsapp_estado: string | null } | null
+  leads: { empresa: string | null; ciudad: string | null; web: string | null; whatsapp_estado: string | null; whatsapp_intentos: number | null; whatsapp_ultimo_intento: string | null } | null
 }
 
 /** Claves de Ajustes que gobiernan el envío (0053). */
@@ -72,7 +74,7 @@ export const secuenciasService = {
 
     const filas = (await traerTodas((desde, hasta) => supabase
       .from('outreach_messages')
-      .select('id, lead_id, toque, asunto, cuerpo, destinatario, status, revisar, nota_revision, aprobado_en, sent_at, motivo_cancelacion, error, leads(empresa, ciudad, web, whatsapp_estado)')
+      .select('id, lead_id, toque, asunto, cuerpo, destinatario, status, revisar, nota_revision, aprobado_en, sent_at, motivo_cancelacion, error, leads(empresa, ciudad, web, whatsapp_estado, whatsapp_intentos, whatsapp_ultimo_intento)')
       .not('toque', 'is', null)
       .order('lead_id')
       .order('toque')
@@ -89,6 +91,8 @@ export const secuenciasService = {
           ciudad: f.leads?.ciudad ?? null,
           web: f.leads?.web ?? null,
           whatsappEstado: f.leads?.whatsapp_estado ?? null,
+          whatsappIntentos: f.leads?.whatsapp_intentos ?? 0,
+          whatsappUltimoIntento: f.leads?.whatsapp_ultimo_intento ?? null,
           correos: [],
         }
         porLead.set(f.lead_id, g)
