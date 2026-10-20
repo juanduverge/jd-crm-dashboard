@@ -29,7 +29,8 @@ declare
   v_clave   text;
   v_id      uuid;
   -- Solo rutas internas: «/blog/x». Cualquier otra cosa se descarta.
-  v_landing  text := case when p->>'landing'  ~ '^/[A-Za-z0-9/_.-]{0,299}$' then p->>'landing'  end;
+  -- (Postgres no admite repeticiones {n,m} de más de 255: el largo va aparte.)
+  v_landing  text := case when length(p->>'landing') <= 300 and p->>'landing' ~ '^/[A-Za-z0-9/_.-]*$' then p->>'landing' end;
   v_articulo text := case when p->>'articulo' ~ '^(/es)?/blog/[a-z0-9-]{1,200}$' then p->>'articulo' end;
 begin
   if v_email !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' or v_nombre = '' then
