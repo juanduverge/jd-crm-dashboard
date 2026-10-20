@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, X, Pencil, Mail, AlertTriangle, MessageCircle, Power, Clock } from 'lucide-react'
+import { Check, X, Pencil, Mail, AlertTriangle, MessageCircle, Power } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Badge, Input, Textarea, Skeleton, EmptyState } from '@/components/ui'
 import { cn } from '@/lib/utils'
@@ -46,11 +46,11 @@ function AvisoWhatsapp({ estado, intentos, ultimoIntento }: { estado: string | n
   if (estado === 'confirmado') {
     return <Badge className="bg-red-500/10 text-red-700 dark:text-red-300"><MessageCircle size={12} />Tiene WhatsApp, no se envía</Badge>
   }
-  // Sin veredicto no es «no tiene»: WhatsApp no sincronizó el contacto.
+  // Sin «confirmado» sale tras 5 h aprobado (0056): ya no se espera al verificador.
   const detalle = intentos > 0 && ultimoIntento
-    ? `Sin resultado tras ${intentos} ${intentos === 1 ? 'intento' : 'intentos'} · último ${fechaCorta(ultimoIntento)}`
-    : 'Aún sin verificar WhatsApp'
-  return <Badge className="bg-amber-500/10 text-amber-700 dark:text-amber-300"><Clock size={12} />{detalle}</Badge>
+    ? `Sin WhatsApp confirmado · ${intentos} ${intentos === 1 ? 'intento' : 'intentos'} (último ${fechaCorta(ultimoIntento)})`
+    : 'Sin WhatsApp confirmado'
+  return <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"><Check size={12} />{detalle}</Badge>
 }
 
 function EstadoCorreo({ c }: { c: CorreoSecuencia }) {
