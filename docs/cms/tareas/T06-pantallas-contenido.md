@@ -1,7 +1,7 @@
 # T06 · Pantallas de Contenido en el CRM
 
 **Para:** ChatGPT (Codex) · **Repo:** `jd-crm-dashboard` (este) · **Rama:** `cms/T06`
-**Depende de:** T02 (tablas, HECHA) y T03 (módulo de conversión, HECHA) · **Estado:** PENDIENTE — se puede empezar
+**Depende de:** T02 y T03 (HECHAS) · **Estado:** HECHA (aprobada por Juan el 20-oct)
 
 ## Objetivo
 Una sección **Contenido** en el CRM donde se crean y editan artículos del blog en inglés y en
