@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-import type { CmsDraft, CmsGroup, CmsItem, CmsLang, CmsNewGroup, CmsScope, CmsType } from '@/types/cms'
+import type { CmsAccion, CmsDraft, CmsGroup, CmsItem, CmsLang, CmsNewGroup, CmsPublicacion, CmsScope, CmsType } from '@/types/cms'
 import { MERCADO_POR_DEFECTO, scopeAllows, twinValues, validSlug } from '@/features/contenido/model'
 
 export function cmsError(error: unknown): Error {
@@ -107,6 +107,36 @@ export const cmsService = {
     if (error) throw cmsError(error)
     if (!data) throw new Error('Este artículo cambió en otra sesión. Tu texto sigue aquí; cópialo antes de recargar y comparar.')
     return data as CmsItem
+  },
+  /**
+   * Cambios de estado que no tocan la web: idea, borrador, revisión y programado.
+   * Programar lo bloquea la base para quien no es admin (trigger de la 0057).
+   */
+  async setStatus(item: CmsItem, status: 'idea' | 'borrador' | 'revision' | 'programado', programadoPara?: string): Promise<CmsItem> {
+    if (status === 'programado' && !programadoPara) throw new Error('Elige el día y la hora.')
+    const { data, error } = await supabase.from('cms_items')
+      .update({ status, programado_para: status === 'programado' ? programadoPara : null })
+      .eq('id', item.id).eq('updated_at', item.updated_at).is('deleted_at', null).select('*').maybeSingle()
+    if (error) throw cmsError(error)
+    if (!data) throw new Error('Este artículo cambió en otra sesión. Recarga la página.')
+    return data as CmsItem
+  },
+  /** Publicar, retirar o actualizar la web. Lo hace la Edge Function cms-publicar (solo admin). */
+  async publish(accion: CmsAccion, itemId?: string): Promise<string> {
+    const { data, error } = await supabase.functions.invoke('cms-publicar', { body: { accion, item_id: itemId } })
+    if (error) {
+      // El mensaje útil viene en el cuerpo de la respuesta, no en el error genérico.
+      const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+      throw new Error(body?.error ?? 'No se pudo publicar. Inténtalo de nuevo.')
+    }
+    return (data as { publicacion_id: string }).publicacion_id
+  },
+  async publicaciones(limit = 10): Promise<CmsPublicacion[]> {
+    const { data, error } = await supabase.from('cms_publicaciones')
+      .select('id,item_ids,accion,estado,detalle,run_url,created_at,iniciado_en,terminado_en')
+      .order('created_at', { ascending: false }).limit(limit)
+    if (error) throw cmsError(error)
+    return (data ?? []) as CmsPublicacion[]
   },
   async uploadCover(itemId: string, file: File): Promise<string> {
     if (!['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'].includes(file.type)) throw new Error('Elige una imagen JPG, PNG, WebP, AVIF o GIF.')

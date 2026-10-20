@@ -16,14 +16,21 @@ export interface PanelProps {
   type: CmsType
   draft: CmsDraft
   set: <K extends keyof CmsDraft>(key: K, value: CmsDraft[K]) => void
-  status: CmsStatus
-  setStatus: (status: 'idea' | 'borrador') => void
   slugState: { duplicate: boolean; checking: boolean; failed: boolean }
   disabled: boolean
   canWrite: boolean
   other?: CmsItem
   onShowOther: () => void
 }
+
+const CAMINO: [CmsStatus, string][] = [
+  ['idea', 'tema y palabra clave'],
+  ['borrador', 'escribiendo'],
+  ['revision', 'listo para que lo lea Juan'],
+  ['programado', 'sale solo a la hora elegida'],
+  ['publicado', 'en la web'],
+  ['archivado', 'retirado de la web, guardado'],
+]
 
 /** Todo lo que no es escribir: SEO, datos del artículo, fuentes y la pieza. */
 export function EditorPanel(p: PanelProps) {
@@ -75,7 +82,7 @@ export function EditorPanel(p: PanelProps) {
 
     <PanelSection title="Artículo" summary={draft.fecha ?? undefined}>
       <TypeFields fields={p.type.campos} values={draft.fields} lang={item.lang} disabled={p.disabled}
-        allowIncomplete={p.status === 'idea'} onChange={fields => set('fields', fields)} />
+        allowIncomplete={item.status === 'idea'} onChange={fields => set('fields', fields)} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
         <Field label="Autor"><Input value={draft.author} disabled={p.disabled} onChange={e => set('author', e.target.value)} /></Field>
         <Field label="Fecha"><Input type="date" value={draft.fecha ?? ''} disabled={p.disabled} onChange={e => set('fecha', e.target.value || null)} /></Field>
@@ -98,14 +105,14 @@ export function EditorPanel(p: PanelProps) {
       </Button>
     </PanelSection>
 
-    <PanelSection title="Estado" summary={STATUSES[p.status]}>
-      {(['idea', 'borrador'] as CmsStatus[]).includes(item.status) ? <Field label="Etapa"
-        hint="Revisar, programar y publicar llegan con el botón Publicar.">
-        <Select value={p.status} disabled={p.disabled} onChange={e => p.setStatus(e.target.value as 'idea' | 'borrador')}>
-          <option value="idea">Idea: tema y palabra clave</option>
-          <option value="borrador">Borrador: escribiendo</option>
-        </Select>
-      </Field> : <p className="t-hint">Este artículo está en «{STATUSES[item.status]}». Su estado se cambia desde la publicación.</p>}
+    <PanelSection title="Estado" summary={STATUSES[item.status]}>
+      <ol className="space-y-1.5 text-[0.8125rem]">
+        {CAMINO.map(([s, texto]) => <li key={s} className={cn('flex gap-2', s === item.status ? 'font-semibold text-fg' : 'text-muted')}>
+          <span className={cn('mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full', s === item.status ? 'bg-primary-400' : 'bg-border')} />
+          <span>{STATUSES[s]}: {texto}</span>
+        </li>)}
+      </ol>
+      <p className="t-hint">El botón de arriba lleva el artículo al paso siguiente. Publicar, programar y retirar son solo para administradores.</p>
     </PanelSection>
 
     <GroupSection group={p.group} canWrite={p.canWrite} />
