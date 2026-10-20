@@ -1,0 +1,27 @@
+/* Cuerpo del artículo: reglas de src/monova/monova.css y BlogSingle.tsx de la web. */
+:root { --f-tight: Archivo; --f-inter: Manrope; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: #FBF3EB; color: #0C0B10; }
+body { font-family: var(--f-inter), system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+main { min-width: 0; overflow-wrap: anywhere; }
+header { max-width: 880px; margin: 0 auto; padding: clamp(128px,14vw,176px) 24px clamp(40px,5vw,64px); text-align: center; }
+.meta { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: center; font-size: 14px; color: #737373; }
+h1 { margin: 28px 0; font-family: var(--f-tight),sans-serif; font-weight: 500; font-size: clamp(38px,5.6vw,72px); line-height: 1.05; letter-spacing: -.035em; text-wrap: balance; }
+.author { font-size: 15px; font-weight: 500; }
+.cover { margin: 0 24px clamp(48px,6vw,80px); aspect-ratio: 21/9; border-radius: 16px; overflow: hidden; background: #F3E7DA; }
+.cover img { width: 100%; height: 100%; object-fit: cover; }
+article { max-width: 768px; margin: 0 auto; padding: 0 24px clamp(72px,10vw,128px); font-size: 19px; line-height: 1.7; }
+.jd-prose { display: flex; flex-direction: column; gap: 28px; }
+.jd-prose > * { margin: 0; }
+.jd-prose h2 { font-family: var(--f-tight), sans-serif; font-weight: 500; font-size: clamp(28px,3vw,36px); letter-spacing: -.03em; line-height: 1.15; margin-top: 24px; }
+.jd-prose h3 { font-family: var(--f-tight), sans-serif; font-weight: 500; font-size: 26px; letter-spacing: -.03em; line-height: 1.2; margin-top: 12px; }
+.jd-prose ul, .jd-prose ol { padding-left: 1.3em; display: flex; flex-direction: column; gap: 10px; }
+.jd-prose a { color: #B23A0C; text-decoration: underline; text-underline-offset: 3px; }
+.jd-prose blockquote { padding: 4px 0 4px 20px; border-left: 3px solid #F4571F; font-size: clamp(22px,2.4vw,28px); line-height: 1.3; }
+.jd-prose strong { font-weight: 700; }
+.jd-prose table { border-collapse: collapse; width: 100%; font-size: 16px; }
+.jd-prose th, .jd-prose td { border-bottom: 1px solid #E7D9CA; padding: 10px 12px 10px 0; text-align: left; vertical-align: top; }
+.jd-prose .jd-cite { font-size: 15px; line-height: 1.5; color: #737373; margin-top: -12px; }
+.jd-prose .jd-cite span { font-weight: 700; color: #0C0B10; letter-spacing: .04em; text-transform: uppercase; font-size: 12px; margin-right: 4px; }
+.jd-prose img, .jd-prose video { max-width: 100%; height: auto; }
+.jd-prose pre { max-width: 100%; overflow-x: auto; font-size: 15px; }
