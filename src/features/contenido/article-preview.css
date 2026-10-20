@@ -32,3 +32,11 @@ article { max-width: 768px; margin: 0 auto; padding: 0 24px clamp(72px,10vw,128p
 .jd-prose .jd-sources summary { cursor: pointer; font-weight: 700; color: #0C0B10; }
 .jd-prose .jd-sources ol { margin-top: 14px; gap: 6px; font-size: 14px; }
 .jd-prose .jd-sources li a { color: #737373; overflow-wrap: anywhere; }
+.jd-prose .jd-faqs { border-bottom: 1px solid #E7D9CA; }
+.jd-prose .jd-faq { border-top: 1px solid #E7D9CA; padding: 20px 0; }
+.jd-prose .jd-faq summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; gap: 24px; font-family: var(--f-tight), sans-serif; font-weight: 500; font-size: clamp(18px,1.8vw,22px); letter-spacing: -.02em; line-height: 1.3; }
+.jd-prose .jd-faq summary::-webkit-details-marker { display: none; }
+.jd-prose .jd-faq summary span { flex: 0 0 auto; font-size: 24px; line-height: 1; transition: transform .2s ease; }
+.jd-prose .jd-faq[open] summary span { transform: rotate(45deg); }
+.jd-prose .jd-faq > div { margin-top: 14px; font-size: 17px; line-height: 1.65; color: #4A4A4A; display: flex; flex-direction: column; gap: 14px; }
+.jd-prose .jd-faq > div > * { margin: 0; }

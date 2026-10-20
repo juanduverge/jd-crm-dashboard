@@ -37,12 +37,15 @@ export function renderArticulo(datos) {
   // Solo se numeran enlaces externos: un enlace interno al final (a un servicio) se queda como está.
   const externos = (grupo) => enlaces(grupo).every(([, href]) => /^https?:\/\//.test(href));
   const LINKS = String.raw`(?:<a [^>]*>[^<]*<\/a>(?:,\s*|;\s*)?)+`;
-  const html = marked
+  const htmlBase = marked
     .parse(body, { async: false })
     .replace(new RegExp(String.raw`<p>((?:(?!<\/p>)[\s\S])*?[.!?:])\s+(${LINKS})<\/p>`, "g"),
       (todo, texto, grupo) => (externos(grupo) ? `<p>${texto}${sup(grupo)}</p>` : todo))
     .replace(new RegExp(String.raw`<p>(${LINKS})<\/p>`, "g"),
       (todo, grupo) => (externos(grupo) ? `<p class="jd-ref-sola">${sup(grupo)}</p>` : todo));
+  // Las preguntas frecuentes se pliegan como en el resto de la web (FaqBlock): cada ### de la
+  // sección FAQ pasa a ser un <details> con su respuesta dentro. Así el artículo no se alarga.
+  const html = plegarFaq(htmlBase);
   // La lista final sigue la numeración del texto; las fuentes no citadas van después.
   const sources = [...refs, ...(datos.sources ?? []).filter((u) => !refs.includes(u))];
 
@@ -70,6 +73,26 @@ export function renderArticulo(datos) {
     sources,
     gemela: datos.gemela ?? null,
   };
+}
+
+const FAQ_TITULO = /<h2>(FAQ|FAQs|Frequently asked questions|Preguntas frecuentes)<\/h2>/i;
+
+/** Convierte los <h3> de la sección FAQ (hasta el siguiente <h2>) en preguntas desplegables. */
+function plegarFaq(html) {
+  const m = html.match(FAQ_TITULO);
+  if (!m) return html;
+  const inicio = m.index + m[0].length;
+  const resto = html.slice(inicio);
+  const fin = resto.search(/<h2[\s>]/);
+  const seccion = fin < 0 ? resto : resto.slice(0, fin);
+  const preguntas = seccion.split(/(?=<h3[\s>])/).filter((p) => p.trim().startsWith("<h3"));
+  if (!preguntas.length) return html;
+  const items = preguntas.map((p) => {
+    const q = p.match(/^\s*<h3[^>]*>([\s\S]*?)<\/h3>/);
+    const respuesta = p.slice(q[0].length).trim();
+    return `<details class="jd-faq"><summary>${q[1]}<span aria-hidden="true">+</span></summary><div>${respuesta}</div></details>`;
+  });
+  return html.slice(0, inicio) + `<div class="jd-faqs">${items.join("")}</div>` + (fin < 0 ? "" : resto.slice(fin));
 }
 
 /** Lista de fuentes al pie, plegada y numerada como los ¹ ² del texto. */
