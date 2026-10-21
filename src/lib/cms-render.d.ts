@@ -18,7 +18,7 @@ declare module '@/lib/cms-render.mjs' {
     slug: string; lang: 'en' | 'es'; title: string; titleSeo: string; description: string
     type: string; cat: string; date: string; dateLabel: string; readMin: number
     author: string; serviceLink: string; cover: string; html: string; excerpt: string
-    sources: string[]; gemela: { lang: 'en' | 'es'; slug: string } | null
+    sources: string[]; toc: { id: string; label: string }[]; gemela: { lang: 'en' | 'es'; slug: string } | null
   }
   export function renderArticulo(datos: RenderInput): RenderedPost
   export function ordenarPosts(posts: RenderedPost[]): RenderedPost[]

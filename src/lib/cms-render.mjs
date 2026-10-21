@@ -45,7 +45,8 @@ export function renderArticulo(datos) {
       (todo, grupo) => (externos(grupo) ? `<p class="jd-ref-sola">${sup(grupo)}</p>` : todo));
   // Las preguntas frecuentes se pliegan como en el resto de la web (FaqBlock): cada ### de la
   // sección FAQ pasa a ser un <details> con su respuesta dentro. Así el artículo no se alarga.
-  const html = plegarFaq(htmlBase);
+  const { html: conIds, toc } = indice(htmlBase);
+  const html = cajaFinal(cajaResumen(plegarFaq(conIds)));
   // La lista final sigue la numeración del texto; las fuentes no citadas van después.
   const sources = [...refs, ...(datos.sources ?? []).filter((u) => !refs.includes(u))];
 
@@ -71,11 +72,43 @@ export function renderArticulo(datos) {
     html,
     excerpt: firstPara.length > 170 ? firstPara.slice(0, 167).replace(/\s+\S*$/, "").replace(/[.,;:\s]+$/, "") + "…" : firstPara,
     sources,
+    toc,
     gemela: datos.gemela ?? null,
   };
 }
 
-const FAQ_TITULO = /<h2>(FAQ|FAQs|Frequently asked questions|Preguntas frecuentes)<\/h2>/i;
+const sinEtiquetas = (s) => s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();
+const idDe = (texto) => sinEtiquetas(texto).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+  .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "seccion";
+
+/** Da un id a cada <h2> y devuelve el índice («En este artículo») a partir de ellos. */
+function indice(html) {
+  const toc = [];
+  const usados = new Set();
+  const out = html.replace(/<h2>([\s\S]*?)<\/h2>/g, (_, texto) => {
+    let id = idDe(texto);
+    for (let n = 2; usados.has(id); n++) id = `${idDe(texto)}-${n}`;
+    usados.add(id);
+    toc.push({ id, label: sinEtiquetas(texto) });
+    return `<h2 id="${id}">${texto}</h2>`;
+  });
+  return { html: out, toc };
+}
+
+/** «TL;DR» / «En resumen» + su lista → caja gris con la lista numerada (01, 02…). */
+function cajaResumen(html) {
+  return html.replace(/<h2 id="([^"]+)">(TL;DR|En resumen|Resumen|Quick answer|In short)<\/h2>\s*<ul>([\s\S]*?)<\/ul>/i,
+    (_, id, titulo, items) => `<section class="jd-tldr"><h2 id="${id}">${titulo}</h2><ol>${items}</ol></section>`);
+}
+
+/** La última sección, si no son las preguntas, es la llamada final: va en una caja con borde. */
+function cajaFinal(html) {
+  const i = html.lastIndexOf('<h2 id="');
+  if (i < 0 || html.slice(i).includes('class="jd-faqs"') || html.slice(i).includes('class="jd-tldr"')) return html;
+  return `${html.slice(0, i)}<section class="jd-cta">${html.slice(i)}</section>`;
+}
+
+const FAQ_TITULO = /<h2 id="[^"]*">(FAQ|FAQs|Frequently asked questions|Preguntas frecuentes)<\/h2>/i;
 
 /** Convierte los <h3> de la sección FAQ (hasta el siguiente <h2>) en preguntas desplegables. */
 function plegarFaq(html) {
@@ -90,7 +123,7 @@ function plegarFaq(html) {
   const items = preguntas.map((p) => {
     const q = p.match(/^\s*<h3[^>]*>([\s\S]*?)<\/h3>/);
     const respuesta = p.slice(q[0].length).trim();
-    return `<details class="jd-faq"><summary>${q[1]}<span aria-hidden="true">+</span></summary><div>${respuesta}</div></details>`;
+    return `<details class="jd-faq"><summary><span>${q[1]}</span><i aria-hidden="true">+</i></summary><div>${respuesta}</div></details>`;
   });
   return html.slice(0, inicio) + `<div class="jd-faqs">${items.join("")}</div>` + (fin < 0 ? "" : resto.slice(fin));
 }
