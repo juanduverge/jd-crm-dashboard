@@ -186,7 +186,7 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
           className="block w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[1.75rem] font-bold leading-tight tracking-tight text-fg placeholder:text-muted/50 focus:outline-none focus:ring-0 sm:text-[2.25rem]" />
 
         <div className="sticky top-[calc(var(--topbar-h)+var(--safe-top)+49px)] z-10 -mx-1 border-b border-border bg-bg/95 px-1 py-1 backdrop-blur">
-          <FormatBar target={bodyRef} disabled={disabled} onChange={value => set('body', value)} />
+          <FormatBar target={bodyRef} lang={item.lang} disabled={disabled} onChange={value => set('body', value)} />
         </div>
 
         <textarea ref={bodyRef} value={draft.body} disabled={disabled} onChange={e => set('body', e.target.value)}
