@@ -80,7 +80,8 @@ export const publicUrl = (lang: CmsLang, slug: string) =>
 export function draftFromItem(item: CmsItem): CmsDraft {
   return { slug: item.slug, title_h1: item.title_h1, title_seo: item.title_seo, meta_description: item.meta_description,
     primary_keyword: item.primary_keyword ?? '', mercado: item.mercado ?? null, author: item.author, fecha: item.fecha,
-    sources: [...item.sources], og_image: item.og_image, fields: structuredClone(item.fields), body: item.body }
+    sources: [...item.sources], og_image: item.og_image, fields: structuredClone(item.fields), body: item.body,
+    tldr: [...(item.tldr ?? [])], faqs: (item.faqs ?? []).map(f => ({ ...f })), cierre: item.cierre ? { ...item.cierre } : null }
 }
 
 // Las versiones comparten datos, nunca texto redactado para un idioma. El
@@ -91,7 +92,8 @@ export function twinValues(item: CmsItem, lang: CmsLang): Omit<CmsDraft, 'slug'>
   const service = SERVICES.find(s => fields.related_service === servicePath(item.lang, s))
   if (service) fields.related_service = servicePath(lang, service)
   return { title_h1: '', title_seo: '', meta_description: '', primary_keyword: '', body: '', mercado: MERCADO_POR_DEFECTO[lang],
-    author: item.author, fecha: item.fecha, sources: [...item.sources], og_image: item.og_image, fields }
+    author: item.author, fecha: item.fecha, sources: [...item.sources], og_image: item.og_image, fields,
+    tldr: [], faqs: [], cierre: null }
 }
 
 /** Título que representa a una pieza en la lista: el de cualquier versión que lo tenga. */

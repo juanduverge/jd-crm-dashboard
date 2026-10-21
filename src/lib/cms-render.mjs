@@ -20,7 +20,10 @@ export function renderArticulo(datos) {
   // desaparecía de la web un párrafo como «Por eso…» en un artículo sin firma.
   const autor = String(datos.author ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const firma = new RegExp(`^\\s*(?:By|Por) ${autor}[ \\t]*\\n`, "m");
-  const body = datos.body.replace(/\r\n/g, "\n").replace(/^\s*# .*\n/, "").replace(firma, "");
+  const contenido = datos.body.replace(/\r\n/g, "\n").replace(/^\s*# .*\n/, "").replace(firma, "");
+  // Casillas (0062): resumen, preguntas y cierre van aparte del contenido; aquí se recompone el
+  // artículo completo y el resto del proceso (cajas, índice, desplegables) funciona igual.
+  const body = componer(contenido, datos, lang);
   const words = body.split(/\s+/).length;
   const firstPara = body.trim().split("\n\n")[0].replace(/[*_`]/g, "");
 
@@ -46,7 +49,8 @@ export function renderArticulo(datos) {
   // Las preguntas frecuentes se pliegan como en el resto de la web (FaqBlock): cada ### de la
   // sección FAQ pasa a ser un <details> con su respuesta dentro. Así el artículo no se alarga.
   const { html: conIds, toc } = indice(htmlBase);
-  const html = cajaFinal(cajaResumen(plegarFaq(conIds)));
+  // La caja final solo envuelve la casilla Cierre; sin ella, la última sección es contenido normal.
+  const html = datos.cierre?.titulo ? cajaFinal(cajaResumen(plegarFaq(conIds))) : cajaResumen(plegarFaq(conIds));
   // La lista final sigue la numeración del texto; las fuentes no citadas van después.
   const sources = [...refs, ...(datos.sources ?? []).filter((u) => !refs.includes(u))];
 
@@ -75,6 +79,23 @@ export function renderArticulo(datos) {
     toc,
     gemela: datos.gemela ?? null,
   };
+}
+
+const TITULOS = { en: { tldr: "TL;DR", faq: "FAQ" }, es: { tldr: "En resumen", faq: "Preguntas frecuentes" } };
+
+/** Contenido + casillas → Markdown completo: resumen tras el primer párrafo, preguntas y cierre al final. */
+function componer(contenido, datos, lang) {
+  const tldr = (datos.tldr ?? []).filter((t) => String(t).trim());
+  const faqs = (datos.faqs ?? []).filter((f) => f && String(f.q ?? "").trim());
+  const cierre = datos.cierre?.titulo ? datos.cierre : null;
+  if (!tldr.length && !faqs.length && !cierre) return contenido;
+  const partes = contenido.trim().split("\n\n");
+  const bloques = [partes.shift() ?? ""];
+  if (tldr.length) bloques.push(`## ${TITULOS[lang].tldr}`, tldr.map((t) => `- ${String(t).trim()}`).join("\n"));
+  if (partes.length) bloques.push(partes.join("\n\n"));
+  if (faqs.length) bloques.push(`## ${TITULOS[lang].faq}`, ...faqs.map((f) => `### ${String(f.q).trim()}\n\n${String(f.a ?? "").trim()}`));
+  if (cierre) bloques.push(`## ${String(cierre.titulo).trim()}`, String(cierre.texto ?? "").trim());
+  return bloques.join("\n\n") + "\n";
 }
 
 const sinEtiquetas = (s) => s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim();

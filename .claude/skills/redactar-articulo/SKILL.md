@@ -57,12 +57,12 @@ Sigue la forma de los artículos publicados (léelos con
 `select body from cms_items where status = 'publicado'`):
 
 1. **Primer párrafo = la respuesta**, en unas 50 palabras, con la palabra clave.
-2. `## TL;DR` (en: TL;DR · es: TL;DR) con 3–5 viñetas.
+2. El **resumen** (3–5 puntos) va en la casilla `tldr`, NO en el texto (0062).
 3. Secciones `##` formuladas como **las preguntas que busca la gente** en ese idioma.
 4. Las fuentes, como enlaces Markdown al final del párrafo que respaldan:
    `… según Google. [Guía de verificación](https://support.google.com/...)`.
-5. `## FAQ` / `## Preguntas frecuentes` con 3 preguntas `###`.
-6. Cierre: qué hacer ahora + enlace al servicio con la ruta exacta del idioma
+5. Las **preguntas** (3) van en la casilla `faqs` como `[{"q":"…","a":"…"}]`, NO en el texto.
+6. El **cierre** va en la casilla `cierre` como `{"titulo":"…","texto":"…"}`: qué hacer ahora + enlace al servicio con la ruta exacta del idioma
    (`/services/local-seo` · `/es/servicios/seo-local`) + «We reply the same day» / «Respondemos el
    mismo día». Nombra a JD Developer en el texto (2-2 §5.2).
 7. **Sin** `# Título` ni línea de firma en el cuerpo: el título y el autor van en sus campos.
@@ -103,9 +103,12 @@ with g as (
   returning id
 )
 insert into cms_items (group_id, type, lang, status, slug, primary_keyword, mercado,
-  title_h1, title_seo, meta_description, body, author, sources, fields, fecha)
+  title_h1, title_seo, meta_description, body, tldr, faqs, cierre, author, sources, fields, fecha)
 select g.id, 'article', '<en|es>', 'revision', '<slug>', '<palabra clave>', '<mercado>',
-  '<H1>', '<título SEO>', '<meta>', $cuerpo$<markdown>$cuerpo$,
+  '<H1>', '<título SEO>', '<meta>', $cuerpo$<markdown, sin resumen/preguntas/cierre>$cuerpo$,
+  array['<punto 1>', '<punto 2>', '<punto 3>']::text[],
+  $j$[{"q": "<pregunta>", "a": "<respuesta>"}]$j$::jsonb,
+  $j${"titulo": "<título del cierre>", "texto": "<texto con [enlace](/ruta)>"}$j$::jsonb,
   '<Juan Duvergé, founder | Juan Duvergé, fundador>',
   array['<url1>', '<url2>']::text[],
   '{"article_type":"<tipo>","related_service":"<ruta del idioma>"}'::jsonb,

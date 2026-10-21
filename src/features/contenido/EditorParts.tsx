@@ -1,29 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
-import { Bold, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Monitor, Quote, Smartphone, Trash2, X } from 'lucide-react'
+import { ImagePlus, Monitor, Smartphone, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils'
 import type { CmsDraft, CmsLang } from '@/types/cms'
 import { ArticlePreview } from './ArticlePreview'
 import { LANGUAGES, publicUrl } from './model'
-
-/**
- * Bloques con la estructura que la web convierte sola: el resumen en caja numerada, las
- * preguntas desplegables y la caja final (render.mjs). Los títulos tienen que ser estos.
- */
-const BLOQUES: Record<CmsLang, { label: string; md: string }[]> = {
-  es: [
-    { label: 'Resumen', md: '## En resumen\n\n- Primer punto.\n- Segundo punto.\n- Tercer punto.' },
-    { label: 'Preguntas frecuentes', md: '## Preguntas frecuentes\n\n### ¿Primera pregunta?\n\nRespuesta.\n\n### ¿Segunda pregunta?\n\nRespuesta.' },
-    { label: 'Otra pregunta', md: '### ¿Pregunta?\n\nRespuesta.' },
-    { label: 'Cierre', md: '## ¿Por dónde empezar?\n\nQué hacer ahora y el enlace al [servicio](/es/servicios/desarrollo-webflow). Respondemos el mismo día.' },
-  ],
-  en: [
-    { label: 'Summary', md: '## TL;DR\n\n- First point.\n- Second point.\n- Third point.' },
-    { label: 'FAQ', md: '## FAQ\n\n### First question?\n\nAnswer.\n\n### Second question?\n\nAnswer.' },
-    { label: 'Another question', md: '### Question?\n\nAnswer.' },
-    { label: 'Closing', md: '## What should you do next?\n\nWhat to do now and the link to the [service](/services/webflow-development). We reply the same day.' },
-  ],
-}
 
 /** Un textarea que crece con el texto: así solo hay una barra de desplazamiento, la de la página. */
 export function useAutosize(ref: RefObject<HTMLTextAreaElement | null>, value: string) {
@@ -33,54 +14,6 @@ export function useAutosize(ref: RefObject<HTMLTextAreaElement | null>, value: s
     el.style.height = '0px'
     el.style.height = `${el.scrollHeight}px`
   }, [ref, value])
-}
-
-/* ---------- Barra de formato ---------- */
-
-type Accion = { icon: typeof Bold; label: string; run: (sel: string) => { text: string; linea?: boolean } }
-const ACCIONES: Accion[] = [
-  { icon: Heading2, label: 'Subtítulo (H2)', run: s => ({ text: `## ${s || 'Subtítulo'}`, linea: true }) },
-  { icon: Heading3, label: 'Subtítulo menor (H3)', run: s => ({ text: `### ${s || 'Subtítulo'}`, linea: true }) },
-  { icon: Bold, label: 'Negrita', run: s => ({ text: `**${s || 'texto'}**` }) },
-  { icon: Italic, label: 'Cursiva', run: s => ({ text: `*${s || 'texto'}*` }) },
-  { icon: Link2, label: 'Enlace', run: s => ({ text: `[${s || 'texto'}](https://)` }) },
-  { icon: List, label: 'Lista', run: s => ({ text: (s || 'Elemento').split('\n').map(l => `- ${l}`).join('\n'), linea: true }) },
-  { icon: ListOrdered, label: 'Lista numerada', run: s => ({ text: (s || 'Paso').split('\n').map((l, i) => `${i + 1}. ${l}`).join('\n'), linea: true }) },
-  { icon: Quote, label: 'Cita', run: s => ({ text: `> ${s || 'Cita'}`, linea: true }) },
-]
-
-/**
- * Inserta Markdown en la selección. Quien escribe no tiene por qué saberse la
- * sintaxis; la ve aparecer y la aprende.
- */
-export function FormatBar({ target, onChange, disabled, lang }: {
-  target: RefObject<HTMLTextAreaElement | null>; onChange: (value: string) => void; disabled?: boolean; lang: CmsLang
-}) {
-  const aplicar = (accion: Accion) => {
-    const el = target.current
-    if (!el) return
-    const { selectionStart: a, selectionEnd: b, value } = el
-    const { text, linea } = accion.run(value.slice(a, b))
-    // Los bloques (subtítulos, listas, citas) necesitan línea propia.
-    const antes = linea && a > 0 && value[a - 1] !== '\n' ? '\n\n' : ''
-    const despues = linea && value[b] !== undefined && value[b] !== '\n' ? '\n\n' : ''
-    const next = value.slice(0, a) + antes + text + despues + value.slice(b)
-    onChange(next)
-    requestAnimationFrame(() => { el.focus(); const end = a + antes.length + text.length; el.setSelectionRange(end, end) })
-  }
-  return <div role="toolbar" aria-label="Formato" className="flex items-center gap-0.5 overflow-x-auto sin-barra">
-    {ACCIONES.map(accion => <button key={accion.label} type="button" disabled={disabled} title={accion.label} aria-label={accion.label}
-      onMouseDown={e => e.preventDefault()} onClick={() => aplicar(accion)}
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-40">
-      <accion.icon size={16} />
-    </button>)}
-    <span className="mx-1 h-5 w-px shrink-0 bg-border" aria-hidden />
-    {BLOQUES[lang].map(b => <button key={b.label} type="button" disabled={disabled} title={`Insertar: ${b.label}`}
-      onMouseDown={e => e.preventDefault()} onClick={() => aplicar({ icon: Bold, label: b.label, run: () => ({ text: b.md, linea: true }) })}
-      className="h-8 shrink-0 rounded-lg px-2.5 text-xs font-medium text-muted transition-colors hover:bg-surface-2 hover:text-fg disabled:opacity-40">
-      + {b.label}
-    </button>)}
-  </div>
 }
 
 /* ---------- Portada ---------- */

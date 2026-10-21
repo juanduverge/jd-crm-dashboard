@@ -10,7 +10,9 @@ import { cmsService } from '@/services/cmsService'
 import { useAuthStore } from '@/store/authStore'
 import type { CmsDraft, CmsGroup, CmsItem, CmsLang, CmsType } from '@/types/cms'
 import { BackToContent, ContentError, LangChip, LoadingContent, StatusBadge, UnsavedChangesDialog } from './components'
-import { Cover, FormatBar, PreviewOverlay, useAutosize } from './EditorParts'
+import { Cover, PreviewOverlay, useAutosize } from './EditorParts'
+import { RichEditor } from './RichEditor'
+import { CasillaCierre, CasillaPreguntas, CasillaResumen } from './Casillas'
 import { EditorPanel } from './EditorPanel'
 import { useCmsGroup, useCmsItem, useCmsTypes, useDebounced, useUnsavedChanges } from './hooks'
 import { draftFromItem, isWebUrl, LANGUAGES, localizationWarnings, nombreMercado, OPTION_LABELS, scopeAllows, suggestSlug, validateTypeFields, validSlug } from './model'
@@ -48,9 +50,7 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
   const [twinLang, setTwinLang] = useState<CmsLang | null>(null)
   const [validation, setValidation] = useState('')
   const titleRef = useRef<HTMLTextAreaElement>(null)
-  const bodyRef = useRef<HTMLTextAreaElement>(null)
   useAutosize(titleRef, draft.title_h1)
-  useAutosize(bodyRef, draft.body)
 
   const other = group.items.find(i => i.lang !== item.lang)
   const dirty = JSON.stringify(draft) !== JSON.stringify(draftFromItem(item))
@@ -185,18 +185,16 @@ function EditorForm({ initial, group, type }: { initial: CmsItem; group: CmsGrou
           placeholder="Título del artículo" aria-label="Título del artículo" spellCheck lang={item.lang}
           className="block w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[1.75rem] font-bold leading-tight tracking-tight text-fg placeholder:text-muted/50 focus:outline-none focus:ring-0 sm:text-[2.25rem]" />
 
-        <div className="sticky top-[calc(var(--topbar-h)+var(--safe-top)+49px)] z-10 -mx-1 border-b border-border bg-bg/95 px-1 py-1 backdrop-blur">
-          <FormatBar target={bodyRef} lang={item.lang} disabled={disabled} onChange={value => set('body', value)} />
-        </div>
-
-        <textarea ref={bodyRef} value={draft.body} disabled={disabled} onChange={e => set('body', e.target.value)}
-          placeholder={item.lang === 'en' ? 'Start with the answer. Then explain.' : 'Empieza por la respuesta. Después, explica.'}
-          aria-label="Texto del artículo" spellCheck lang={item.lang}
-          className="block min-h-[50vh] w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[1.0625rem] leading-[1.75] text-fg placeholder:text-muted/50 focus:outline-none focus:ring-0" />
+        {/* Contenido con editor visual; resumen, preguntas y cierre en sus casillas (0062). */}
+        <RichEditor value={draft.body} lang={item.lang} disabled={disabled} onChange={value => set('body', value)} />
 
         <p className="border-t border-border pt-3 text-xs text-muted">
-          {words} palabras · {Math.max(1, Math.round(words / 200))} min de lectura · Markdown: ## subtítulo, **negrita**, [enlace](https://…)
+          {words} palabras · {Math.max(1, Math.round(words / 200))} min de lectura · El primer párrafo es la respuesta corta; el resumen sale justo después.
         </p>
+
+        <CasillaResumen value={draft.tldr} lang={item.lang} disabled={disabled} onChange={v => set('tldr', v)} />
+        <CasillaPreguntas value={draft.faqs} lang={item.lang} disabled={disabled} onChange={v => set('faqs', v)} />
+        <CasillaCierre value={draft.cierre} lang={item.lang} disabled={disabled} onChange={v => set('cierre', v)} />
       </div>
 
       <aside className="hidden lg:block">

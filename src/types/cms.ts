@@ -4,6 +4,8 @@ export type CmsStatus = 'idea' | 'borrador' | 'revision' | 'programado' | 'publi
 /** País para el que se investiga la palabra clave (0058). No cambia URL ni hreflang. */
 export type CmsMercado = 'us' | 'ca' | 'global_en' | 'hispano' | 'do' | 'mx' | 'es' | 'latam'
 export type CmsValue = string | number | boolean | null | CmsValue[] | { [key: string]: CmsValue }
+export interface CmsFaq { q: string; a: string }
+export interface CmsCierre { titulo: string; texto: string }
 export interface CmsField {
   clave: string
   etiqueta: string
@@ -31,6 +33,10 @@ export interface CmsItem {
   og_image: string | null
   fields: Record<string, CmsValue>
   body: string
+  /** Casillas (0062): resumen, preguntas y cierre van aparte del contenido. */
+  tldr: string[]
+  faqs: CmsFaq[]
+  cierre: CmsCierre | null
   updated_at: string
   deleted_at: string | null
 }
@@ -43,7 +49,7 @@ export interface CmsGroup {
   updated_at: string
   items: CmsItem[]
 }
-export type CmsDraft = Pick<CmsItem, 'slug' | 'title_h1' | 'title_seo' | 'meta_description' | 'primary_keyword' | 'mercado' | 'author' | 'fecha' | 'sources' | 'og_image' | 'fields' | 'body'>
+export type CmsDraft = Pick<CmsItem, 'slug' | 'title_h1' | 'title_seo' | 'meta_description' | 'primary_keyword' | 'mercado' | 'author' | 'fecha' | 'sources' | 'og_image' | 'fields' | 'body' | 'tldr' | 'faqs' | 'cierre'>
 export type CmsAccion = 'publicar' | 'despublicar' | 'reconstruir'
 /** Una recompilación de la web (0057 + 0059). */
 export interface CmsPublicacion {
