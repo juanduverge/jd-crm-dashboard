@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import { TableKit } from '@tiptap/extension-table'
 import { Markdown } from 'tiptap-markdown'
 import { Bold, Heading2, Heading3, Italic, Link2, List, ListOrdered, Quote, Undo2, Redo2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -20,6 +21,8 @@ export function RichEditor({ value, onChange, disabled, lang }: {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false, autolink: true } }),
+      // Sin esto, guardar convierte las tablas de Markdown en texto corrido.
+      TableKit.configure({ table: { resizable: false } }),
       Markdown.configure({ html: false, tightLists: true, linkify: true, breaks: false }),
     ],
     content: value,

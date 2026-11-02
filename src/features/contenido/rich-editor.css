@@ -9,3 +9,7 @@
 .cms-rich a { color: #c5510f; text-decoration: underline; text-underline-offset: 3px; }
 .cms-rich blockquote { border-left: 3px solid #ff7448; padding-left: 1rem; font-style: italic; }
 .cms-rich p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: rgb(var(--muted)); float: left; height: 0; pointer-events: none; }
+.cms-rich table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.cms-rich th, .cms-rich td { border: 1px solid rgb(var(--fg) / .15); padding: .5rem .65rem; vertical-align: top; text-align: left; }
+.cms-rich th { font-weight: 600; background: rgb(var(--fg) / .05); }
+.cms-rich th p, .cms-rich td p { margin: 0; }

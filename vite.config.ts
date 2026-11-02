@@ -57,7 +57,7 @@ export default defineConfig(({ mode }) => {
       },
     },
   },
-  // Base relativa para que funcione en jddeveloper.com/crm
-  base: './',
+  // Absoluta: con './' los enlaces profundos (/contenido/item/…) piden los archivos en una ruta que no existe y la página sale en blanco.
+  base: '/',
   }
 })
