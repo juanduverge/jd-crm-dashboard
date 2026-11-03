@@ -372,7 +372,11 @@ export function LeadsPage() {
                       </td>
                       <td className="max-w-[180px] truncate px-3 py-2.5 text-muted" title={l.email || l.telefono || undefined}>{l.email || l.telefono || '—'}</td>
                       <td className="max-w-[140px] truncate px-3 py-2.5 text-muted" title={l.ciudad || undefined}>{l.ciudad || '—'}</td>
-                      <td className="px-3 py-2.5">{niche ? <Badge>{niche.emoji} {niche.nombre}</Badge> : '—'}</td>
+                      {/* Con tope: la búsqueda crea nichos con la categoría de Google tal cual
+                          («Handyman/Handywoman/Handyperson») y sin él empujan Acciones fuera. */}
+                      <td className="max-w-[170px] px-3 py-2.5" title={niche ? niche.nombre : undefined}>
+                        {niche ? <Badge className="max-w-full"><span className="truncate">{niche.emoji} {niche.nombre}</span></Badge> : '—'}
+                      </td>
                       <td className="px-3 py-2.5">
                         <span className={cn('inline-flex h-7 w-9 items-center justify-center rounded-md text-xs font-bold', sc.bg, sc.text)}>{l.score}</span>
                       </td>
