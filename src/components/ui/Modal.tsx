@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -25,7 +26,10 @@ export function Modal({
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  return (
+  // En el body y no donde se declara: dentro de una barra con backdrop-blur
+  // (la del editor del blog) el `fixed` queda encerrado en esa barra y el
+  // diálogo sale cortado detrás de la cabecera.
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
@@ -72,7 +76,8 @@ export function Modal({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
 
@@ -90,7 +95,7 @@ export function Drawer({
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50">
@@ -114,6 +119,7 @@ export function Drawer({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }
