@@ -23,6 +23,8 @@ const TareasPage = lazy(() => import('./features/productividad/tareas/TareasPage
 const TiempoPage = lazy(() => import('./features/productividad/tiempo/TiempoPage'))
 const MetricasPage = lazy(() => import('./features/productividad/metricas/MetricasPage'))
 const FollowUpsPage = lazy(() => import('./features/followups/FollowUpsPage').then((m) => ({ default: m.FollowUpsPage })))
+const ProyectosPage = lazy(() => import('./features/proyectos/ProyectosPage').then((m) => ({ default: m.ProyectosPage })))
+const ProyectoPage = lazy(() => import('./features/proyectos/ProyectoPage').then((m) => ({ default: m.ProyectoPage })))
 const ArchivoPage = lazy(() => import('./features/archivo/ArchivoPage').then((m) => ({ default: m.ArchivoPage })))
 const MessagesPage = lazy(() => import('./features/messages/MessagesPage').then((m) => ({ default: m.MessagesPage })))
 const CorreosProgramadosPage = lazy(() => import('./features/correos/CorreosProgramadosPage').then((m) => ({ default: m.CorreosProgramadosPage })))
@@ -86,6 +88,8 @@ export default function App() {
           <Route path="tareas" element={<Navigate to="/productividad/tareas" replace />} />
 
           <Route path="seguimientos" element={<Suspense fallback={<RouteFallback />}><FollowUpsPage /></Suspense>} />
+          <Route path="proyectos" element={<Suspense fallback={<RouteFallback />}><ProyectosPage /></Suspense>} />
+          <Route path="proyectos/:id" element={<Suspense fallback={<RouteFallback />}><ProyectoPage /></Suspense>} />
           <Route path="archivo" element={<Suspense fallback={<RouteFallback />}><ArchivoPage /></Suspense>} />
           <Route path="messages" element={<Suspense fallback={<RouteFallback />}><MessagesPage /></Suspense>} />
           <Route path="correos" element={<Suspense fallback={<RouteFallback />}><CorreosProgramadosPage /></Suspense>} />

@@ -1,7 +1,7 @@
 import {
   Home, Users, Target, KanbanSquare, Inbox, MessageSquare,
   BarChart3, Settings, Globe, CheckSquare, Trash2, CalendarClock, Archive,
-  Clock, CalendarDays, Gauge, Flag, Timer, Rocket, Send, FileText,
+  Clock, CalendarDays, Gauge, Flag, Timer, Rocket, Send, FileText, Briefcase,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -82,6 +82,8 @@ export const navItems: NavItem[] = [
   { kind: 'section', label: 'Negocio' },
   { kind: 'link', to: '/campaigns', label: 'Campañas', icon: Target },
   { kind: 'link', to: '/pipeline', label: 'Pipeline', icon: KanbanSquare },
+  // Justo después del pipeline: es donde va un lead cuando se gana.
+  { kind: 'link', to: '/proyectos', label: 'Proyectos', icon: Briefcase },
   { kind: 'link', to: '/inbox', label: 'Bandeja', icon: Inbox },
   { kind: 'link', to: '/messages', label: 'Mensajes', icon: MessageSquare },
   { kind: 'link', to: '/correos', label: 'Correos programados', icon: Send },

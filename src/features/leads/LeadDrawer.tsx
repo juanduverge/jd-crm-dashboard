@@ -12,6 +12,7 @@ import { EnlaceWeb } from '@/components/ui/VisorWeb'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
 import { LeadFollowUpsTab } from '@/features/followups/LeadFollowUpsTab'
 import { OpportunityEditor } from '@/features/pipeline/OpportunityForm'
+import { LeadProyectoTab } from '@/features/proyectos/LeadProyectoTab'
 import toast from 'react-hot-toast'
 import type { Lead, Contact, ContactType, Note, Channel } from '@/types'
 
@@ -22,7 +23,7 @@ import {
 import { today } from '@/lib/followUps'
 import { avisoEnCola } from '@/lib/cola'
 
-const TABS = ['Detalles', 'Oportunidad', 'Seguimientos', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
+const TABS = ['Detalles', 'Proyecto', 'Oportunidad', 'Seguimientos', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
 
 /** Formatea una fecha ISO o 'YYYY-MM-DD' de forma legible; devuelve el original si no parsea. */
 function fmtFecha(v?: string): string {
@@ -216,7 +217,8 @@ export function LeadDrawer({
 
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto border-b border-border px-4 sin-barra scroll-aislado sm:px-5">
-        {TABS.map((t) => (
+        {/* «Proyecto» solo existe para los ganados: es lo que pasa después de la venta. */}
+        {TABS.filter((t) => t !== 'Proyecto' || lead.estado === 'ganado').map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={cn('shrink-0 whitespace-nowrap border-b-2 px-3 py-3 text-sm sm:py-2', tab === t ? 'border-primary-400 text-fg' : 'border-transparent text-muted hover:text-fg')}>
             {t}
@@ -350,6 +352,7 @@ export function LeadDrawer({
             onSave={(id, patch) => { updateLead(id, patch); toast.success('Oportunidad actualizada') }}
           />
         )}
+        {tab === 'Proyecto' && lead.estado === 'ganado' && <LeadProyectoTab leadId={lead.id} />}
         {tab === 'Seguimientos' && <LeadFollowUpsTab leadId={lead.id} empresa={lead.empresa} />}
         {tab === 'Contactos' && <ContactsTab leadId={lead.id} />}
         {tab === 'Actividad' && <Timeline lead={lead} />}

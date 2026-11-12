@@ -654,3 +654,80 @@ export interface MetricasCrm {
   situacion: SituacionCrm
   ratios: RatiosCrm
 }
+
+// ---------------------------------------------------------------
+// Proyectos (migración 0064): lo que pasa después de «Cerrado ganado»
+// ---------------------------------------------------------------
+export type EtapaProyecto =
+  | 'por_arrancar' | 'recopilando' | 'diseno' | 'revision'
+  | 'desarrollo' | 'pruebas' | 'entregado' | 'mantenimiento'
+
+/** Lo que se pide al cliente: pendiente → pedido → recibido. */
+export type EstadoRecopilacion = 'pendiente' | 'pedido' | 'recibido'
+
+export interface ItemRecopilacion {
+  id: string
+  label: string
+  estado: EstadoRecopilacion
+}
+
+/** Un acceso que hace falta (dominio, hosting…). Nunca la contraseña: solo dónde está. */
+export interface AccesoProyecto extends ItemRecopilacion {
+  donde: string
+}
+
+export interface ReferenciaProyecto {
+  url: string
+  nota: string
+}
+
+export interface EnlacesProyecto {
+  diseno?: string
+  desarrollo?: string
+  produccion?: string
+  repositorio?: string
+  carpeta?: string
+}
+
+export interface ProyectoPago {
+  id: string
+  proyectoId: string
+  concepto: string
+  monto: number
+  fechaPrevista?: string
+  cobradoEn?: string
+  metodo?: string
+  orden: number
+}
+
+export interface Proyecto {
+  id: string
+  leadId?: string
+  nombre: string
+  etapa: EtapaProyecto
+  enPausa: boolean
+  etapaDesde: string
+  tipo?: string
+  plataforma?: string
+  numPaginas?: number
+  paginas: string[]
+  funcionalidades: string[]
+  alcance?: string
+  fueraAlcance?: string
+  rondasIncluidas: number
+  rondasUsadas: number
+  precio?: number
+  moneda: string
+  fechaInicio?: string
+  fechaEntregaPrevista?: string
+  fechaEntregado?: string
+  checklist: ItemRecopilacion[]
+  accesos: AccesoProyecto[]
+  enlaces: EnlacesProyecto
+  referencias: ReferenciaProyecto[]
+  notas?: string
+  responsable?: string
+  creadoEn: string
+  actualizadoEn: string
+  pagos: ProyectoPago[]
+}
