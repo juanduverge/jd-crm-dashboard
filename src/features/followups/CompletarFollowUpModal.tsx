@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { Modal } from '@/components/ui/Modal'
 import { Button, Input, Select, Textarea } from '@/components/ui'
-import { useCompletarFollowUp, useProgramarFollowUp } from '@/hooks/useData'
+import { useActualizarFollowUp, useCompletarFollowUp, useProgramarFollowUp } from '@/hooks/useData'
 import {
   FOLLOW_UP_TIPOS, RESULTADO_META, fechaSiguienteToque,
 } from '@/lib/followUps'
@@ -41,11 +41,15 @@ export function CompletarFollowUpModal({
 }) {
   const completar = useCompletarFollowUp()
   const programar = useProgramarFollowUp()
+  const actualizar = useActualizarFollowUp()
 
   // Sin resultado por defecto. Venía 'positivo' preseleccionado y, como un
   // toque positivo mueve el lead a «Respondió» (trigger de la 0038), cada
   // "ya le escribí" guardado sin tocar nada acababa en esa columna.
   const [resultado, setResultado] = useState<FollowUpResultado | null>(null)
+  // Por dónde se hizo de verdad. Se programa por WhatsApp y al final se llama:
+  // sin esto el historial decía «WhatsApp» y la llamada no quedaba en ningún sitio.
+  const [tipoReal, setTipoReal] = useState<FollowUpTipo>('llamada')
   const [nota, setNota] = useState('')
   const [encadenar, setEncadenar] = useState(true)
   const [siguienteFecha, setSiguienteFecha] = useState(() => fechaSiguienteToque('sin_respuesta'))
@@ -56,6 +60,7 @@ export function CompletarFollowUpModal({
   useEffect(() => {
     if (!followUp) return
     setResultado(null)
+    setTipoReal(followUp.tipo)
     setNota('')
     setEncadenar(true)
     setSiguienteFecha(fechaSiguienteToque('sin_respuesta'))
@@ -72,6 +77,8 @@ export function CompletarFollowUpModal({
   const guardar = async () => {
     if (!followUp || !resultado) return
     try {
+      // El medio solo se puede cambiar mientras está pendiente, así que va antes de completar.
+      if (tipoReal !== followUp.tipo) await actualizar.mutateAsync({ id: followUp.id, tipo: tipoReal })
       await completar.mutateAsync({ id: followUp.id, resultado, nota: nota.trim() || undefined })
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo completar el seguimiento')
@@ -101,7 +108,7 @@ export function CompletarFollowUpModal({
     onClose()
   }
 
-  const guardando = completar.isPending || programar.isPending
+  const guardando = completar.isPending || programar.isPending || actualizar.isPending
 
   return (
     <Modal
@@ -118,6 +125,15 @@ export function CompletarFollowUpModal({
       }
     >
       <div className="space-y-4">
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-muted">¿Por dónde fue?</label>
+          <Select value={tipoReal} onChange={(e) => setTipoReal(e.target.value as FollowUpTipo)}>
+            {FOLLOW_UP_TIPOS.map((t) => (
+              <option key={t.id} value={t.id}>{t.emoji} {t.label}</option>
+            ))}
+          </Select>
+        </div>
+
         <div>
           <label className="mb-1.5 block text-xs font-medium text-muted">¿Cómo fue?</label>
           <div className="flex flex-wrap gap-2">

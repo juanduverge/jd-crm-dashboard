@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import toast from 'react-hot-toast'
-import { CalendarPlus, Check } from 'lucide-react'
+import { CalendarPlus, Check, PhoneCall } from 'lucide-react'
 import { Button, Input, Select } from '@/components/ui'
 import { useLeadFollowUps, useProgramarFollowUp } from '@/hooks/useData'
 import { FOLLOW_UP_TIPOS, addDiasLaborales, today } from '@/lib/followUps'
@@ -24,7 +24,7 @@ export function LeadFollowUpsTab({ leadId, empresa }: { leadId: string; empresa?
   const [fecha, setFecha] = useState(() => addDiasLaborales(3))
   const [tipo, setTipo] = useState<FollowUpTipo>('llamada')
   const [nota, setNota] = useState('')
-  const [completando, setCompletando] = useState<FollowUp | null>(null)
+  const [completando, setCompletando] = useState<Pick<FollowUp, 'id' | 'leadId' | 'tipo' | 'orden'> | null>(null)
 
   const pendiente = data?.find((f) => f.estado === 'pendiente')
 
@@ -40,6 +40,20 @@ export function LeadFollowUpsTab({ leadId, empresa }: { leadId: string; empresa?
       setFecha(addDiasLaborales(3))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'No se pudo programar')
+    }
+  }
+
+  // Para lo que ya pasó sin estar programado (una llamada que entró, un
+  // WhatsApp rápido): se crea el toque para hoy y se abre el mismo modal de
+  // completar, así el resultado y la respuesta se registran igual que siempre.
+  const onRegistrarHecho = async () => {
+    try {
+      const id = await programar.mutateAsync({ leadId, fecha: today(), tipo, nota: nota.trim() || undefined })
+      const orden = Math.max(0, ...(data ?? []).map((f) => f.orden)) + 1
+      setNota('')
+      setCompletando({ id, leadId, tipo, orden })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo registrar')
     }
   }
 
@@ -75,9 +89,16 @@ export function LeadFollowUpsTab({ leadId, empresa }: { leadId: string; empresa?
             onChange={(e) => setNota(e.target.value)}
             placeholder="Qué le voy a decir (opcional)"
           />
-          <Button size="sm" onClick={onProgramar} disabled={programar.isPending}>
-            {programar.isPending ? 'Programando…' : 'Programar'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={onProgramar} disabled={programar.isPending}>
+              {programar.isPending ? 'Programando…' : 'Programar'}
+            </Button>
+            <Button size="sm" variant="outline" onClick={onRegistrarHecho} disabled={programar.isPending}
+              title="Registrar un contacto que ya hiciste hoy (llamada, WhatsApp…)">
+              <PhoneCall className="mr-1 h-3.5 w-3.5" />
+              Ya lo contacté
+            </Button>
+          </div>
         </div>
       )}
 
