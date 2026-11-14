@@ -119,7 +119,9 @@ export function MapaPage() {
 
   // En vista de calor, al acercarse lo bastante aparecen los negocios: el
   // calor deja de decir nada a nivel de calle.
-  const verNegocios = vista === 'negocios' || (vista === 'calor' && zoom >= 13)
+  // A nivel de ciudad (zoom 9+) ya se ven los puntos encima del calor o de
+  // los círculos: es lo que permite tocar un negocio concreto.
+  const verNegocios = vista === 'negocios' || zoom >= 9
   const oscuro = tema === 'dark'
 
   return (
@@ -187,14 +189,13 @@ export function MapaPage() {
             >
               <LayersControl position="topright">
                 <LayersControl.BaseLayer checked name="Mapa">
+                  {/* OpenStreetMap: sin clave. (CARTO empezó a pedir API key.)
+                      En oscuro se invierte con CSS: OSM no tiene tema oscuro. */}
                   <TileLayer
-                    key={oscuro ? 'oscuro' : 'claro'}
-                    url={oscuro
-                      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'}
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                    subdomains="abcd"
-                    maxZoom={20}
+                    url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                    className={oscuro ? 'teselas-oscuras' : undefined}
+                    maxZoom={19}
                   />
                 </LayersControl.BaseLayer>
                 <LayersControl.BaseLayer name="Satélite">
@@ -242,10 +243,20 @@ export function MapaPage() {
           )}
 
           {/* Leyenda */}
-          <div className="pointer-events-none absolute bottom-2 left-2 z-[400] max-w-[calc(100%-1rem)] rounded-lg bg-surface/90 px-2.5 py-1.5 text-[11px] text-muted shadow backdrop-blur">
-            {vista === 'calor' && <>Calor: <b className="text-fg">{meta.label.toLowerCase()}</b> · acerca para ver los negocios</>}
-            {vista === 'ciudades' && <>Tamaño = {meta.corto.toLowerCase()} · color = % <span className="text-red-500">bajo</span> / <span className="text-amber-500">medio</span> / <span className="text-emerald-600">alto</span></>}
-            {vista === 'negocios' && <>Color = etapa del pipeline · borde punteado = ubicación aproximada</>}
+          <div className="pointer-events-none absolute bottom-2 left-2 z-[400] max-w-[calc(100%-1rem)] space-y-1 rounded-lg bg-surface/90 px-2.5 py-1.5 text-[11px] text-muted shadow backdrop-blur">
+            {vista === 'calor' && <p>Calor: <b className="text-fg">{meta.label.toLowerCase()}</b>{!verNegocios && ' · acerca para ver cada negocio'}</p>}
+            {vista === 'ciudades' && <p>Tamaño = {meta.corto.toLowerCase()} · color = % <span className="text-red-500">bajo</span> / <span className="text-amber-500">medio</span> / <span className="text-emerald-600">alto</span></p>}
+            {verNegocios && (
+              <div className="flex max-w-[520px] flex-wrap gap-x-2.5 gap-y-0.5">
+                {PIPELINE_STAGES.map((st) => (
+                  <span key={st.id} className="inline-flex items-center gap-1">
+                    <span className="h-2.5 w-2.5 rounded-full border border-white" style={{ background: st.color }} />
+                    {st.label}
+                  </span>
+                ))}
+                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full border border-dashed border-slate-500" /> ubicación aproximada</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -337,37 +348,74 @@ function SeguirZoom({ onZoom }: { onZoom: (z: number) => void }) {
   return null
 }
 
+const IDIOMA_CORTO: Record<string, string> = { es: 'Español', en: 'Inglés', pt: 'Portugués', fr: 'Francés', it: 'Italiano', de: 'Alemán', otro: 'Otro' }
+
 function PuntoNegocio({ p, nicho, onAbrir }: { p: PuntoLead; nicho: string; onAbrir: () => void }) {
   const l = p.lead
   const color = ETAPA_COLOR[l.estado] ?? '#94a3b8'
+  const tel = l.telefono || l.telefonos?.[0]
+  const wa = (l.whatsapp || (l.whatsappNumeros?.[0] ?? '')).replace(/\D/g, '')
+  const ultimo = l.ultimoContactoEn
+    ? new Date(l.ultimoContactoEn).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
+    : undefined
+  const resultado = l.ultimoContactoResultado === 'positivo' ? 'respondió bien'
+    : l.ultimoContactoResultado === 'negativo' ? 'respondió que no'
+    : l.ultimoContactoResultado === 'sin_respuesta' ? 'sin respuesta' : undefined
+  const fila = 'flex gap-1.5 text-[11px] text-slate-600'
+
   return (
     <CircleMarker
       center={[p.lat, p.lng]}
-      radius={6}
-      pathOptions={{ color: '#ffffff', weight: 1.5, fillColor: color, fillOpacity: 0.95, dashArray: p.aproximado ? '2 3' : undefined }}
+      radius={7}
+      pathOptions={{ color: '#ffffff', weight: 2, fillColor: color, fillOpacity: 0.95, dashArray: p.aproximado ? '2 3' : undefined }}
     >
-      <Popup>
-        <div className="min-w-[200px] space-y-1.5 text-xs">
-          <p className="text-sm font-semibold">{l.empresa}</p>
-          <p className="text-slate-500">{nicho} · {l.ciudad ?? '—'}</p>
-          <p>
-            <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold text-white" style={{ background: color }}>
+      <Tooltip direction="top" offset={[0, -6]}>{l.empresa}</Tooltip>
+      <Popup minWidth={240} maxWidth={300}>
+        <div className="space-y-2 text-xs">
+          <div>
+            <p className="text-sm font-semibold leading-tight text-slate-900">{l.empresa}</p>
+            <p className="text-[11px] text-slate-500">{nicho}{l.ciudad ? ` · ${l.ciudad}` : ''}</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold text-white" style={{ background: color }}>
               {ETAPA_LABEL[l.estado] ?? l.estado}
             </span>
-            {l.touchActual > 0 && <span className="ml-1.5 text-slate-500">{l.touchActual} toques</span>}
-          </p>
-          {p.aproximado && <p className="text-[10px] text-amber-600">Ubicación aproximada (centro de su ciudad)</p>}
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            <button type="button" onClick={onAbrir} className="inline-flex items-center gap-1 rounded-md bg-primary-400 px-2 py-1 font-medium text-white">
-              <Eye className="h-3 w-3" /> Ficha
+            {l.score > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">Score {l.score}</span>}
+            {l.idioma && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-600">{IDIOMA_CORTO[l.idioma] ?? l.idioma}</span>}
+            {l.favorito && <span className="text-[11px]" title="Favorito">⭐</span>}
+          </div>
+
+          <div className="space-y-0.5">
+            {l.ratingGoogle ? <p className={fila}>★ {l.ratingGoogle} en Google{l.numResenas ? ` · ${l.numResenas} reseñas` : ''}</p> : null}
+            {tel && <p className={fila}>📞 <a href={`tel:${tel}`} className="text-blue-600">{tel}</a></p>}
+            {l.web && <p className={fila}>🌐 <a href={l.web} target="_blank" rel="noopener noreferrer" className="truncate text-blue-600">{l.web.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</a></p>}
+            {!l.web && <p className={fila}>🌐 Sin página web</p>}
+            <p className={fila}>
+              💬 {l.touchActual > 0
+                ? `${l.touchActual} ${l.touchActual === 1 ? 'toque' : 'toques'}${ultimo ? ` · último ${ultimo}` : ''}${resultado ? ` · ${resultado}` : ''}`
+                : 'Nunca contactado'}
+            </p>
+            {l.valorEstimado ? <p className={fila}>💰 {formatCurrency(l.valorEstimado)}</p> : null}
+            {p.aproximado && <p className="text-[10px] text-amber-600">Ubicación aproximada (centro de su ciudad)</p>}
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 border-t border-slate-200 pt-2">
+            <button type="button" onClick={onAbrir} className="inline-flex items-center gap-1 rounded-md bg-primary-400 px-2 py-1.5 font-medium text-white">
+              <Eye className="h-3 w-3" /> Ficha completa
             </button>
+            {wa && (
+              <a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1.5 font-medium text-slate-700">
+                WhatsApp
+              </a>
+            )}
             {!p.aproximado && (
-              <a href={urlStreetView(p.lat, p.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 font-medium text-slate-700">
+              <a href={urlStreetView(p.lat, p.lng)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1.5 font-medium text-slate-700">
                 <MapPin className="h-3 w-3" /> Street View
               </a>
             )}
             {l.googleMaps && (
-              <a href={l.googleMaps} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1 font-medium text-slate-700">
+              <a href={l.googleMaps} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-2 py-1.5 font-medium text-slate-700">
                 <ExternalLink className="h-3 w-3" /> Google Maps
               </a>
             )}
