@@ -13,6 +13,7 @@ import { cn, formatCurrency } from '@/lib/utils'
 import { LeadFiltros, crearCategorias, pasaFiltros, type FiltrosSel } from '@/features/leads/LeadFiltros'
 import { LeadDetailHost } from '@/features/leads/LeadDetailHost'
 import { CapaCalor } from './CapaCalor'
+import { TeselasEspanol } from './TeselasEspanol'
 import {
   METRICAS_MAPA, pesoLead, ranking, tasa, ubicarLeads, urlStreetView,
   type Agrupacion, type FilaRanking, type MetricaMapa, type PuntoLead,
@@ -28,7 +29,7 @@ import {
  *               caliente); el color del círculo corrige eso.
  *   - Negocios: cada lead, con su etapa, para entrar a la calle con Street View.
  *
- * Mapa con Leaflet y teselas de CARTO / Esri: gratis, sin clave. Google Maps
+ * Mapa con Leaflet y teselas de OpenFreeMap (etiquetas en español) y Esri: gratis, sin clave. Google Maps
  * embebido cobra por carga y retiró su capa de calor; Street View y la ficha
  * de Google se abren desde cada negocio.
  */
@@ -189,14 +190,9 @@ export function MapaPage() {
             >
               <LayersControl position="topright">
                 <LayersControl.BaseLayer checked name="Mapa">
-                  {/* OpenStreetMap: sin clave. (CARTO empezó a pedir API key.)
-                      En oscuro se invierte con CSS: OSM no tiene tema oscuro. */}
-                  <TileLayer
-                    url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    className={oscuro ? 'teselas-oscuras' : undefined}
-                    maxZoom={19}
-                  />
+                  {/* OpenFreeMap: sin clave y con las etiquetas en español (OSM las
+                      escribe en el idioma de cada país). Ver TeselasEspanol. */}
+                  <TeselasEspanol oscuro={oscuro} />
                 </LayersControl.BaseLayer>
                 <LayersControl.BaseLayer name="Satélite">
                   <TileLayer
