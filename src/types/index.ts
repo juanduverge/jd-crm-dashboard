@@ -15,7 +15,15 @@ export type LeadStatus =
   | 'ganado'
   | 'perdido'
 
-export type Channel = 'email' | 'whatsapp' | 'instagram' | 'linkedin'
+export type Channel = 'email' | 'whatsapp' | 'instagram' | 'linkedin' | 'llamada' | 'llamada_whatsapp'
+
+/** Por dónde llegó el cliente (migración 0065). Distinto de `fuente`. */
+export type LeadOrigen =
+  | 'apify' | 'recomendacion' | 'instagram' | 'facebook' | 'google'
+  | 'contacto_directo' | 'formulario_web' | 'evento' | 'otro'
+
+/** Idioma probable del lead (0065). Lo marca una persona. */
+export type LeadIdioma = 'es' | 'en' | 'pt' | 'fr' | 'it' | 'de' | 'otro'
 
 export type Priority = 'alta' | 'media' | 'baja'
 
@@ -29,6 +37,11 @@ export interface Lead {
   ciudad?: string
   pais?: string
   direccion?: string
+  latitud?: number            // Coordenadas de Google Maps (0025); los leads manuales no las traen
+  longitud?: number
+  origen?: LeadOrigen         // Por dónde llegó (0065)
+  referidoPor?: string        // Quién lo recomendó, si origen = recomendacion
+  idioma?: LeadIdioma         // Idioma probable (0065)
   telefono?: string
   telefono2?: string          // Segundo teléfono / versión sin formato (Apify: phoneUnformatted)
   telefonos?: string[]        // Todos los teléfonos detectados por el scraping (migración 0025)
@@ -280,6 +293,7 @@ export interface WebLead {
 export type FollowUpTipo =
   | 'llamada' | 'email' | 'whatsapp' | 'reunion' | 'otro'
   | 'videollamada' | 'linkedin' | 'instagram' | 'sms'
+  | 'llamada_whatsapp'
 export type FollowUpEstado = 'pendiente' | 'completado' | 'cancelado'
 export type FollowUpResultado = 'positivo' | 'negativo' | 'sin_respuesta'
 /** Urgencia derivada en SQL por la vista `follow_ups_agenda`. */
@@ -730,4 +744,51 @@ export interface Proyecto {
   creadoEn: string
   actualizadoEn: string
   pagos: ProyectoPago[]
+}
+
+// ---------------------------------------------------------------
+// Embudo por canal, origen y contratos (RPC `metricas_embudo`, 0065)
+// ---------------------------------------------------------------
+export interface EmbudoCanal {
+  canal: FollowUpTipo
+  /** Toques enviados por este canal en el periodo. */
+  toques: number
+  leads: number
+  /** Toques de este canal que obtuvieron respuesta. */
+  respuestas: number
+  positivas: number
+  /** Leads cuya PRIMERA respuesta llegó por este canal (en el periodo). */
+  abrieron: number
+  reuniones: number
+  ganados: number
+  valor: number
+}
+
+export interface EmbudoOrigen {
+  origen: LeadOrigen | 'sin_dato'
+  leads: number
+  contactados: number
+  respondieron: number
+  reuniones: number
+  ganados: number
+  valor: number
+}
+
+export interface EmbudoContratos {
+  ganados: number
+  valor_total: number
+  ticket_medio: number
+  dias_ciclo: number
+  cobrado: number
+  pendiente: number
+  perdidos: number
+  motivos_perdida: { motivo: string; n: number }[]
+}
+
+export interface MetricasEmbudo {
+  desde: string
+  hasta: string
+  por_canal: EmbudoCanal[]
+  por_origen: EmbudoOrigen[]
+  contratos: EmbudoContratos
 }

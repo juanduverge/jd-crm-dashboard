@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { LeadIdioma, LeadOrigen } from '@/types'
 
 export const leadSchema = z.object({
   // Empresa
@@ -18,6 +19,10 @@ export const leadSchema = z.object({
   linkedin: z.string().optional(),
   // Comercial / gestión
   fuente: z.string().optional(),
+  // Por dónde llegó y en qué idioma habla (0065). '' = sin dato.
+  origen: z.string().optional(),
+  referidoPor: z.string().optional(),
+  idioma: z.string().optional(),
   responsable: z.string().optional(),
   etiquetas: z.string().optional(), // CSV en el form; se serializa a array al persistir
   scoreManual: z.coerce.number().min(0).max(100).optional(),
@@ -34,9 +39,11 @@ export type LeadFormValues = z.infer<typeof leadSchema>
 
 /** Convierte los valores del form (etiquetas CSV) a un patch de Lead (etiquetas array). */
 export function formToLeadPatch(values: LeadFormValues) {
-  const { etiquetas, ...rest } = values
+  const { etiquetas, origen, idioma, ...rest } = values
   return {
     ...rest,
+    origen: (origen || '') as LeadOrigen,
+    idioma: (idioma || '') as LeadIdioma,
     etiquetas: (etiquetas ?? '').split(',').map((t) => t.trim()).filter(Boolean),
   }
 }

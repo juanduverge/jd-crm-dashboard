@@ -8,6 +8,7 @@ import { LoginPage } from './features/auth/LoginPage'
 const DashboardPage = lazy(() => import('./features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage })))
 const LeadsPage = lazy(() => import('./features/leads/LeadsPage').then((m) => ({ default: m.LeadsPage })))
 const CampaignsPage = lazy(() => import('./features/campaigns/CampaignsPage').then((m) => ({ default: m.CampaignsPage })))
+const MapaPage = lazy(() => import('./features/mapa/MapaPage').then((m) => ({ default: m.MapaPage })))
 const PipelinePage = lazy(() => import('./features/pipeline/PipelinePage').then((m) => ({ default: m.PipelinePage })))
 const InboxPage = lazy(() => import('./features/inbox/InboxPage').then((m) => ({ default: m.InboxPage })))
 const WebLeadsPage = lazy(() => import('./features/webleads/WebLeadsPage').then((m) => ({ default: m.WebLeadsPage })))
@@ -68,6 +69,7 @@ export default function App() {
           <Route index element={<Suspense fallback={<RouteFallback />}><DashboardPage /></Suspense>} />
           <Route path="leads" element={<Suspense fallback={<RouteFallback />}><LeadsPage /></Suspense>} />
           <Route path="campaigns" element={<Suspense fallback={<RouteFallback />}><CampaignsPage /></Suspense>} />
+          <Route path="mapa" element={<Suspense fallback={<RouteFallback />}><MapaPage /></Suspense>} />
           <Route path="pipeline" element={<Suspense fallback={<RouteFallback />}><PipelinePage /></Suspense>} />
           <Route path="inbox" element={<Suspense fallback={<RouteFallback />}><InboxPage /></Suspense>} />
           <Route path="web-leads" element={<Suspense fallback={<RouteFallback />}><WebLeadsPage /></Suspense>} />

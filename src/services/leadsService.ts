@@ -26,6 +26,11 @@ interface LeadRow {
   ciudad: string | null
   pais: string | null
   direccion: string | null
+  latitud: number | string | null
+  longitud: number | string | null
+  origen: string | null
+  referido_por: string | null
+  idioma: string | null
   telefono: string | null
   email: string | null
   web: string | null
@@ -137,6 +142,12 @@ function rowToLead(row: LeadRow): Lead {
     ciudad: row.ciudad ?? undefined,
     pais: row.pais ?? undefined,
     direccion: row.direccion ?? undefined,
+    // `numeric` llega como texto desde PostgREST.
+    latitud: row.latitud != null && row.latitud !== '' ? Number(row.latitud) : undefined,
+    longitud: row.longitud != null && row.longitud !== '' ? Number(row.longitud) : undefined,
+    origen: (row.origen as Lead['origen']) ?? undefined,
+    referidoPor: row.referido_por ?? undefined,
+    idioma: (row.idioma as Lead['idioma']) ?? undefined,
     telefono: row.telefono ?? undefined,
     telefono2: row.telefono_2 ?? undefined,
     // Todos los teléfonos que trajo el scraping, sin perder el principal.
@@ -221,6 +232,10 @@ function leadPatchToRow(patch: Partial<Lead>): Record<string, unknown> {
   if (patch.ciudad !== undefined) row.ciudad = patch.ciudad
   if (patch.pais !== undefined) row.pais = patch.pais
   if (patch.direccion !== undefined) row.direccion = patch.direccion
+  // `null` borra: «sin dato» es una elección válida en el selector.
+  if (patch.origen !== undefined) row.origen = patch.origen || null
+  if (patch.referidoPor !== undefined) row.referido_por = patch.referidoPor || null
+  if (patch.idioma !== undefined) row.idioma = patch.idioma || null
   if (patch.telefono !== undefined) row.telefono = patch.telefono
   if (patch.email !== undefined) row.email_contacto = patch.email
   if (patch.web !== undefined) row.web = patch.web

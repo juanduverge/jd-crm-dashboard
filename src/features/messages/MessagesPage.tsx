@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Search, MessageSquare, Mail, MessageCircle, Instagram, Linkedin, RefreshCw, Send, PenSquare, X, Check, CheckCheck, AlertTriangle, FileEdit } from 'lucide-react'
+import { Search, MessageSquare, Mail, MessageCircle, Instagram, Linkedin, RefreshCw, Send, PenSquare, X, Check, CheckCheck, AlertTriangle, FileEdit, Phone, PhoneCall } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Skeleton, EmptyState, Badge, Textarea } from '@/components/ui'
 import { AttachmentPicker } from '@/components/ui/AttachmentPicker'
@@ -19,6 +19,8 @@ const channelIcon: Record<Channel, typeof Mail> = {
   whatsapp: MessageCircle,
   instagram: Instagram,
   linkedin: Linkedin,
+  llamada: Phone,
+  llamada_whatsapp: PhoneCall,
 }
 
 /**

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star, ThumbsUp, ThumbsDown, Calendar, Clock, Gauge, Youtube, Twitter, Music2, Pin, Copy, Check } from 'lucide-react'
+import { X, Mail, MessageCircle, Globe, MapPin, Phone, Edit3, GitBranch, Briefcase, User, Flag, Instagram, Facebook, Linkedin, Tag, Sparkles, Loader2, Plus, Trash2, Pencil, Users, MessageSquare, Star, ThumbsUp, ThumbsDown, Calendar, Clock, Gauge, Youtube, Twitter, Music2, Pin, Copy, Check, PhoneCall } from 'lucide-react'
 import { Drawer } from '@/components/ui/Modal'
 import { Button, Badge, Skeleton } from '@/components/ui'
 import { scoreColor, formatCurrency, initials, stringToColor, cn, htmlToText, copiarAlPortapapeles } from '@/lib/utils'
@@ -22,6 +22,7 @@ import {
 } from '@/lib/touches'
 import { today } from '@/lib/followUps'
 import { avisoEnCola } from '@/lib/cola'
+import { IDIOMAS, ORIGEN_META } from '@/lib/origen'
 
 const TABS = ['Detalles', 'Proyecto', 'Oportunidad', 'Seguimientos', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
 
@@ -38,6 +39,8 @@ const channelIcon: Record<Channel, typeof Mail> = {
   whatsapp: MessageCircle,
   instagram: Instagram,
   linkedin: Linkedin,
+  llamada: Phone,
+  llamada_whatsapp: PhoneCall,
 }
 
 const TIPO_LABELS: Record<ContactType, string> = {
@@ -197,6 +200,37 @@ export function LeadDrawer({
           {lead.scoreManual ? <Badge className="bg-surface-2 text-muted">Manual {lead.scoreManual}</Badge> : null}
           <Badge>{PIPELINE_STAGES.find((s) => s.id === lead.estado)?.label}</Badge>
           {lead.valorEstimado ? <Badge className="bg-primary-50 text-primary-600 dark:bg-primary-400/15 dark:text-primary-300">{formatCurrency(lead.valorEstimado)}</Badge> : null}
+          {lead.origen && (
+            <span title={lead.referidoPor ? `Recomendado por ${lead.referidoPor}` : 'Por dónde llegó'}>
+              <Badge className="bg-surface-2 text-muted">
+                {ORIGEN_META[lead.origen]?.emoji} {ORIGEN_META[lead.origen]?.label ?? lead.origen}
+                {lead.referidoPor ? ` · ${lead.referidoPor}` : ''}
+              </Badge>
+            </span>
+          )}
+        </div>
+        {/* Idioma probable (0065): lo marca Juan a mano, de un toque. Tocar el
+            que ya está marcado lo quita. */}
+        <div className="mt-2 flex items-center gap-1 overflow-x-auto sin-barra" role="group" aria-label="Idioma del lead">
+          <span className="mr-1 shrink-0 text-[11px] text-muted">Idioma</span>
+          {IDIOMAS.map((i) => {
+            const on = lead.idioma === i.id
+            return (
+              <button
+                key={i.id}
+                type="button"
+                title={i.label}
+                aria-pressed={on}
+                onClick={() => updateLead(lead.id, { idioma: on ? ('' as Lead['idioma']) : i.id })}
+                className={cn(
+                  'min-h-[32px] min-w-[36px] shrink-0 rounded-full border px-2 text-[11px] font-semibold transition-colors',
+                  on ? 'border-primary-400 bg-primary-400 text-white' : 'border-border text-muted hover:text-fg',
+                )}
+              >
+                {i.corto}
+              </button>
+            )
+          })}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button size="sm" onClick={() => onEdit(lead)}><Edit3 className="h-3.5 w-3.5" /> Editar</Button>

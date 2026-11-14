@@ -66,6 +66,10 @@ const persist = {
       facebook: lead.facebook, linkedin: lead.linkedin,
       fuente: lead.fuente, notas: lead.notas,
       etiquetas: lead.etiquetas ?? [],
+      // 0065. Sin valor se manda '' para que quitar el dato también se guarde.
+      origen: lead.origen ?? ('' as Lead['origen']),
+      referidoPor: lead.referidoPor ?? '',
+      idioma: lead.idioma ?? ('' as Lead['idioma']),
     }).catch(fallo(lead.id, 'los datos del lead'))
     // Campos de pipeline -> Supabase (misma fila `leads`). Solo se envía `estado`
     // (y por lo tanto se inserta un evento en pipeline_events) si de verdad cambió;

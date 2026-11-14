@@ -14,7 +14,8 @@ import type { FollowUpAgendaItem, FollowUpResultado, FollowUpTipo } from '@/type
 export const FOLLOW_UP_TIPOS: { id: FollowUpTipo; label: string; emoji: string }[] = [
   { id: 'whatsapp', label: 'WhatsApp', emoji: '💬' },
   { id: 'email', label: 'Correo electrónico', emoji: '✉️' },
-  { id: 'llamada', label: 'Llamada', emoji: '📞' },
+  { id: 'llamada', label: 'Llamada normal', emoji: '📞' },
+  { id: 'llamada_whatsapp', label: 'Llamada por WhatsApp', emoji: '📲' },
   { id: 'reunion', label: 'Reunión presencial', emoji: '🤝' },
   { id: 'videollamada', label: 'Videollamada', emoji: '📹' },
   { id: 'linkedin', label: 'LinkedIn', emoji: '💼' },

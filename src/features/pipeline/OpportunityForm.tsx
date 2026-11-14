@@ -11,6 +11,7 @@ import {
 } from '@/hooks/useData'
 import { ATAJOS_REPROGRAMAR, FOLLOW_UP_TIPOS, fechaDeAtajo, today } from '@/lib/followUps'
 import { RESPONSABLE_POR_DEFECTO } from '@/lib/equipo'
+import { CANALES_PIPELINE } from '@/lib/origen'
 import type { Lead, LeadStatus, Priority, Channel, FollowUpTipo } from '@/types'
 
 /**
@@ -45,7 +46,7 @@ export function OpportunityForm({
 
 /** Canal del lead ↔ medio del seguimiento: son la misma elección vista desde
  *  dos sitios, así que cambiar uno arrastra al otro cuando tiene equivalente. */
-const CANALES: Channel[] = ['email', 'whatsapp', 'instagram', 'linkedin']
+const CANALES: Channel[] = CANALES_PIPELINE.map((c) => c.id)
 
 /**
  * El editor sin el modal alrededor, para poder usarlo también como pestaña de
@@ -120,13 +121,8 @@ export function OpportunityEditor({
       setFecha(lead.proximoSeguimiento?.slice(0, 10) ?? '')
       setHora('')
       // Por defecto se contacta por donde ya se habla con el cliente.
-      setTipoSeguimiento(
-        lead.canalPrincipal === 'whatsapp' ? 'whatsapp'
-        : lead.canalPrincipal === 'email' ? 'email'
-        : lead.canalPrincipal === 'linkedin' ? 'linkedin'
-        : lead.canalPrincipal === 'instagram' ? 'instagram'
-        : 'llamada',
-      )
+      // Todos los canales del Pipeline existen también como medio de toque.
+      setTipoSeguimiento((lead.canalPrincipal ?? 'llamada') as FollowUpTipo)
       setEstadoSeg('pendiente')
       setPrioridadSeg(lead.prioridad ?? 'media')
       setResponsableSeg(lead.responsable || RESPONSABLE_POR_DEFECTO)
@@ -241,10 +237,7 @@ export function OpportunityEditor({
             <label className="block">
               <span className="mb-1 block text-xs font-medium text-muted">Canal principal</span>
               <Select value={canalPrincipal} onChange={(e) => cambiarCanal(e.target.value as Channel)}>
-                <option value="email">Email</option>
-                <option value="whatsapp">WhatsApp</option>
-                <option value="instagram">Instagram</option>
-                <option value="linkedin">LinkedIn</option>
+                {CANALES_PIPELINE.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
               </Select>
             </label>
             <div className="block">

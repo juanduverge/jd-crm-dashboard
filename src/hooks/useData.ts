@@ -479,6 +479,19 @@ export function useMetricasCrm(desde: string, hasta: string) {
   })
 }
 
+/**
+ * Embudo por canal / origen / contratos (0065). La clave cuelga de
+ * `metricas_crm` para que las mismas invalidaciones lo refresquen.
+ */
+export function useMetricasEmbudo(desde: string, hasta: string) {
+  return useQuery({
+    queryKey: ['metricas_crm', 'embudo', desde, hasta],
+    queryFn: () => metricsService.getEmbudo(desde, hasta),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
 // -------------------------------------------------------------
 // METAS + HORARIO (goals / horario_bloques) — migración 0015
 // -------------------------------------------------------------

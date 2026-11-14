@@ -8,6 +8,7 @@ import { NichoSelect } from '@/components/ui/NichoSelect'
 import { ResponsableSelect } from '@/components/ui/ResponsableSelect'
 import { PIPELINE_STAGES } from '@/lib/config'
 import { RESPONSABLE_POR_DEFECTO } from '@/lib/equipo'
+import { IDIOMAS, ORIGENES } from '@/lib/origen'
 import type { Lead } from '@/types'
 
 /** Valores del form a partir del lead (o vacíos en modo crear). */
@@ -27,6 +28,9 @@ function buildDefaults(initial?: Lead | null): LeadFormValues {
     facebook: initial?.facebook ?? '',
     linkedin: initial?.linkedin ?? '',
     fuente: initial?.fuente ?? '',
+    origen: initial?.origen ?? '',
+    referidoPor: initial?.referidoPor ?? '',
+    idioma: initial?.idioma ?? '',
     responsable: initial?.responsable || RESPONSABLE_POR_DEFECTO,
     etiquetas: (initial?.etiquetas ?? []).join(', '),
     scoreManual: initial?.scoreManual ?? 0,
@@ -134,7 +138,22 @@ export function LeadForm({
             <option value="baja">Baja</option>
           </Select>
         </Field>
-        <Field label="Fuente"><Input {...register('fuente')} placeholder="Google Maps, Referido…" /></Field>
+        <Field label="¿Por dónde llegó?">
+          <Select {...register('origen')}>
+            <option value="">Sin dato</option>
+            {ORIGENES.map((o) => <option key={o.id} value={o.id}>{o.emoji} {o.label}</option>)}
+          </Select>
+        </Field>
+        <Field label="Idioma probable">
+          <Select {...register('idioma')}>
+            <option value="">Sin marcar</option>
+            {IDIOMAS.map((i) => <option key={i.id} value={i.id}>{i.label}</option>)}
+          </Select>
+        </Field>
+        {watch('origen') === 'recomendacion' && (
+          <Field label="¿Quién lo recomendó?"><Input {...register('referidoPor')} placeholder="Nombre del cliente o contacto" /></Field>
+        )}
+        <Field label="Fuente técnica"><Input {...register('fuente')} placeholder="google_maps…" /></Field>
         <Field label="Responsable">
           <ResponsableSelect
             value={watch('responsable') ?? ''}

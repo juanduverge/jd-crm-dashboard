@@ -10,6 +10,7 @@ import { touchColor } from '@/lib/touches'
 import { cn } from '@/lib/utils'
 import { iso, rangoMes, rangoSemana } from '../shared/goalMeta'
 import type { MetricasCrm } from '@/types'
+import { PanelEmbudo } from './PanelEmbudo'
 
 /**
  * Panel comercial — el "qué hice / qué estoy haciendo / qué me falta" del mes.
@@ -79,6 +80,7 @@ export function PanelComercial({ mes, esActual }: { mes: Date; esActual: boolean
             <Toques m={data} />
           </div>
           <QueMeFalta m={data} />
+          <PanelEmbudo desde={rango.desde} hasta={rango.hasta} />
         </>
       )}
     </div>

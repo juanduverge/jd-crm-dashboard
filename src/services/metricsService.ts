@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-import type { MetricasCrm } from '@/types'
+import type { MetricasCrm, MetricasEmbudo } from '@/types'
 
 /**
  * metricsService — lectura del motor de métricas (migración 0028).
@@ -26,6 +26,16 @@ export const metricsService = {
     })
     if (error) throw error
     return data as MetricasCrm
+  },
+
+  /**
+   * Embudo por canal, por origen y cifras de contratos (RPC `metricas_embudo`,
+   * migración 0065). Igual que arriba: el navegador solo pinta.
+   */
+  async getEmbudo(desde: string, hasta: string): Promise<MetricasEmbudo> {
+    const { data, error } = await supabase.rpc('metricas_embudo', { p_desde: desde, p_hasta: hasta })
+    if (error) throw error
+    return data as MetricasEmbudo
   },
 
   /**

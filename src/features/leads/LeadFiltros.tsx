@@ -4,6 +4,7 @@ import { PIPELINE_STAGES } from '@/lib/config'
 import { FILTROS_TOQUE } from '@/lib/touches'
 import { PREF_FILTERS } from '@/components/PrefFilterBar'
 import { cn } from '@/lib/utils'
+import { CANALES_PIPELINE, IDIOMAS, ORIGENES } from '@/lib/origen'
 import type { Lead } from '@/types'
 
 /**
@@ -100,6 +101,24 @@ export function crearCategorias(
         // Sin responsable de verdad: vacío (0028 unificó los responsables).
         { key: 'sinResponsable', label: 'Sin responsable', test: (l) => !l.responsable?.trim() },
       ],
+    },
+    {
+      key: 'idioma', label: 'Idioma',
+      opciones: [
+        ...IDIOMAS.map((i) => ({ key: i.id, label: i.label, test: (l: Lead) => l.idioma === i.id })),
+        { key: 'sin_idioma', label: 'Sin marcar', test: (l: Lead) => !l.idioma },
+      ],
+    },
+    {
+      key: 'origen', label: 'Origen',
+      opciones: [
+        ...ORIGENES.map((o) => ({ key: o.id, label: `${o.emoji} ${o.label}`, test: (l: Lead) => l.origen === o.id })),
+        { key: 'sin_origen', label: 'Sin dato', test: (l: Lead) => !l.origen },
+      ],
+    },
+    {
+      key: 'canal_principal', label: 'Canal principal',
+      opciones: CANALES_PIPELINE.map((c) => ({ key: c.id, label: c.label, test: (l: Lead) => l.canalPrincipal === c.id })),
     },
     {
       key: 'nicho', label: 'Nicho',
