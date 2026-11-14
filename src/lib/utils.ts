@@ -14,6 +14,36 @@ export function formatCurrency(n: number, currency = 'USD') {
   }).format(n || 0)
 }
 
+/** Importes por moneda, p. ej. `{ USD: 300, DOP: 15000 }`. */
+export type Montos = Record<string, number>
+
+const SIMBOLO_MONEDA: Record<string, string> = { USD: 'US$', DOP: 'RD$', EUR: '€' }
+
+/**
+ * Dinero que puede venir en varias monedas. Nunca las suma: 300 USD y
+ * 15.000 DOP se enseñan como «US$300 · RD$15,000». Si todo es USD se ve
+ * igual que `formatCurrency` («$300»). Sin `montos` (RPC antiguo) cae en
+ * `respaldo`, que se asume USD.
+ */
+export function formatMontos(montos: Montos | undefined, respaldo = 0): string {
+  const partes = Object.entries(montos ?? {}).filter(([, v]) => v)
+  if (!montos) return formatCurrency(respaldo)
+  if (partes.length === 0) return formatCurrency(0)
+  if (partes.length === 1 && partes[0][0] === 'USD') return formatCurrency(partes[0][1])
+  const num = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+  return partes
+    .sort(([a], [b]) => (a === 'USD' ? -1 : b === 'USD' ? 1 : a.localeCompare(b)))
+    .map(([m, v]) => `${SIMBOLO_MONEDA[m] ?? `${m} `}${num.format(v)}`)
+    .join(' · ')
+}
+
+/** Suma importes agrupando por moneda. */
+export function sumarMontos(xs: { moneda: string; valor: number }[]): Montos {
+  const m: Montos = {}
+  for (const x of xs) if (x.valor) m[x.moneda] = (m[x.moneda] ?? 0) + x.valor
+  return m
+}
+
 export function formatNumber(n: number) {
   return new Intl.NumberFormat('en-US').format(n || 0)
 }

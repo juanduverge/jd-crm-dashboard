@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-import type { MetricasCrm, MetricasEmbudo } from '@/types'
+import type { MetricasCrm, MetricasEmbudo, MetricasRitmo } from '@/types'
 
 /**
  * metricsService — lectura del motor de métricas (migración 0028).
@@ -36,6 +36,13 @@ export const metricsService = {
     const { data, error } = await supabase.rpc('metricas_embudo', { p_desde: desde, p_hasta: hasta })
     if (error) throw error
     return data as MetricasEmbudo
+  },
+
+  /** Cuándo contactar y cuánto insistir (RPC `metricas_ritmo`, 0067). */
+  async getRitmo(desde: string, hasta: string): Promise<MetricasRitmo> {
+    const { data, error } = await supabase.rpc('metricas_ritmo', { p_desde: desde, p_hasta: hasta })
+    if (error) throw error
+    return data as MetricasRitmo
   },
 
   /**

@@ -96,6 +96,8 @@ export interface FilaRanking {
   reuniones: number
   ganados: number
   dinero: number
+  /** Dinero por moneda, cuando viene del motor SQL (0068). */
+  dineroMon?: Record<string, number>
   /** Centro geográfico del grupo (no aplica a nichos). */
   lat?: number
   lng?: number

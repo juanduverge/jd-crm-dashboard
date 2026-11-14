@@ -761,7 +761,10 @@ export interface EmbudoCanal {
   abrieron: number
   reuniones: number
   ganados: number
+  /** Suma sin mirar moneda (0065). Usar `valor_mon`. */
   valor: number
+  /** Dinero por moneda (0068). */
+  valor_mon?: Record<string, number>
 }
 
 export interface EmbudoOrigen {
@@ -771,7 +774,10 @@ export interface EmbudoOrigen {
   respondieron: number
   reuniones: number
   ganados: number
+  /** Suma sin mirar moneda (0065). Usar `valor_mon`. */
   valor: number
+  /** Dinero por moneda (0068). */
+  valor_mon?: Record<string, number>
 }
 
 export interface EmbudoContratos {
@@ -781,6 +787,11 @@ export interface EmbudoContratos {
   dias_ciclo: number
   cobrado: number
   pendiente: number
+  /** Lo mismo por moneda (0068): los campos de arriba suman monedas distintas. */
+  valor_total_mon?: Record<string, number>
+  ticket_medio_mon?: Record<string, number>
+  cobrado_mon?: Record<string, number>
+  pendiente_mon?: Record<string, number>
   perdidos: number
   motivos_perdida: { motivo: string; n: number }[]
 }
@@ -791,4 +802,14 @@ export interface MetricasEmbudo {
   por_canal: EmbudoCanal[]
   por_origen: EmbudoOrigen[]
   contratos: EmbudoContratos
+}
+
+/** RPC `metricas_ritmo` (0067): cuándo contactar y cuánto insistir. */
+export interface MetricasRitmo {
+  /** 1 = lunes … 7 = domingo. */
+  por_dia: { dia: number; toques: number; respuestas: number }[]
+  por_hora: { hora: number; toques: number; respuestas: number }[]
+  /** Toque en que llegó la primera respuesta (6 = sexto o posterior). */
+  por_toque: { toque: number; leads: number }[]
+  tiempo_respuesta: { canal: FollowUpTipo; n: number; dias: number }[]
 }

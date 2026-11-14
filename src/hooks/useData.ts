@@ -492,6 +492,16 @@ export function useMetricasEmbudo(desde: string, hasta: string) {
   })
 }
 
+/** Cuándo contactar y cuánto insistir (0067). */
+export function useMetricasRitmo(desde: string, hasta: string) {
+  return useQuery({
+    queryKey: ['metricas_crm', 'ritmo', desde, hasta],
+    queryFn: () => metricsService.getRitmo(desde, hasta),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
 // -------------------------------------------------------------
 // METAS + HORARIO (goals / horario_bloques) — migración 0015
 // -------------------------------------------------------------
