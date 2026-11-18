@@ -198,19 +198,50 @@ type Direccion = {
   municipality?: string; county?: string; state?: string; country_code?: string; suburb?: string
 }
 
-async function nominatimInverso(lat: number, lng: number) {
+// Nominatim rechaza a menudo las peticiones que salen de servidores en la
+// nube (como las Edge Functions), sin dar motivo. Photon (komoot) usa los
+// mismos datos de OSM y sí las acepta: se prueba primero Nominatim y, si no
+// contesta, Photon.
+async function nominatimInverso(lat: number, lng: number): Promise<{ display_name?: string; address?: Direccion } | null> {
   const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&accept-language=es&lat=${lat}&lon=${lng}`,
-    { headers: { 'User-Agent': UA_OSM } })
-  if (!r.ok) return null
-  return await r.json() as { display_name?: string; address?: Direccion }
+    { headers: { 'User-Agent': UA_OSM }, signal: AbortSignal.timeout(5000) }).catch(() => null)
+  if (r?.ok) {
+    const j = await r.json().catch(() => null)
+    if (j?.address) return j
+  } else console.warn('importar-desde-maps: nominatim', r?.status ?? 'sin respuesta')
+  return await photonInverso(lat, lng)
 }
 
-async function nominatimBuscar(q: string) {
+async function photonInverso(lat: number, lng: number): Promise<{ display_name?: string; address?: Direccion } | null> {
+  const r = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}&limit=1`,
+    { headers: { 'User-Agent': UA_OSM }, signal: AbortSignal.timeout(5000) }).catch(() => null)
+  if (!r?.ok) { console.warn('importar-desde-maps: photon', r?.status ?? 'sin respuesta'); return null }
+  const p = (await r.json().catch(() => null))?.features?.[0]?.properties
+  if (!p) return null
+  // Si el punto cae en la calle, Photon pone su nombre en `name`, no en `street`.
+  const calle = p.street ?? (p.type === 'street' ? p.name : undefined)
+  const address: Direccion = {
+    road: calle, house_number: p.housenumber, city: p.city ?? p.district, county: p.county,
+    state: p.state, country_code: p.countrycode?.toLowerCase(),
+  }
+  return { address, display_name: [calle && [calle, p.housenumber].filter(Boolean).join(' '), p.city, p.state, p.country].filter(Boolean).join(', ') }
+}
+
+async function nominatimBuscar(q: string): Promise<{ lat: string; lon: string; display_name?: string; address?: Direccion } | null> {
   const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&accept-language=es&q=${encodeURIComponent(q)}`,
-    { headers: { 'User-Agent': UA_OSM } })
-  if (!r.ok) return null
-  const lista = await r.json() as { lat: string; lon: string; display_name?: string; address?: Direccion }[]
-  return lista[0] ?? null
+    { headers: { 'User-Agent': UA_OSM }, signal: AbortSignal.timeout(5000) }).catch(() => null)
+  if (r?.ok) {
+    const lista = await r.json().catch(() => []) as { lat: string; lon: string; display_name?: string; address?: Direccion }[]
+    if (lista[0]) return lista[0]
+  }
+  // Igual que en la inversa: si Nominatim no contesta, Photon.
+  const p = await fetch(`https://photon.komoot.io/api/?limit=1&q=${encodeURIComponent(q)}`,
+    { headers: { 'User-Agent': UA_OSM }, signal: AbortSignal.timeout(5000) }).catch(() => null)
+  const f = p?.ok ? (await p.json().catch(() => null))?.features?.[0] : null
+  if (!f) return null
+  const [lon, lat] = f.geometry.coordinates as [number, number]
+  const inv = await photonInverso(lat, lon)
+  return { lat: String(lat), lon: String(lon), ...(inv ?? {}) }
 }
 
 const sinAcentos = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
@@ -266,7 +297,8 @@ function comoApifyOsm(o: {
     website: t['website'] ?? t['contact:website'] ?? t['url'],
     instagrams: [red('instagram')].filter(Boolean),
     facebooks: [red('facebook')].filter(Boolean),
-    location: o.lat !== undefined ? { lat: o.lat, lng: o.lng } : undefined,
+    // Sin `location`: importar_leads la usa de dirección si no hay otra y en
+    // la ficha salían las coordenadas en bruto. Basta con lat/lng.
     lat: o.lat, lng: o.lng,
     description: t['description'],
   }
