@@ -5,7 +5,16 @@ export const leadSchema = z.object({
   // Empresa
   empresa: z.string().min(2, 'Nombre de empresa requerido'),
   nicho: z.string().min(1, 'Selecciona un nicho'),
-  web: z.string().url('URL inválida').optional().or(z.literal('')),
+  // «tupagina.com» vale: se guarda con https:// delante, que es lo que nadie
+  // escribe a mano y lo que hace falta para que el enlace abra.
+  web: z.preprocess(
+    (v) => {
+      if (typeof v !== 'string') return v
+      const t = v.trim()
+      return !t || /^https?:\/\//i.test(t) ? t : `https://${t.replace(/^\/+/, '')}`
+    },
+    z.string().url('Escribe una web válida, por ejemplo tupagina.com').optional().or(z.literal('')),
+  ),
   direccion: z.string().optional(),
   ciudad: z.string().optional(),
   pais: z.string().optional(),

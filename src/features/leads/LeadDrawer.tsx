@@ -8,7 +8,6 @@ import { leadsService } from '@/services/leadsService'
 import { useLeadsStore } from '@/store/leadsStore'
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useNotes, useCreateNote, useUpdateNote, useDeleteNote, useMessages } from '@/hooks/useData'
 import { EnlaceMapa, type FichaMapa } from '@/components/ui/MapaVisor'
-import { EnlaceWeb } from '@/components/ui/VisorWeb'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
 import { LeadFollowUpsTab } from '@/features/followups/LeadFollowUpsTab'
 import { OpportunityEditor } from '@/features/pipeline/OpportunityForm'
@@ -556,7 +555,9 @@ function Row({ icon: Icon, label, value, link, onClick, hint, copy, copyLabel, m
       <span className="flex min-w-0 flex-1 items-baseline gap-2">
         {onClick ? <button onClick={onClick} className="min-w-0 truncate text-left text-primary-600 hover:underline" title={value}>{value}</button>
         : mapa ? <EnlaceMapa partes={mapa} enlaceExterno={enlaceMapa} ficha={ficha}>{value}</EnlaceMapa>
-        : web && link ? <EnlaceWeb url={link}>{value}</EnlaceWeb>
+        // La web del negocio se abre en una pestaña nueva, sin vista previa:
+        // la mayoría no se deja mostrar dentro de otra página y salía en blanco.
+        : web && link ? <a href={/^https?:\/\//i.test(link) ? link : `https://${link}`} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate text-primary-600 hover:underline" title={value}>{value}</a>
         : link ? <a href={link} target="_blank" className="min-w-0 truncate text-primary-600 hover:underline" title={value}>{value}</a>
               : <span className="min-w-0 truncate text-fg" title={value}>{value}</span>}
         {hint && <span className="shrink-0 text-[10px] text-muted">{hint}</span>}
