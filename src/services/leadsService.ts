@@ -360,6 +360,8 @@ export interface ImportacionMaps {
   empresa: string
   /** false = ya estaba en la lista y solo se completaron los huecos. */
   nuevo: boolean
+  /** Sin web, el CRM la pide para que el robot pueda buscar contactos. */
+  web: string | null
   /** El robot de contactos está leyendo su web. */
   buscandoContactos: boolean
   /** 'definitivamente' | 'temporalmente' si Google lo marca cerrado. */
@@ -550,8 +552,9 @@ export const leadsService = {
 
   /**
    * Crea (o completa) un lead a partir de un enlace de Google Maps. Lo hace la
-   * Edge Function `importar-desde-maps` con la API de Google Places; si el
-   * negocio tiene web, encola también al robot de contactos.
+   * Edge Function `importar-desde-maps` (OpenStreetMap, gratis; Google Places
+   * si algún día hay clave). Si el negocio tiene web, encola también al robot
+   * de contactos.
    */
   async importarDesdeMaps(enlace: string): Promise<ImportacionMaps> {
     const { data, error } = await supabase.functions.invoke('importar-desde-maps', { body: { enlace } })
@@ -561,9 +564,13 @@ export const leadsService = {
       throw new Error(body?.error ?? 'No se pudo leer el enlace. Inténtalo de nuevo.')
     }
     const r = data as {
-      lead_id: string; empresa: string; nuevo: boolean; buscando_contactos: boolean; cerrado: string | null
+      lead_id: string; empresa: string; nuevo: boolean; web: string | null
+      buscando_contactos: boolean; cerrado: string | null
     }
-    return { leadId: r.lead_id, empresa: r.empresa, nuevo: r.nuevo, buscandoContactos: r.buscando_contactos, cerrado: r.cerrado }
+    return {
+      leadId: r.lead_id, empresa: r.empresa, nuevo: r.nuevo, web: r.web,
+      buscandoContactos: r.buscando_contactos, cerrado: r.cerrado,
+    }
   },
 
   /** Pide al robot del servidor de casa que lea la web del lead (cola 0070). */

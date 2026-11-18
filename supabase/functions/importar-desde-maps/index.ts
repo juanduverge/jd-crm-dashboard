@@ -1,17 +1,22 @@
 // «Añadir desde Google Maps» del CRM: pegas el enlace de una ficha y el lead
-// se crea con todos sus datos.
+// se crea con sus datos.
 //
 //   1. Abre el enlace corto (maps.app.goo.gl/…) hasta llegar a la URL larga.
 //   2. Saca de la URL el nombre y las coordenadas (o el place_id si viene).
-//   3. Pide la ficha a la API oficial de Google Places (New). Copiar Google
-//      Maps con robots lo prohíben sus condiciones y bloquearía la IP de casa.
+//   3. Completa la ficha:
+//      · Sin clave de Google (lo normal, 0 €): OpenStreetMap. Nominatim da la
+//        dirección, ciudad y país; Overpass, el teléfono y la web si alguien
+//        los apuntó en OSM. Sin valoración ni reseñas: eso solo lo tiene Google.
+//      · Con GOOGLE_PLACES_KEY: la API oficial de Google Places (New), que lo
+//        trae todo. Pide facturación en Google Cloud; hoy no está activada.
+//      Copiar Google Maps con robots lo prohíben sus condiciones y bloquearía
+//      la IP de casa: descartado.
 //   4. La guarda con `importar_leads` en el mismo formato que Apify, así que
 //      deduplicación, nicho, mapa y verificador de WhatsApp funcionan igual.
-//   5. Si tiene web, encola al robot de contactos (0070), que saca correos,
-//      teléfonos y redes de la web en el servidor de casa.
+//   5. Si tiene web, encola al robot de contactos (0070). Si no, el CRM pide
+//      la web y la encola él.
 //
-// Solo admin y vendedor. Secreto: GOOGLE_PLACES_KEY (clave de Google Cloud
-// con «Places API (New)» activada).
+// Solo admin y vendedor.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const ORIGENES = ['https://workspace.jddeveloper.com', 'http://localhost:3000']
@@ -29,7 +34,7 @@ function cabeceras(origen: string): HeadersInit {
 // ---------------------------------------------------------------
 // 1-2. Del enlace a «qué negocio es»
 // ---------------------------------------------------------------
-type Pista = { placeId?: string; nombre?: string; lat?: number; lng?: number; texto?: string }
+type Pista = { placeId?: string; nombre?: string; lat?: number; lng?: number; texto?: string; ftid?: string }
 
 /** Sigue las redirecciones a mano: así se ve la URL larga aunque Google mande a la página de cookies. */
 async function resolver(url: string): Promise<string> {
@@ -67,6 +72,11 @@ function leerPista(url: string): Pista {
   const centro = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
   const c = exacta ?? centro
   if (c) { p.lat = Number(c[1]); p.lng = Number(c[2]) }
+
+  // Identificador interno de la ficha (`!1s0x…:0x…` o `ftid=`): no cambia
+  // aunque cambie el resto de la URL, así que sirve de enlace estable.
+  const ftid = url.match(/!1s(0x[0-9a-f]+:0x[0-9a-f]+)/i)?.[1] ?? q.get('ftid') ?? undefined
+  if (ftid && /^0x[0-9a-f]+:0x[0-9a-f]+$/i.test(ftid)) p.ftid = ftid
 
   const qq = q.get('q') ?? q.get('query')
   if (qq) {
@@ -177,6 +187,92 @@ function comoApify(l: Lugar) {
 }
 
 // ---------------------------------------------------------------
+// 3b. OpenStreetMap (gratis)
+// ---------------------------------------------------------------
+// Nominatim pide identificarse y no pasar de una consulta por segundo: aquí
+// se hacen una o dos por lead añadido a mano, muy lejos de ese límite.
+const UA_OSM = 'crm-leads-importer/1.0'
+
+type Direccion = {
+  road?: string; house_number?: string; city?: string; town?: string; village?: string
+  municipality?: string; county?: string; state?: string; country_code?: string; suburb?: string
+}
+
+async function nominatimInverso(lat: number, lng: number) {
+  const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&accept-language=es&lat=${lat}&lon=${lng}`,
+    { headers: { 'User-Agent': UA_OSM } })
+  if (!r.ok) return null
+  return await r.json() as { display_name?: string; address?: Direccion }
+}
+
+async function nominatimBuscar(q: string) {
+  const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=1&accept-language=es&q=${encodeURIComponent(q)}`,
+    { headers: { 'User-Agent': UA_OSM } })
+  if (!r.ok) return null
+  const lista = await r.json() as { lat: string; lon: string; display_name?: string; address?: Direccion }[]
+  return lista[0] ?? null
+}
+
+const sinAcentos = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+
+/** El negocio en OSM a menos de 80 m con un nombre parecido. Sus etiquetas traen teléfono, web, horario… */
+async function overpass(nombre: string, lat: number, lng: number): Promise<Record<string, string> | null> {
+  const consulta = `[out:json][timeout:5];nwr(around:80,${lat},${lng})[name];out tags 40;`
+  const r = await fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST', headers: { 'User-Agent': UA_OSM, 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'data=' + encodeURIComponent(consulta), signal: AbortSignal.timeout(6000),
+  }).catch(() => null)
+  if (!r?.ok) return null
+  const els = ((await r.json()).elements ?? []) as { tags?: Record<string, string> }[]
+  const objetivo = sinAcentos(nombre)
+  const palabras = objetivo.split(' ').filter((p) => p.length > 2)
+  let mejor: Record<string, string> | null = null
+  let puntos = 0
+  for (const e of els) {
+    const n = sinAcentos(e.tags?.name ?? '')
+    if (!n) continue
+    const p = n === objetivo ? 100
+      : n.includes(objetivo) || objetivo.includes(n) ? 80
+      : palabras.filter((w) => n.includes(w)).length / Math.max(palabras.length, 1) * 60
+    if (p > puntos) { puntos = p; mejor = e.tags ?? null }
+  }
+  return puntos >= 40 ? mejor : null
+}
+
+/** Mismo formato de item de Apify, con lo que se sepa de OSM. */
+function comoApifyOsm(o: {
+  nombre: string; lat?: number; lng?: number; enlace: string
+  dir?: { display_name?: string; address?: Direccion } | null; tags?: Record<string, string> | null
+}) {
+  const a = o.dir?.address ?? {}
+  const t = o.tags ?? {}
+  const tel = t['phone'] ?? t['contact:phone'] ?? t['contact:mobile']
+  const telefonos = (tel ?? '').split(';').map((x) => x.trim()).filter(Boolean)
+  const calle = [t['addr:street'] ?? a.road, t['addr:housenumber'] ?? a.house_number].filter(Boolean).join(' ')
+  const ciudad = t['addr:city'] ?? a.city ?? a.town ?? a.village ?? a.municipality ?? a.county
+  const categoria = t['shop'] ?? t['amenity'] ?? t['craft'] ?? t['office'] ?? t['healthcare'] ?? t['tourism'] ?? t['leisure']
+  const red = (k: string) => t[`contact:${k}`] ?? t[k]
+  return {
+    title: o.nombre,
+    url: o.enlace,
+    categoryName: categoria && categoria !== 'yes' ? categoria.replace(/_/g, ' ') : undefined,
+    address: calle ? [calle, ciudad, a.state].filter(Boolean).join(', ') : o.dir?.display_name,
+    city: ciudad,
+    state: a.state,
+    countryCode: a.country_code?.toUpperCase(),
+    phone: telefonos[0],
+    phones: telefonos,
+    emails: [t['email'] ?? t['contact:email']].filter(Boolean),
+    website: t['website'] ?? t['contact:website'] ?? t['url'],
+    instagrams: [red('instagram')].filter(Boolean),
+    facebooks: [red('facebook')].filter(Boolean),
+    location: o.lat !== undefined ? { lat: o.lat, lng: o.lng } : undefined,
+    lat: o.lat, lng: o.lng,
+    description: t['description'],
+  }
+}
+
+// ---------------------------------------------------------------
 Deno.serve(async (req) => {
   const h = cabeceras(req.headers.get('origin') ?? '')
   const responder = (cuerpo: unknown, status = 200) => new Response(JSON.stringify(cuerpo), { status, headers: h })
@@ -194,7 +290,6 @@ Deno.serve(async (req) => {
   }
 
   const clave = Deno.env.get('GOOGLE_PLACES_KEY')
-  if (!clave) return responder({ ok: false, error: 'Falta la clave de Google Places (GOOGLE_PLACES_KEY). Pídesela a Juan.' }, 503)
 
   let b: { enlace?: string }
   try { b = await req.json() } catch { return responder({ ok: false, error: 'cuerpo ilegible' }, 400) }
@@ -220,19 +315,70 @@ Deno.serve(async (req) => {
   }
   if (!pista.nombre && !pista.texto && delante) pista.nombre = delante
 
-  let lugar: Lugar | null
-  try {
-    lugar = await places(clave, pista)
-  } catch (e) {
-    console.error('importar-desde-maps:', String(e), largo)
-    return responder({ ok: false, error: 'Google Places no respondió. Inténtalo en un momento.' }, 502)
-  }
-  if (!lugar) {
-    console.warn('importar-desde-maps: sin resultado', largo)
-    return responder({ ok: false, error: 'No encontré el negocio de ese enlace. Prueba a abrir la ficha en Maps y copiar el enlace desde «Compartir».' }, 404)
+  // --- Ficha: Google si hay clave, OpenStreetMap si no ---
+  // deno-lint-ignore no-explicit-any
+  let item: Record<string, any>
+  let cerrado: string | null = null
+  if (clave) {
+    let lugar: Lugar | null
+    try {
+      lugar = await places(clave, pista)
+    } catch (e) {
+      console.error('importar-desde-maps:', String(e), largo)
+      return responder({ ok: false, error: 'Google Places no respondió. Inténtalo en un momento.' }, 502)
+    }
+    if (!lugar) return responder({ ok: false, error: 'No encontré el negocio de ese enlace. Prueba a copiar el enlace desde «Compartir» en Maps.' }, 404)
+    item = comoApify(lugar)
+    cerrado = item.permanentlyClosed ? 'definitivamente' : item.temporarilyClosed ? 'temporalmente' : null
+  } else {
+    // Sin nombre no hay lead: un enlace con solo coordenadas es un punto del
+    // mapa, no un negocio.
+    let nombre = pista.nombre ?? (pista.texto && !/\d{3,}/.test(pista.texto) ? pista.texto.split(',')[0] : undefined)
+    let lat = pista.lat, lng = pista.lng
+    let dir: Awaited<ReturnType<typeof nominatimInverso>> = null
+    // Overpass a la vez que Nominatim: es el más lento y el público va a
+    // menudo saturado. Si no contesta a tiempo, se sigue sin él.
+    const tagsPronto = nombre && lat !== undefined && lng !== undefined
+      ? overpass(nombre.trim(), lat, lng).catch(() => null) : null
+    try {
+      if (lat !== undefined && lng !== undefined) dir = await nominatimInverso(lat, lng)
+      else if (pista.texto ?? pista.nombre) {
+        const r = await nominatimBuscar((pista.texto ?? pista.nombre)!)
+        if (r) { lat = Number(r.lat); lng = Number(r.lon); dir = r }
+      }
+    } catch (e) { console.warn('importar-desde-maps: nominatim', String(e)) }
+    if (!nombre) {
+      return responder({ ok: false, error: 'Ese enlace no trae el nombre del negocio. Abre la ficha del negocio en Maps y copia el enlace desde «Compartir».' }, 422)
+    }
+    nombre = nombre.trim()
+    const tags = tagsPronto ? await tagsPronto
+      : lat !== undefined && lng !== undefined ? await overpass(nombre, lat, lng).catch(() => null) : null
+    // Enlace estable a la ficha: con el identificador de Google si viene en la
+    // URL, para que pegar dos veces el mismo negocio no cree dos leads.
+    const fijo = pista.ftid ? `https://www.google.com/maps?ftid=${pista.ftid}` : largo
+    item = comoApifyOsm({ nombre, lat, lng, enlace: fijo, dir, tags })
   }
 
-  const item = comoApify(lugar)
+  // --- ¿Ya estaba? (p. ej. traído antes por Apify, con otro enlace) ---
+  // Mismo nombre a menos de ~300 m, o mismo nombre y ciudad. Si existe, se le
+  // pasa su propia clave a importar_leads para que complete ese lead.
+  let existente: { id: string; place_id: string | null; google_maps: string | null; empresa: string } | null = null
+  {
+    const { data: candidatos } = await servicio.from('leads')
+      .select('id, place_id, google_maps, empresa, ciudad, latitud, longitud')
+      .ilike('empresa', String(item.title).replace(/[\\%_]/g, (m) => '\\' + m)).is('deleted_at', null).limit(10)
+    existente = (candidatos ?? []).find((c) =>
+      (item.placeId && c.place_id === item.placeId)
+      || (c.latitud != null && item.lat !== undefined && Math.abs(c.latitud - item.lat) < 0.003 && Math.abs(c.longitud - item.lng) < 0.003)
+      || (c.ciudad && item.city && sinAcentos(c.ciudad) === sinAcentos(item.city))) ?? null
+    if (existente) {
+      item.title = existente.empresa
+      if (existente.place_id) item.placeId = existente.place_id
+      if (existente.google_maps) item.url = existente.google_maps
+      else if (!existente.place_id) delete item.url // sin claves: importar_leads empareja por nombre + ciudad
+    }
+  }
+
   const { data: res, error } = await servicio.rpc('importar_leads', {
     p_lote: [item], p_fuente: 'google_maps', p_consulta: null,
   })
@@ -243,9 +389,11 @@ Deno.serve(async (req) => {
     return responder({ ok: false, error: `No se añadió: ${detalle.motivo ?? 'descartado'}.`, empresa: item.title }, 409)
   }
 
-  const { data: lead } = await servicio.from('leads')
-    .select('id, empresa, web').eq('place_id', lugar.id).is('deleted_at', null)
-    .order('created_at', { ascending: true }).limit(1).maybeSingle()
+  let consulta = servicio.from('leads').select('id, empresa, web').is('deleted_at', null)
+  consulta = existente ? consulta.eq('id', existente.id)
+    : item.placeId ? consulta.eq('place_id', item.placeId)
+    : consulta.eq('google_maps', item.url)
+  const { data: lead } = await consulta.order('created_at', { ascending: true }).limit(1).maybeSingle()
   if (!lead) return responder({ ok: false, error: 'Se guardó pero no lo encuentro. Recarga la lista.' }, 500)
 
   let buscandoContactos = false
@@ -260,7 +408,9 @@ Deno.serve(async (req) => {
     lead_id: lead.id,
     empresa: lead.empresa,
     nuevo: ((res as { insertados?: number })?.insertados ?? 0) > 0,
+    web: lead.web ?? null,
     buscando_contactos: buscandoContactos,
-    cerrado: item.permanentlyClosed ? 'definitivamente' : item.temporarilyClosed ? 'temporalmente' : null,
+    cerrado,
+    fuente: clave ? 'google' : 'osm',
   })
 })
