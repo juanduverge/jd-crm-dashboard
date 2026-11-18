@@ -13,6 +13,7 @@ import {
 } from '@/lib/nichosBusqueda'
 import { cn } from '@/lib/utils'
 import { avisoEnCola } from '@/lib/cola'
+import { CiudadConSugerencias } from './CiudadConSugerencias'
 
 /** Fecha compacta para el historial: "12 ago". El año solo si no es este. */
 function fechaCorta(iso: string): string {
@@ -301,9 +302,24 @@ function SelectorNicho({
   )
 }
 
+/** Sugerencias para la casilla de país; se puede escribir cualquier otro. */
+const PAISES = [
+  'Estados Unidos', 'República Dominicana', 'Puerto Rico', 'México', 'Colombia',
+  'España', 'Venezuela', 'Panamá', 'Costa Rica', 'Guatemala', 'Honduras',
+  'El Salvador', 'Nicaragua', 'Cuba', 'Ecuador', 'Perú', 'Chile', 'Argentina',
+  'Uruguay', 'Paraguay', 'Bolivia', 'Canadá', 'Reino Unido', 'Francia', 'Italia',
+  'Alemania', 'Portugal',
+]
+
 export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [tipo, setTipo] = useState('')
+  // La ubicación va en tres casillas: «Cartagena» a secas acababa en España
+  // cuando se quería Colombia. Se unen como «Brooklyn, New York, Estados
+  // Unidos», que es el texto libre que entiende Apify. Basta con rellenar una.
   const [ciudad, setCiudad] = useState('')
+  const [region, setRegion] = useState('')
+  const [pais, setPais] = useState('')
+  const ubicacion = [ciudad, region, pais].map((v) => v.trim()).filter(Boolean).join(', ')
   const [max, setMax] = useState(20)
   const [fuente, setFuente] = useState<LeadSourceKey>('google_maps')
   const [sending, setSending] = useState(false)
@@ -320,15 +336,26 @@ export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () 
   const cargar = (b: { fuente?: string; tipo: string; ciudad: string; max?: number }) => {
     if (b.fuente && FUENTES.some((f) => f.id === b.fuente)) setFuente(b.fuente as LeadSourceKey)
     setTipo(b.tipo)
-    setCiudad(b.ciudad)
+    // Las plantillas guardan la ubicación unida: se reparte de vuelta.
+    // «Miami, FL, USA» → ciudad, estado, país; «Madrid, España» → ciudad, país.
+    const partes = (b.ciudad ?? '').split(',').map((v) => v.trim()).filter(Boolean)
+    if (partes.length >= 3) {
+      setCiudad(partes.slice(0, partes.length - 2).join(', '))
+      setRegion(partes[partes.length - 2])
+      setPais(partes[partes.length - 1])
+    } else if (partes.length === 2) {
+      setCiudad(partes[0]); setRegion(''); setPais(partes[1])
+    } else {
+      setCiudad(partes[0] ?? ''); setRegion(''); setPais('')
+    }
     if (b.max) setMax(b.max)
   }
 
   const guardarPlantilla = async () => {
     if (!tipo.trim()) { toast.error('Escribe primero qué quieres buscar'); return }
-    const n = nombre.trim() || [tipo.trim(), ciudad.trim()].filter(Boolean).join(' / ')
+    const n = nombre.trim() || [tipo.trim(), ubicacion].filter(Boolean).join(' / ')
     try {
-      await guardar.mutateAsync({ nombre: n, fuente, tipo: tipo.trim(), ciudad: ciudad.trim(), max })
+      await guardar.mutateAsync({ nombre: n, fuente, tipo: tipo.trim(), ciudad: ubicacion, max })
       toast.success(`Plantilla «${n}» guardada`)
       setNombrando(false)
       setNombre('')
@@ -344,13 +371,13 @@ export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () 
       toast.error('Indica el tipo de negocio o nicho a buscar')
       return
     }
-    if (!fuenteActiva.ubicacionOpcional && !ciudad.trim()) {
-      toast.error('Completa tipo de negocio y ciudad')
+    if (!fuenteActiva.ubicacionOpcional && !ubicacion) {
+      toast.error('Indica al menos la ciudad o el país')
       return
     }
     setSending(true)
     try {
-      const r = await crmApi.buscarLeads({ tipo_negocio: tipo.trim(), ciudad: ciudad.trim(), max, fuente })
+      const r = await crmApi.buscarLeads({ tipo_negocio: tipo.trim(), ciudad: ubicacion, max, fuente })
       if (r.encolado) avisoEnCola('la búsqueda de prospectos')
       else toast.success('Búsqueda iniciada — los nuevos prospectos aparecerán en unos minutos', { duration: 6000 })
       // Los campos se quedan puestos: lo normal es repetir la misma búsqueda
@@ -417,11 +444,35 @@ export function LeadSearchModal({ open, onClose }: { open: boolean; onClose: () 
 
         <div>
           <label className="mb-1 block text-xs font-medium text-muted">{fuenteActiva.labelUbicacion}</label>
-          <Input
-            value={ciudad}
-            onChange={(e) => setCiudad(e.target.value)}
-            placeholder={fuenteActiva.placeholderUbicacion}
-          />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <CiudadConSugerencias
+              valor={ciudad}
+              onChange={setCiudad}
+              contexto={[region, pais].map((v) => v.trim()).filter(Boolean).join(' ')}
+              onElegir={(l) => { setCiudad(l.ciudad); setRegion(l.region); setPais(l.pais) }}
+            />
+            <Input
+              value={region}
+              onChange={(e) => setRegion(e.target.value)}
+              placeholder="Estado / provincia (ej. New York)"
+              aria-label="Estado o provincia"
+            />
+            <Input
+              value={pais}
+              onChange={(e) => setPais(e.target.value)}
+              placeholder="País (ej. Estados Unidos)"
+              aria-label="País"
+              list="lead-search-paises"
+            />
+          </div>
+          <datalist id="lead-search-paises">
+            {PAISES.map((p) => <option key={p} value={p} />)}
+          </datalist>
+          <p className="mt-1 text-[11px] text-muted">
+            {ubicacion
+              ? <>Se buscará en: <span className="font-medium text-fg">{ubicacion}</span></>
+              : 'Basta con una casilla; con ciudad y país la búsqueda no se confunde de sitio.'}
+          </p>
         </div>
 
         <div>
