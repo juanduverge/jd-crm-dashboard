@@ -1,0 +1,30 @@
+# Robot de contactos (migración 0070). Vive en el servidor de casa en
+# ~/jd-contactos, con su propio .env (SUPABASE_URL y SUPABASE_SERVICE_KEY,
+# los mismos que usa ~/jd-wa).
+#
+#   docker compose up -d --build
+#   docker logs -f jd-contactos-robot
+#   docker compose run --rm robot python robot.py prueba https://una-web.com
+#
+# No abre ningún puerto: él va a buscar los trabajos a Supabase.
+services:
+  robot:
+    build: .
+    container_name: jd-contactos-robot
+    restart: unless-stopped
+    # Chromium solo se abre para las webs que lo necesitan y se cierra al
+    # terminar cada una. 1 GB sobra; el tope es para que nunca pueda quitarle
+    # memoria a n8n ni al Android del verificador.
+    mem_limit: 1g
+    cpus: 1.0
+    shm_size: 256m
+    environment:
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
+      ESPERA: ${ESPERA:-15}
+      MAX_PAGINAS: ${MAX_PAGINAS:-5}
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

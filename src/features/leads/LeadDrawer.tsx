@@ -22,6 +22,7 @@ import {
 } from '@/lib/touches'
 import { today } from '@/lib/followUps'
 import { avisoEnCola } from '@/lib/cola'
+import { esperarContactos, motivoEnriquecimiento } from '@/lib/contactosWeb'
 import { IDIOMAS, ORIGEN_META } from '@/lib/origen'
 
 const TABS = ['Detalles', 'Proyecto', 'Oportunidad', 'Seguimientos', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
@@ -60,6 +61,7 @@ export function LeadDrawer({
   const [selectedEmail, setSelectedEmail] = useState<string | undefined>(undefined)
   const [analizando, setAnalizando] = useState(false)
   const [puntuando, setPuntuando] = useState(false)
+  const [buscandoWeb, setBuscandoWeb] = useState(false)
   const [composeOpen, setComposeOpen] = useState(false)
   const patchLocal = useLeadsStore((s) => s.patchLocal)
   const toggleFavorito = useLeadsStore((s) => s.toggleFavorito)
@@ -132,6 +134,19 @@ export function LeadDrawer({
       toast.error('No se pudo analizar el lead')
     } finally {
       setAnalizando(false)
+    }
+  }
+
+  const buscarEnWeb = async () => {
+    setBuscandoWeb(true)
+    try {
+      await leadsService.buscarContactosWeb(lead.id)
+      toast('Buscando correos y redes en su web…', { icon: '🔎' })
+      await esperarContactos(lead.id, lead.empresa, lead)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo pedir la búsqueda')
+    } finally {
+      setBuscandoWeb(false)
     }
   }
 
@@ -318,10 +333,20 @@ export function LeadDrawer({
               icon={Clock}
               label="Enriquecido"
               value={lead.lastEnrichedAt ? fmtFecha(lead.lastEnrichedAt) : undefined}
-              hint={lead.enrichmentStatus === 'sin_datos' ? 'sin datos en su web'
-                : lead.enrichmentStatus === 'error' ? 'falló, se reintentará'
-                : undefined}
+              hint={motivoEnriquecimiento(lead.enrichmentStatus)}
             />
+            {/* El robot de contactos del servidor de casa (0070) lee la web y
+                suma correos, teléfonos, WhatsApp y redes sin pisar nada. */}
+            {lead.web && (
+              <button
+                onClick={buscarEnWeb}
+                disabled={buscandoWeb}
+                className="btn-ghost -mt-1 ml-7 h-9 gap-1.5 px-2 text-xs text-primary-600 disabled:opacity-60"
+              >
+                {buscandoWeb ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+                {buscandoWeb ? 'Leyendo su web…' : 'Buscar contactos en su web'}
+              </button>
+            )}
             <Row icon={User} label="Responsable" value={lead.responsable} />
             {lead.etiquetas && lead.etiquetas.length > 0 && (
               <div className="flex items-start gap-2">

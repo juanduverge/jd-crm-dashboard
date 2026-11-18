@@ -355,6 +355,17 @@ export interface UltimaBusqueda {
   insertados: number
 }
 
+export interface ImportacionMaps {
+  leadId: string
+  empresa: string
+  /** false = ya estaba en la lista y solo se completaron los huecos. */
+  nuevo: boolean
+  /** El robot de contactos está leyendo su web. */
+  buscandoContactos: boolean
+  /** 'definitivamente' | 'temporalmente' si Google lo marca cerrado. */
+  cerrado: string | null
+}
+
 export const leadsService = {
   /** Ultima importacion de Apify, para saber que paso con el lote completo. */
   async getUltimaImportacion(): Promise<LeadImport | null> {
@@ -535,6 +546,37 @@ export const leadsService = {
       .eq('id', payload.leadId)
     if (error) throw error
     return r
+  },
+
+  /**
+   * Crea (o completa) un lead a partir de un enlace de Google Maps. Lo hace la
+   * Edge Function `importar-desde-maps` con la API de Google Places; si el
+   * negocio tiene web, encola también al robot de contactos.
+   */
+  async importarDesdeMaps(enlace: string): Promise<ImportacionMaps> {
+    const { data, error } = await supabase.functions.invoke('importar-desde-maps', { body: { enlace } })
+    if (error) {
+      // El mensaje útil viene en el cuerpo de la respuesta, no en el error genérico.
+      const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+      throw new Error(body?.error ?? 'No se pudo leer el enlace. Inténtalo de nuevo.')
+    }
+    const r = data as {
+      lead_id: string; empresa: string; nuevo: boolean; buscando_contactos: boolean; cerrado: string | null
+    }
+    return { leadId: r.lead_id, empresa: r.empresa, nuevo: r.nuevo, buscandoContactos: r.buscando_contactos, cerrado: r.cerrado }
+  },
+
+  /** Pide al robot del servidor de casa que lea la web del lead (cola 0070). */
+  async buscarContactosWeb(leadId: string): Promise<void> {
+    const { error } = await supabase.rpc('contactos_web_encolar', { p_lead_id: leadId })
+    if (error) throw new Error(error.message.includes('no tiene web') ? 'Este lead no tiene web.' : error.message)
+  },
+
+  /** Un solo lead, para refrescar la ficha cuando el robot termina sin recargar toda la lista. */
+  async getLead(leadId: string): Promise<Lead | null> {
+    const { data, error } = await supabase.from('leads').select('*').eq('id', leadId).is('deleted_at', null).maybeSingle()
+    if (error) throw error
+    return data ? rowToLead(data as LeadRow) : null
   },
 
   // ---- Contactos --------------------------------------------------------

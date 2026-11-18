@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   Plus, Download, RefreshCw, Trash2, Search, ArrowUpDown, Mail, MessageCircle,
-  Eye, X, Sparkles, Star, ThumbsUp, ThumbsDown,
+  Eye, X, Sparkles, Star, ThumbsUp, ThumbsDown, MapPin,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Input, Badge, Skeleton, EmptyState } from '@/components/ui'
@@ -11,6 +11,7 @@ import { ConfirmDeleteModal } from '@/components/ui/ConfirmDeleteModal'
 import { LeadForm } from './LeadForm'
 import { LeadDrawer } from './LeadDrawer'
 import { LeadSearchModal } from './LeadSearchModal'
+import { ImportarMapsModal } from './ImportarMapsModal'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
 import { useLeads, useDeleteLead, useNichos, useUltimaImportacion } from '@/hooks/useData'
 import { useLeadsStore } from '@/store/leadsStore'
@@ -69,6 +70,7 @@ export function LeadsPage() {
   }
   const [composeLead, setComposeLead] = useState<Lead | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [mapsOpen, setMapsOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
 
   // Orden congelado.
@@ -207,6 +209,9 @@ export function LeadsPage() {
             </Button>
             <Button variant="outline" size="sm" onClick={() => setSearchOpen(true)}>
               <Sparkles className="h-4 w-4" /> Buscar nuevos leads
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setMapsOpen(true)}>
+              <MapPin className="h-4 w-4" /> Desde Google Maps
             </Button>
             <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true) }}>
               <Plus className="h-4 w-4" /> Agregar lead
@@ -412,6 +417,7 @@ export function LeadsPage() {
 
       <LeadForm open={formOpen} onClose={() => { setFormOpen(false); setEditing(null) }} onSubmit={handleSubmit} initial={editing} />
       <LeadSearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+      <ImportarMapsModal open={mapsOpen} onClose={() => setMapsOpen(false)} onCreado={setDrawerLeadId} />
       <LeadDrawer
         lead={drawerLead}
         onClose={cerrarDrawer}
