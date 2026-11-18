@@ -28,9 +28,16 @@ export function RichEditor({ value, onChange, disabled, lang }: {
     content: value,
     editable: !disabled,
     editorProps: { attributes: { class: 'cms-rich focus:outline-none', lang, spellcheck: 'true' } },
-    onUpdate: ({ editor }) => onChange((editor.storage as unknown as MdStorage).markdown.getMarkdown()),
+    // Solo cuenta como cambio lo que cambia el documento. Sin esto, abrir un artículo lo marcaba
+    // «Sin guardar» (el Markdown re-serializado no es idéntico al guardado) y bloqueaba Publicar,
+    // Actualizar y Programar con «Guarda los cambios primero».
+    onUpdate: ({ editor, transaction }) => {
+      if (!transaction.docChanged) return
+      onChange((editor.storage as unknown as MdStorage).markdown.getMarkdown())
+    },
   })
-  useEffect(() => { editor?.setEditable(!disabled) }, [editor, disabled])
+  // false: cambiar si se puede editar no es una edición (por defecto TipTap emite «update»).
+  useEffect(() => { editor?.setEditable(!disabled, false) }, [editor, disabled])
 
   const estado = useEditorState({
     editor,
