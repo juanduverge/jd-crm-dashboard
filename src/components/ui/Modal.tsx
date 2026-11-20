@@ -13,7 +13,7 @@ export function Modal({
   title?: string
   children: ReactNode
   footer?: ReactNode
-  size?: 'md' | 'lg'
+  size?: 'md' | 'lg' | 'xl'
 }) {
   // En el teléfono un diálogo centrado deja el contenido lejos del pulgar y
   // el teclado lo empuja fuera de la pantalla. Ahí sube desde abajo, pegado
@@ -50,7 +50,7 @@ export function Modal({
               // Hoja inferior: solo se redondean las esquinas de arriba, que
               // son las únicas que se ven.
               'rounded-b-none sm:rounded-2xl',
-              size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-lg',
+              size === 'xl' ? 'sm:max-w-4xl' : size === 'lg' ? 'sm:max-w-2xl' : 'sm:max-w-lg',
             )}
           >
             {/* Asidero: en móvil dice «esto se arrastra y se cierra» antes de

@@ -296,6 +296,13 @@ export type FollowUpTipo =
   | 'llamada_whatsapp'
 export type FollowUpEstado = 'pendiente' | 'completado' | 'cancelado'
 export type FollowUpResultado = 'positivo' | 'negativo' | 'sin_respuesta'
+/**
+ * Resultado fino de un contacto (0073). `resultado` es lo que cuentan las
+ * métricas; esto dice qué pasó exactamente (buzón, «llámame luego»…).
+ */
+export type DetalleContacto =
+  | 'enviado' | 'no_contesto' | 'buzon' | 'ocupado' | 'numero_equivocado'
+  | 'interesado' | 'pidio_info' | 'llamar_luego' | 'no_interesa'
 /** Urgencia derivada en SQL por la vista `follow_ups_agenda`. */
 export type FollowUpUrgencia = 'vencido' | 'hoy' | 'proximo'
 
@@ -319,6 +326,11 @@ export interface FollowUp {
   responsable?: string
   creadoEn?: string           // ISO
   completadoEn?: string       // ISO; solo si estado = 'completado'
+  // --- Migración 0073 ---
+  duracionSeg?: number
+  numeroUsado?: string
+  detalle?: DetalleContacto
+  respondidoEn?: string
 
   // --- Migración 0020 ---
   /** HH:MM. Opcional a propósito: "mañana, cuando pueda" es un toque válido. */

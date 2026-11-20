@@ -341,6 +341,24 @@ export function useProgramarFollowUp() {
   })
 }
 
+/** Contacto hecho desde la ficha del lead (llamada, mensaje…). */
+export function useRegistrarContacto() {
+  const invalidate = useInvalidateFollowUps()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof followUpsService.registrarContacto>[0]) => followUpsService.registrarContacto(p),
+    onSuccess: invalidate,
+  })
+}
+
+/** El lead contestó a un mensaje: se marca en el último toque. */
+export function useRegistrarRespuesta() {
+  const invalidate = useInvalidateFollowUps()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof followUpsService.registrarRespuesta>[0]) => followUpsService.registrarRespuesta(p),
+    onSuccess: invalidate,
+  })
+}
+
 export function useCompletarFollowUp() {
   const invalidate = useInvalidateFollowUps()
   return useMutation({

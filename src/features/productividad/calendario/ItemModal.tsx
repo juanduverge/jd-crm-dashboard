@@ -78,7 +78,7 @@ export interface ItemModalProps {
    * Para «Agendar reunión» desde otra pantalla (un lead, Mi día): llega el
    * formulario ya rellenado con el título, el lead y su correo de invitado.
    */
-  prefill?: { titulo?: string; tipo?: EventoTipo; leadId?: string; invitados?: string[] }
+  prefill?: { titulo?: string; tipo?: EventoTipo; leadId?: string; invitados?: string[]; duracionMin?: number; virtual?: boolean; ubicacion?: string }
 }
 
 export function ItemModal({ open, onClose, fecha, hora, evento, prefill }: ItemModalProps) {
@@ -174,15 +174,15 @@ export function ItemModal({ open, onClose, fecha, hora, evento, prefill }: ItemM
     setLeadId(prefill?.leadId)
     setLead(undefined)
     setMoverEtapa(true)
-    // Una reunión nace con Meet: es lo que se hace casi siempre.
-    setMeet(tipoInicial === 'reunion')
+    // Una reunión nace virtual (con Meet) salvo que se pida presencial.
+    setMeet(prefill?.virtual ?? tipoInicial === 'reunion')
     setInvitados((prefill?.invitados ?? []).join(', '))
     setInvitar((prefill?.invitados ?? []).length > 0)
     setDescripcion('')
     setNotas('')
     setDia(fecha)
     setHoraInicio(inicio)
-    setHoraFin(format(addMinutes(fechaConHora(fecha, inicio), 60), 'HH:mm'))
+    setHoraFin(format(addMinutes(fechaConHora(fecha, inicio), prefill?.duracionMin ?? 60), 'HH:mm'))
     setTodoElDia(false)
     setColor('coral')
     setPrioridad('media')
@@ -190,7 +190,7 @@ export function ItemModal({ open, onClose, fecha, hora, evento, prefill }: ItemM
     setCategoria('')
     setEtiquetas('')
     setEnlace('')
-    setUbicacion('')
+    setUbicacion(prefill?.ubicacion ?? '')
     setPeriodoMeta('dia')
     setTarget('1')
     setUnidad('')
@@ -426,6 +426,27 @@ export function ItemModal({ open, onClose, fecha, hora, evento, prefill }: ItemM
                 Se guarda en <span className="font-medium text-fg">{elegido.destino}</span> y el
                 calendario lo pinta desde ahí. No se duplica nada.
               </p>
+            )}
+          </div>
+        )}
+
+        {tipo === 'reunion' && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">¿Cómo será?</label>
+            <div className="inline-flex rounded-xl border border-border bg-surface p-1">
+              {([['virtual', 'Virtual (Google Meet)'], ['presencial', 'Presencial']] as const).map(([v, l]) => {
+                const on = v === 'virtual' ? meet || !!enlace.trim() : !meet && !enlace.trim()
+                return (
+                  <button key={v} type="button"
+                    onClick={() => { setMeet(v === 'virtual'); if (v === 'presencial') setEnlace('') }}
+                    className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors', on ? 'bg-primary-500 text-white shadow-sm' : 'text-muted hover:text-fg')}>
+                    {l}
+                  </button>
+                )
+              })}
+            </div>
+            {!meet && !enlace.trim() && (
+              <Input className="mt-2" value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} placeholder="¿Dónde? Dirección u oficina" />
             )}
           </div>
         )}

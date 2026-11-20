@@ -9,22 +9,22 @@ import { useLeadsStore } from '@/store/leadsStore'
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact, useNotes, useCreateNote, useUpdateNote, useDeleteNote, useMessages } from '@/hooks/useData'
 import { EnlaceMapa, type FichaMapa } from '@/components/ui/MapaVisor'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
-import { LeadFollowUpsTab } from '@/features/followups/LeadFollowUpsTab'
+import { AccionesLead } from './acciones/AccionesLead'
+import { HistorialLead } from './acciones/HistorialLead'
 import { OpportunityEditor } from '@/features/pipeline/OpportunityForm'
 import { LeadProyectoTab } from '@/features/proyectos/LeadProyectoTab'
 import toast from 'react-hot-toast'
 import type { Lead, Contact, ContactType, Note, Channel } from '@/types'
 
-import {
-  SITUACION_META, siguienteToque, situacionLead, textoProximo, textoUltimoContacto,
-  touchColor, touchLabel,
-} from '@/lib/touches'
-import { today } from '@/lib/followUps'
+import { situacionLead, textoUltimoContacto } from '@/lib/touches'
+import { TIPO_META, today } from '@/lib/followUps'
 import { avisoEnCola } from '@/lib/cola'
 import { esperarContactos, motivoEnriquecimiento } from '@/lib/contactosWeb'
 import { IDIOMAS, ORIGEN_META } from '@/lib/origen'
 
-const TABS = ['Detalles', 'Proyecto', 'Oportunidad', 'Seguimientos', 'Contactos', 'Actividad', 'Mensajes', 'Notas'] as const
+// Eran ocho pestañas. Quedan tres preguntas: ¿qué ha pasado? (Historial),
+// ¿cómo lo contacto? (Datos) y ¿cuánto vale y quién es? (Negocio).
+const TABS = ['Datos', 'Historial', 'Negocio'] as const
 
 /** Formatea una fecha ISO o 'YYYY-MM-DD' de forma legible; devuelve el original si no parsea. */
 function fmtFecha(v?: string): string {
@@ -56,7 +56,7 @@ export function LeadDrawer({
   onEdit: (l: Lead) => void
   onMoveStage: (id: string, estado: Lead['estado']) => void
 }) {
-  const [tab, setTab] = useState<(typeof TABS)[number]>('Detalles')
+  const [tab, setTab] = useState<(typeof TABS)[number]>('Datos')
   const [selectedEmail, setSelectedEmail] = useState<string | undefined>(undefined)
   const [analizando, setAnalizando] = useState(false)
   const [puntuando, setPuntuando] = useState(false)
@@ -67,7 +67,7 @@ export function LeadDrawer({
   const toggleMeGusta = useLeadsStore((s) => s.toggleMeGusta)
   const toggleDescartado = useLeadsStore((s) => s.toggleDescartado)
   const updateLead = useLeadsStore((s) => s.updateLead)
-  useEffect(() => { setSelectedEmail(undefined) }, [lead?.id])
+  useEffect(() => { setSelectedEmail(undefined); setTab('Datos') }, [lead?.id])
   if (!lead) return null
   const sc = scoreColor(lead.score)
   const emailOptions = lead.emails && lead.emails.length > 1 ? lead.emails : undefined
@@ -184,6 +184,9 @@ export function LeadDrawer({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
+            <button onClick={() => onEdit(lead)} className="btn-ghost h-10 w-10 p-0 text-muted" title="Editar datos del lead" aria-label="Editar lead">
+              <Edit3 className="h-4 w-4" />
+            </button>
             <button
               onClick={() => toggleFavorito(lead.id)}
               className={cn('btn-ghost h-10 w-10 p-0', lead.favorito ? 'text-amber-400' : 'text-muted/50')}
@@ -208,75 +211,91 @@ export function LeadDrawer({
             <button onClick={onClose} aria-label="Cerrar ficha" className="btn-ghost h-10 w-10 p-0"><X className="h-5 w-5" /></button>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Badge className={cn(sc.bg, sc.text)}>Total {lead.score}</Badge>
-          <Badge className="bg-surface-2 text-muted">IA {lead.scoreIA ?? '—'}</Badge>
-          {lead.scoreManual ? <Badge className="bg-surface-2 text-muted">Manual {lead.scoreManual}</Badge> : null}
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <Badge>{PIPELINE_STAGES.find((s) => s.id === lead.estado)?.label}</Badge>
           {lead.valorEstimado ? <Badge className="bg-primary-50 text-primary-600 dark:bg-primary-400/15 dark:text-primary-300">{formatCurrency(lead.valorEstimado)}</Badge> : null}
+          <span title="Puntuación del lead (IA + manual)"><Badge className={cn(sc.bg, sc.text)}>Puntuación {lead.score}</Badge></span>
           {lead.origen && (
             <span title={lead.referidoPor ? `Recomendado por ${lead.referidoPor}` : 'Por dónde llegó'}>
               <Badge className="bg-surface-2 text-muted">
-                {ORIGEN_META[lead.origen]?.emoji} {ORIGEN_META[lead.origen]?.label ?? lead.origen}
-                {lead.referidoPor ? ` · ${lead.referidoPor}` : ''}
+                {ORIGEN_META[lead.origen]?.label ?? lead.origen}{lead.referidoPor ? ` · ${lead.referidoPor}` : ''}
               </Badge>
             </span>
           )}
         </div>
-        {/* Idioma probable (0065): lo marca Juan a mano, de un toque. Tocar el
-            que ya está marcado lo quita. */}
-        <div className="mt-2 flex items-center gap-1 overflow-x-auto sin-barra" role="group" aria-label="Idioma del lead">
-          <span className="mr-1 shrink-0 text-[11px] text-muted">Idioma</span>
-          {IDIOMAS.map((i) => {
-            const on = lead.idioma === i.id
-            return (
-              <button
-                key={i.id}
-                type="button"
-                title={i.label}
-                aria-pressed={on}
-                onClick={() => updateLead(lead.id, { idioma: on ? ('' as Lead['idioma']) : i.id })}
-                className={cn(
-                  'min-h-[32px] min-w-[36px] shrink-0 rounded-full border px-2 text-[11px] font-semibold transition-colors',
-                  on ? 'border-primary-400 bg-primary-400 text-white' : 'border-border text-muted hover:text-fg',
-                )}
-              >
-                {i.corto}
+        {/* Pestañas dentro de la cabecera fija: así se puede cambiar de una a
+            otra en cualquier momento, aunque se haya bajado mucho en la ficha. */}
+        <div className="-mb-4 mt-3 flex gap-1 overflow-x-auto sin-barra sm:-mb-5" role="tablist">
+          {TABS.map((t) => (
+            <button key={t} role="tab" aria-selected={tab === t} onClick={() => setTab(t)}
+              className={cn('shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors', tab === t ? 'border-primary-500 text-fg' : 'border-transparent text-muted hover:text-fg')}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Lo primero que se ve: qué toca y los botones para hacerlo. */}
+      <div className="shrink-0 space-y-3 border-b border-border p-4 sm:px-5">
+        <ProximoPaso lead={lead} />
+        <AccionesLead lead={lead} />
+        {/* Los accesos directos de antes: abrir su WhatsApp o escribirle un
+            correo sin pasar por el asistente. */}
+        {(lead.whatsapp || activeEmail) && (
+          <div className="flex flex-wrap gap-2">
+            {lead.whatsapp && (
+              <a className="btn btn-outline h-8 px-3 text-xs" target="_blank" rel="noreferrer" href={`https://wa.me/${lead.whatsapp.replace(/\D/g, '')}`}>
+                <MessageCircle className="h-3.5 w-3.5 text-emerald-600" /> Abrir WhatsApp
+              </a>
+            )}
+            {activeEmail && (
+              <button type="button" className="btn btn-outline h-8 px-3 text-xs" onClick={() => setComposeOpen(true)}>
+                <Mail className="h-3.5 w-3.5" /> Escribir correo
               </button>
-            )
-          })}
-        </div>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => onEdit(lead)}><Edit3 className="h-3.5 w-3.5" /> Editar</Button>
-          <Button size="sm" variant="outline" onClick={puntuarIA} disabled={puntuando} title="Calcula solo la puntuación IA (llamada liviana)">
-            {puntuando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gauge className="h-3.5 w-3.5" />}
-            {puntuando ? 'Puntuando…' : 'Puntuación IA'}
-          </Button>
-          <Button size="sm" variant="outline" onClick={analizarConIA} disabled={analizando} title="Diagnóstico completo con IA (observaciones, recomendaciones)">
-            {analizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            {analizando ? 'Analizando…' : 'Análisis IA'}
-          </Button>
-          {activeEmail && <Button size="sm" variant="outline" onClick={() => setComposeOpen(true)}><Mail className="h-3.5 w-3.5" /> Email</Button>}
-          {lead.whatsapp && <a className="btn btn-outline h-8 px-3 text-xs" target="_blank" href={`https://wa.me/${lead.whatsapp.replace(/\D/g, '')}`}><MessageCircle className="h-3.5 w-3.5" /> WhatsApp</a>}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
-      <FichaSeguimiento lead={lead} onVerSeguimientos={() => setTab('Seguimientos')} />
-
-      {/* Tabs */}
-      <div className="flex gap-1 overflow-x-auto border-b border-border px-4 sin-barra scroll-aislado sm:px-5">
-        {/* «Proyecto» solo existe para los ganados: es lo que pasa después de la venta. */}
-        {TABS.filter((t) => t !== 'Proyecto' || lead.estado === 'ganado').map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={cn('shrink-0 whitespace-nowrap border-b-2 px-3 py-3 text-sm sm:py-2', tab === t ? 'border-primary-400 text-fg' : 'border-transparent text-muted hover:text-fg')}>
-            {t}
-          </button>
-        ))}
-      </div>
 
       <div className="p-4 sm:p-5">
-        {tab === 'Detalles' && (
+        {tab === 'Historial' && (
+          <div className="space-y-6">
+            <HistorialLead leadId={lead.id} />
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Notas</p>
+              <NotesTab leadId={lead.id} />
+            </div>
+          </div>
+        )}
+        {tab === 'Datos' && (
           <div className="space-y-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" onClick={puntuarIA} disabled={puntuando} title="Calcula solo la puntuación IA (llamada liviana)">
+                {puntuando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Gauge className="h-3.5 w-3.5" />}
+                {puntuando ? 'Puntuando…' : 'Puntuación IA'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={analizarConIA} disabled={analizando} title="Diagnóstico completo con IA (observaciones, recomendaciones)">
+                {analizando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {analizando ? 'Analizando…' : 'Análisis IA'}
+              </Button>
+              <span className="text-[11px] text-muted">IA {lead.scoreIA ?? '—'}{lead.scoreManual ? ` · manual ${lead.scoreManual}` : ''}</span>
+            </div>
+            {/* Idioma probable (0065): se marca de un toque; tocar el marcado lo quita. */}
+            <div className="flex items-center gap-1 overflow-x-auto sin-barra" role="group" aria-label="Idioma del lead">
+              <span className="mr-1 shrink-0 text-xs text-muted">Idioma</span>
+              {IDIOMAS.map((i) => {
+                const on = lead.idioma === i.id
+                return (
+                  <button key={i.id} type="button" title={i.label} aria-pressed={on}
+                    onClick={() => updateLead(lead.id, { idioma: on ? ('' as Lead['idioma']) : i.id })}
+                    className={cn('min-h-[30px] min-w-[36px] shrink-0 rounded-full border px-2 text-[11px] font-semibold transition-colors',
+                      on ? 'border-primary-400 bg-primary-400 text-white' : 'border-border text-muted hover:text-fg')}>
+                    {i.corto}
+                  </button>
+                )
+              })}
+            </div>
             <Row icon={Briefcase} label="Cargo" value={lead.cargo} />
             <Row icon={Globe} label="Web" value={lead.web} link={lead.web} web copyLabel="Enlace de la web" />
             {emailOptions ? (
@@ -378,17 +397,6 @@ export function LeadDrawer({
               <Stat label="PageSpeed móvil" value={lead.pageSpeedMovil} />
               <Stat label="PageSpeed desktop" value={lead.pageSpeedDesktop} />
             </div>
-            <div>
-              <p className="mb-1 flex items-center gap-1 text-xs font-medium text-muted"><GitBranch className="h-3.5 w-3.5" /> Mover a etapa</p>
-              <div className="flex flex-wrap gap-1.5">
-                {PIPELINE_STAGES.filter((s) => s.id !== lead.estado).map((s) => (
-                  <button key={s.id} onClick={() => onMoveStage(lead.id, s.id)}
-                    className="rounded-full border border-border px-2.5 py-1 text-xs text-muted hover:bg-surface-2">
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
             {(lead.fechaCaptura || lead.fechaUltimoMovimiento || lead.ultimaAccion) && (
               <div className="flex flex-col gap-1 border-t border-border pt-3 text-[11px] text-muted">
                 {lead.fechaCaptura && (
@@ -401,21 +409,35 @@ export function LeadDrawer({
             )}
           </div>
         )}
-        {tab === 'Oportunidad' && (
-          <OpportunityEditor
-            key={lead.id}
-            lead={lead}
-            active
-            onClose={() => setTab('Detalles')}
-            onSave={(id, patch) => { updateLead(id, patch); toast.success('Oportunidad actualizada') }}
-          />
+        {tab === 'Negocio' && (
+          <div className="space-y-6">
+            <div>
+              <p className="mb-1 flex items-center gap-1 text-xs font-medium text-muted"><GitBranch className="h-3.5 w-3.5" /> Mover a etapa</p>
+              <div className="flex flex-wrap gap-1.5">
+                {PIPELINE_STAGES.filter((s) => s.id !== lead.estado).map((s) => (
+                  <button key={s.id} onClick={() => onMoveStage(lead.id, s.id)}
+                    className="rounded-full border border-border px-2.5 py-1 text-xs text-muted hover:bg-surface-2">
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {lead.estado === 'ganado' && (
+              <Bloque titulo="Proyecto"><LeadProyectoTab leadId={lead.id} /></Bloque>
+            )}
+            <Bloque titulo="Oportunidad">
+              <OpportunityEditor
+                key={lead.id}
+                lead={lead}
+                active
+                onClose={() => setTab('Historial')}
+                onSave={(id, patch) => { updateLead(id, patch); toast.success('Oportunidad actualizada') }}
+              />
+            </Bloque>
+            <Bloque titulo="Personas de contacto"><ContactsTab leadId={lead.id} /></Bloque>
+            <Bloque titulo="Correos enviados"><MessagesTab leadId={lead.id} /></Bloque>
+          </div>
         )}
-        {tab === 'Proyecto' && lead.estado === 'ganado' && <LeadProyectoTab leadId={lead.id} />}
-        {tab === 'Seguimientos' && <LeadFollowUpsTab leadId={lead.id} empresa={lead.empresa} />}
-        {tab === 'Contactos' && <ContactsTab leadId={lead.id} />}
-        {tab === 'Actividad' && <Timeline lead={lead} />}
-        {tab === 'Mensajes' && <MessagesTab leadId={lead.id} />}
-        {tab === 'Notas' && <NotesTab leadId={lead.id} />}
       </div>
       <NewMessageModal
         open={composeOpen}
@@ -439,75 +461,45 @@ export function LeadDrawer({
  * mantiene la BD (migración 0028) a partir de los seguimientos reales, así que
  * dice exactamente lo mismo que el Pipeline y que la agenda de Seguimientos.
  */
-function FichaSeguimiento({ lead, onVerSeguimientos }: { lead: Lead; onVerSeguimientos: () => void }) {
+function ProximoPaso({ lead }: { lead: Lead }) {
   const hoy = today()
   const sit = situacionLead(lead, hoy)
-  const proximo = textoProximo(lead, hoy)
   const ultimo = textoUltimoContacto(lead)
-  const etapa = PIPELINE_STAGES.find((s) => s.id === lead.estado)
+  const canal = lead.ultimoContactoTipo ? TIPO_META[lead.ultimoContactoTipo]?.label.toLowerCase() : undefined
+  const fechaProx = lead.proximoSeguimiento?.slice(0, 10)
+  const dias = fechaProx ? Math.round((Date.parse(`${fechaProx}T00:00:00`) - Date.parse(`${hoy}T00:00:00`)) / 86_400_000) : 0
+  const cuando = fechaProx
+    ? (dias === 0 ? 'hoy' : dias === 1 ? 'mañana' : dias < 0 ? `hace ${-dias} ${-dias === 1 ? 'día' : 'días'}` :
+      `el ${new Date(`${fechaProx}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })} (en ${dias} días)`)
+    : ''
 
-  // Próxima acción: una sola frase accionable, derivada de la situación. No es
-  // un campo que nadie escriba; es la lectura del estado actual.
-  const accion =
-    sit === 'cerrado' ? 'Lead cerrado. Sin acción pendiente.'
-    : sit === 'sin_contactar' ? `Primer contacto pendiente (Touch 1) por ${lead.canalPrincipal || 'el canal que prefieras'}.`
-    : sit === 'sin_proximo' ? `Programa el Touch ${siguienteToque(lead)}: lleva ${lead.touchActual} contacto${lead.touchActual === 1 ? '' : 's'} y ninguno agendado.`
-    : sit === 'atrasado' ? `Touch ${siguienteToque(lead)} atrasado. Contacta hoy o reprograma.`
-    : sit === 'hoy' ? `Touch ${siguienteToque(lead)} programado para hoy.`
-    : `Touch ${siguienteToque(lead)} programado.`
+  // Una sola frase que dice qué hacer. Sin «Touch 2»: contactos, en cristiano.
+  const { texto, cls } =
+    sit === 'cerrado' ? { texto: lead.estado === 'ganado' ? 'Cliente ganado. Sigue su proyecto en «Negocio».' : 'Lead cerrado como perdido.', cls: 'text-muted' }
+    : sit === 'sin_contactar' ? { texto: 'Aún no lo has contactado. Empieza con una llamada o un mensaje.', cls: 'text-fg' }
+    : sit === 'sin_proximo' ? { texto: `Lleva ${lead.touchActual} ${lead.touchActual === 1 ? 'contacto' : 'contactos'} y no hay ninguno programado. Decide el siguiente.`, cls: 'text-amber-700 dark:text-amber-300' }
+    : sit === 'atrasado' ? { texto: `Tocaba contactarlo ${cuando}. Hazlo hoy o cámbialo de día.`, cls: 'text-red-600 dark:text-red-400' }
+    : { texto: `Próximo contacto ${cuando}.`, cls: sit === 'hoy' ? 'text-primary-700 dark:text-primary-300' : 'text-fg' }
 
   return (
-    <div className="mx-5 mb-1 rounded-xl border border-border bg-surface-2/50 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        {etapa && (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2 py-0.5 text-[11px] font-medium text-fg">
-            <span className="h-2 w-2 rounded-full" style={{ background: etapa.color }} />
-            {etapa.label}
-          </span>
-        )}
-        <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', touchColor(lead.touchActual))}>
-          {touchLabel(lead.touchActual)}
-        </span>
-        <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', SITUACION_META[sit].cls)}>
-          {SITUACION_META[sit].label}
-        </span>
-        {lead.canalPrincipal && (
-          <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] text-muted">
-            Canal: {lead.canalPrincipal}
-          </span>
-        )}
-        {lead.responsable && (
-          <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] text-muted">
-            {lead.responsable}
-          </span>
-        )}
-      </div>
-
-      <div className="mt-2.5 grid gap-2 sm:grid-cols-2">
-        <div className="text-xs">
-          <span className="block text-muted">Último contacto</span>
-          <span className="font-medium text-fg">{ultimo ?? 'Todavía ninguno'}</span>
-        </div>
-        <div className="text-xs">
-          <span className="block text-muted">Próximo seguimiento</span>
-          <span className={cn('font-medium', proximo ? proximo.cls : 'text-fg')}>
-            {proximo ? proximo.texto : 'Sin programar'}
-          </span>
-        </div>
-      </div>
-
-      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2">
-        <p className="min-w-0 flex-1 text-xs text-fg">
-          <span className="font-semibold">Próxima acción:</span> {accion}
-        </p>
-        <button
-          onClick={onVerSeguimientos}
-          className="shrink-0 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
-        >
-          Ver historial
-        </button>
-      </div>
+    <div>
+      <p className={cn('text-sm font-semibold', cls)}>{texto}</p>
+      <p className="mt-0.5 text-xs text-muted">
+        {ultimo ? `Último contacto: ${ultimo}` : 'Sin contactos todavía'}
+        {lead.touchActual > 0 ? ` · ${lead.touchActual} en total` : ''}
+        {lead.respondioEn ? ' · ya respondió alguna vez' : canal ? '' : ''}
+      </p>
     </div>
+  )
+}
+
+/** Título de bloque dentro de una pestaña. */
+function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <section>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">{titulo}</p>
+      {children}
+    </section>
   )
 }
 
@@ -830,24 +822,3 @@ function NotesTab({ leadId }: { leadId: string }) {
   )
 }
 
-function Timeline({ lead }: { lead: Lead }) {
-  const events = [
-    { t: lead.fechaCaptura, label: 'Lead capturado', detail: lead.fuente },
-    { t: lead.ultimaAccion, label: 'Última acción' },
-    { t: lead.proximoSeguimiento, label: 'Próximo seguimiento' },
-  ].filter((e) => e.t)
-  return (
-    <div className="space-y-3">
-      {events.map((e, i) => (
-        <div key={i} className="flex gap-3">
-          <div className="mt-1 h-2 w-2 rounded-full bg-primary-400" />
-          <div>
-            <p className="text-sm text-fg">{e.label}</p>
-            <p className="text-xs text-muted">{e.t}{e.detail ? ` · ${e.detail}` : ''}</p>
-          </div>
-        </div>
-      ))}
-      {!events.length && <p className="text-sm text-muted">Sin actividad registrada.</p>}
-    </div>
-  )
-}

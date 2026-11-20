@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { traerTodas } from '@/lib/traerTodas'
 import type {
   FollowUp, FollowUpAgendaItem, FollowUpResultado, FollowUpTipo, LeadStatus,
+  DetalleContacto,
 } from '@/types'
 
 /**
@@ -38,6 +39,11 @@ interface FollowUpRow {
   prioridad: string | null
   resultado_esperado: string | null
   comentarios_internos: string | null
+  // Migración 0073
+  duracion_seg?: number | null
+  numero_usado?: string | null
+  detalle?: string | null
+  respondido_en?: string | null
 }
 
 interface AgendaRow extends Omit<FollowUpRow, 'resultado' | 'completed_at'> {
@@ -64,6 +70,10 @@ function rowToFollowUp(row: FollowUpRow): FollowUp {
     responsable: row.responsable ?? undefined,
     creadoEn: row.created_at,
     completadoEn: row.completed_at ?? undefined,
+    duracionSeg: row.duracion_seg ?? undefined,
+    numeroUsado: row.numero_usado ?? undefined,
+    detalle: (row.detalle as FollowUp['detalle']) ?? undefined,
+    respondidoEn: row.respondido_en ?? undefined,
     ...camposEditables(row),
   }
 }
@@ -198,6 +208,51 @@ export const followUpsService = {
   },
 
   /** Marca un pendiente como completado con su resultado. */
+  /**
+   * Un contacto hecho desde la ficha (0073): completa el seguimiento pendiente
+   * si lo hay, o apunta uno nuevo ya hecho. La etapa la mueve la BD.
+   */
+  async registrarContacto(p: {
+    leadId: string
+    tipo: FollowUpTipo
+    resultado: FollowUpResultado
+    nota?: string
+    duracionSeg?: number
+    numero?: string
+    detalle?: DetalleContacto
+  }): Promise<string> {
+    const { data, error } = await supabase.rpc('registrar_contacto', {
+      p_lead_id: p.leadId,
+      p_tipo: p.tipo,
+      p_resultado: p.resultado,
+      p_nota: p.nota || null,
+      p_duracion_seg: p.duracionSeg ?? null,
+      p_numero: p.numero || null,
+      p_detalle: p.detalle || null,
+    })
+    if (error) throw error
+    return data as string
+  },
+
+  /** El lead contestó a un mensaje ya enviado (0073). */
+  async registrarRespuesta(p: {
+    leadId: string
+    resultado: Exclude<FollowUpResultado, 'sin_respuesta'>
+    nota?: string
+    detalle?: DetalleContacto
+    tipo?: FollowUpTipo
+  }): Promise<string> {
+    const { data, error } = await supabase.rpc('registrar_respuesta', {
+      p_lead_id: p.leadId,
+      p_resultado: p.resultado,
+      p_nota: p.nota || null,
+      p_detalle: p.detalle || null,
+      p_tipo: p.tipo ?? 'whatsapp',
+    })
+    if (error) throw error
+    return data as string
+  },
+
   async completar(id: string, resultado: FollowUpResultado, nota?: string): Promise<void> {
     const { error } = await supabase.rpc('completar_follow_up', {
       p_id: id,
