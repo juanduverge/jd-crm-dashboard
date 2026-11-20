@@ -43,6 +43,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import quote
@@ -52,7 +53,13 @@ import requests
 ADB_HOST = os.environ.get("ADB_HOST", "android:5555")
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-LOTE = int(os.environ.get("LOTE", "60"))
+LOTE = int(os.environ.get("LOTE", "20"))
+# Techo que manda sobre lo que pida quien llama. n8n pedía 60 leads (~100
+# números): cada número nuevo cuesta ~25 s en el Android, así que la pasada
+# pasaba de los 45 min, n8n cortaba y todo el trabajo se perdía (18-sep-2026).
+# Con 20 la pasada se queda en unos minutos. Si hay mucho pendiente, lo recogen
+# las pasadas siguientes: la cola no se pierde, sólo espera.
+LOTE_MAX = int(os.environ.get("LOTE_MAX", "20"))
 PUERTO = int(os.environ.get("PUERTO", "8899"))
 
 # Cuánto se le da a WhatsApp para sincronizar antes de leer. Es generoso a
@@ -436,23 +443,36 @@ def _leer_veredictos_de(tmp):
         col_id = "jid" if "jid" in cols else "raw_string_jid"
         if col_id not in cols:
             raise FalloDeLectura(f"wa_contacts no tiene ni jid ni raw_string_jid: {cols}")
+        # `is_whatsapp_user` vale 0 también cuando WhatsApp aún NO ha
+        # preguntado por el contacto. Sólo `is_contact_synced = 1` dice que
+        # la respuesta es real. El 18-sep-2026, de 570 «no tiene WhatsApp»,
+        # 569 no se habían sincronizado nunca: eran «no lo sé» disfrazados.
+        col_sync = "is_contact_synced" if "is_contact_synced" in cols else "1"
         filas = con.execute(
-            f"select {col_id}, is_whatsapp_user from wa_contacts where {col_id} is not null"
+            f"select {col_id}, is_whatsapp_user, {col_sync} from wa_contacts "
+            f"where {col_id} is not null"
         ).fetchall()
     finally:
         con.close()
 
+    if not filas:
+        raise FalloDeLectura("wa_contacts vino vacía: la sincronización no ocurrió")
+
     veredictos = {}
-    for jid, es_usuario in filas:
+    for jid, es_usuario, sincronizado in filas:
         # Sólo cuentan las cuentas de persona. Los grupos (@g.us) y los
         # difusiones no son números que se puedan comprobar.
         if "@s.whatsapp.net" not in str(jid):
             continue
         d = digitos(str(jid).split("@")[0])
-        if d:
-            veredictos[d] = bool(es_usuario)
-    if not veredictos:
-        raise FalloDeLectura("wa_contacts vino vacía: la sincronización no ocurrió")
+        if not d:
+            continue
+        if es_usuario:
+            veredictos[d] = True
+        elif sincronizado == 1:
+            veredictos[d] = False
+        # Sin sincronizar: no se incluye. El lead queda «sin_verificar» y
+        # vuelve a la cola en vez de darse por perdido.
     return veredictos
 
 
@@ -498,7 +518,7 @@ def consulta(tabla, params, timeout=15):
 
 # --- La pasada -------------------------------------------------
 def pasada(limite=None):
-    limite = limite or LOTE
+    limite = min(int(limite or LOTE), LOTE_MAX)
     conectar()
     if not whatsapp_registrado():
         raise FalloDeLectura(
@@ -630,6 +650,9 @@ def captura():
 
 
 # --- Cómo lo llama n8n -----------------------------------------
+_PASADA = threading.Lock()
+
+
 class Manejador(BaseHTTPRequestHandler):
     def _responder(self, codigo, cuerpo):
         datos = json.dumps(cuerpo, ensure_ascii=False).encode()
@@ -700,12 +723,25 @@ class Manejador(BaseHTTPRequestHandler):
         # --- El trabajo ---
         if ruta != "/verificar":
             return self._responder(404, {"error": "no existe"})
+        # Una sola pasada a la vez. Hay un único Android y todas las pasadas
+        # usan los mismos ficheros en él (lista de números, guion, copia de
+        # wa.db): dos a la vez se los pisan y los veredictos dejan de ser
+        # fiables. El 18-sep-2026 llegó a haber tres corriendo juntas.
+        # La que llega tarde no espera: contesta al momento y lo pendiente lo
+        # recoge la siguiente pasada.
+        if not _PASADA.acquire(blocking=False):
+            return self._responder(200, {
+                "ocupado": True,
+                "nota": "ya hay una pasada en curso; esta no hace nada",
+            })
         try:
             self._responder(200, pasada(cuerpo.get("limite")))
         except Exception as e:
             # 500 para que n8n lo vea como fallo y no como «0 leads con
             # WhatsApp», que es una lectura muy distinta del mismo suceso.
             self._responder(500, {"error": str(e)})
+        finally:
+            _PASADA.release()
 
     def log_message(self, formato, *args):
         print("http:", formato % args)

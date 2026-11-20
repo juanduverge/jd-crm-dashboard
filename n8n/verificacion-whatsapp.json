@@ -101,7 +101,7 @@
         "url": "http://192.168.18.26:8899/verificar",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ limite: 60 }) }}",
+        "jsonBody": "={{ JSON.stringify({ limite: 20 }) }}",
         "options": {
           "timeout": 2700000
         }

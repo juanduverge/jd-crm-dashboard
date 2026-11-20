@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w \"llms.txt %{http_code}\\\\n\" https://jddeveloper.com/llms.txt)",
+      "Bash(curl -s -o /dev/null -w \"pages.dev %{http_code}\\\\n\" https://jddeveloper.pages.dev/)",
+      "Bash(curl -s -X POST https://jddeveloper.pages.dev/api/contacto -H 'Content-Type: application/json' -d '{\"nombre\":\"x\"}' -w ' [%{http_code}]\\\\n')",
+      "Bash(curl -s -X POST https://jddeveloper.com/api/contacto -H 'Content-Type: application/json' -d '{\"nombre\":\"x\"}' -w ' [%{http_code}]\\\\n')",
+      "Bash(timeout 90 npx -y wrangler@4 whoami)",
+      "Bash(grep -rhoE \"pages deploy[^\\\\\"]{0,120}|--project-name[= ][A-Za-z0-9_-]+|project[_ ]name[\\\\\"': =]+[A-Za-z0-9_-]+\" ~/.wrangler/logs)",
+      "Bash(timeout 120 npx -y wrangler@4 pages project list)",
+      "Bash(curl -s -X POST https://jddeveloper.com/api/contacto -H 'Content-Type: application/json' -d '{\"nombre\":\"PRUEBA WEB - borrar\",\"email\":\"prueba-web2@jddeveloper-test.com\",\"empresa\":\"Prueba\",\"tema\":\"Prueba de arquitectura\",\"detalle\":\"envio real por /api/contacto tras publicar\",\"hp_confirm_jd\":\"\",\"formulario\":\"contacto\",\"pagina\":\"Contacto - prueba\",\"url\":\"https://jddeveloper.com/es/contacto\"}' -w ' [%{http_code}]\\\\n')",
+      "Bash(ssh -i ~/.ssh/jd_home_service juanduverge@192.168.18.26 'for id in $\\(curl -s \"http://localhost:8080/n8n-api/workflows?limit=100\" | python3 -c \"import json,sys; [print\\(w[\\\\\"id\\\\\"]\\) for w in json.load\\(sys.stdin\\)[\\\\\"data\\\\\"] if w[\\\\\"name\\\\\"] in \\(\\\\\"CRM API - Enviar Respuesta\\\\\",\\\\\"CRM API - IA Lead\\\\\"\\)]\"\\); do echo \"######## $id\"; curl -s \"http://localhost:8080/n8n-api/workflows/$id\" | python3 -c \"import json,sys; w=json.load\\(sys.stdin\\); print\\(w[\\\\\"name\\\\\"]\\); print\\(json.dumps\\(w[\\\\\"nodes\\\\\"]\\)\\)\" | tail -1 | python3 /tmp/mask.py | head -60; done; rm -f /tmp/mask.py; docker exec jd-prod-n8n-1 sh -c \"env | grep -oE \\\\\"^\\(N8N_BLOCK_ENV_ACCESS_IN_NODE|CRM_HOOK_TOKEN|WEBHOOK_URL\\)=\\\\\" \"')",
+      "mcp__claude_ai_Supabase__list_projects"
+    ]
+  }
+}

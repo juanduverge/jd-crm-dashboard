@@ -72,9 +72,10 @@ services:
       ADB_HOST: android:5555
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_SERVICE_KEY: ${SUPABASE_SERVICE_KEY}
-      # Cuántos leads por pasada. Cualquier tamaño es seguro para WhatsApp:
-      # sincronizar contactos en bloque es su comportamiento normal.
-      LOTE: ${LOTE:-60}
+      # Cuántos leads por pasada. El verificador además no pasa nunca de
+      # LOTE_MAX (20), pida lo que pida n8n: con 60 la pasada superaba los
+      # 45 min y se perdía entera (18-sep-2026).
+      LOTE: ${LOTE:-20}
       # A quién avisar cuando algo se rompe. Varios números van con comas.
       # Es la ÚNICA razón por la que este sistema envía mensajes, y nunca
       # van a un lead.

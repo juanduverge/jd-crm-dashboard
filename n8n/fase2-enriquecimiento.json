@@ -304,7 +304,7 @@
         220,
         60
       ],
-      "notes": "Cuando el enriquecimiento termina el lote, arranca la verificacion de WhatsApp sin esperarla. Aparte, igual que Fase 2 va aparte de Fase 1: la verificacion tarda minutos y un fallo suyo no debe tumbar el enriquecimiento, que ya termino su trabajo."
+      "notes": "Cuando el enriquecimiento termina el lote, arranca la verificacion de WhatsApp sin esperarla. Seguro aunque Fase 2 corra cada 30 min: desde el 18-sep-2026 el verificador hace una sola pasada a la vez (la que llega tarde contesta 'ocupado') y nunca mas de 20 leads (~100 s)."
     }
   ],
   "connections": {
