@@ -37,6 +37,22 @@ export const METRICAS: MetricaMeta[] = [
     clave: 'contactos_realizados', label: 'Contactos realizados', unidad: 'toques', grupo: 'Contacto',
     ayuda: 'Todos los toques completados, incluidos los segundos y terceros contactos al mismo lead.',
   },
+  {
+    clave: 'llamadas_realizadas', label: 'Llamadas hechas', unidad: 'llamadas', grupo: 'Contacto',
+    ayuda: 'Llamadas registradas en la ficha del lead (normal, WhatsApp o video), contestaran o no.',
+  },
+  {
+    clave: 'llamadas_contestadas', label: 'Llamadas contestadas', unidad: 'llamadas', grupo: 'Contacto',
+    ayuda: 'Llamadas en las que el cliente contestó (todo lo que no fue «no contestó», buzón u ocupado).',
+  },
+  {
+    clave: 'minutos_llamada', label: 'Minutos al teléfono', unidad: 'min', formato: 'minutos', grupo: 'Contacto',
+    ayuda: 'Suma de lo que duraron las llamadas registradas (cronómetro o minutos apuntados).',
+  },
+  {
+    clave: 'mensajes_enviados', label: 'Mensajes enviados', unidad: 'mensajes', grupo: 'Contacto',
+    ayuda: 'Mensajes registrados por WhatsApp, correo, SMS, Instagram o LinkedIn.',
+  },
   { clave: 'touch_1', label: 'Touch 1 · primer contacto', unidad: 'toques', grupo: 'Contacto', ayuda: 'Primeros contactos completados en el periodo.' },
   { clave: 'touch_2', label: 'Touch 2 · segundo contacto', unidad: 'toques', grupo: 'Contacto', ayuda: 'Segundos contactos completados en el periodo.' },
   { clave: 'touch_3', label: 'Touch 3 · tercer contacto', unidad: 'toques', grupo: 'Contacto', ayuda: 'Terceros contactos completados en el periodo.' },

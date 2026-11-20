@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabaseClient'
 import { metricsService } from './metricsService'
 import type {
-  Goal, GoalEstado, GoalPeriodo, GoalTipo, HorarioBloque, MetricaClave, Priority,
+  Goal, GoalEstado, GoalPeriodo, GoalTipo, HorarioBloque, MetricaClave, MomentoDia, Priority,
 } from '@/types'
 
 /**
@@ -32,6 +32,7 @@ interface GoalRow {
   estado: GoalEstado | null
   metrica: string | null
   horas_estimadas?: string | number | null
+  momento?: string | null
   created_at: string
   updated_at: string
 }
@@ -72,6 +73,7 @@ function rowToGoal(row: GoalRow, conHijas: Set<string>): Goal {
     estado: row.estado ?? 'activa',
     metrica: (row.metrica as MetricaClave) ?? undefined,
     horasEstimadas: row.horas_estimadas != null ? num(row.horas_estimadas) : undefined,
+    momento: (row.momento as Goal['momento']) ?? undefined,
     tieneHijas: conHijas.has(row.id),
     creado: row.created_at,
     actualizado: row.updated_at,
@@ -205,6 +207,7 @@ export const goalsService = {
     prioridad?: Priority
     metrica?: MetricaClave
     horasEstimadas?: number
+    momento?: MomentoDia
   }): Promise<{ sinHoras: boolean }> {
     const dias = Math.round((Date.parse(payload.fechaFin) - Date.parse(payload.fechaInicio)) / 86_400_000) + 1
     const row: Record<string, unknown> = {
@@ -220,6 +223,7 @@ export const goalsService = {
       metrica: payload.metrica || null,
     }
     if (payload.horasEstimadas) row.horas_estimadas = payload.horasEstimadas
+    if (payload.momento) row.momento = payload.momento
     let { error } = await supabase.from('goals').insert(row)
     let sinHoras = false
     if (error && row.horas_estimadas !== undefined && /horas_estimadas/.test(error.message)) {
@@ -281,8 +285,11 @@ export const goalsService = {
     redistribuir?: boolean
     /** 0072. null la borra. */
     horasEstimadas?: number | null
+    /** 0075. null la quita. */
+    momento?: MomentoDia | null
   }): Promise<void> {
     const row: Record<string, unknown> = {}
+    if (payload.momento !== undefined) row.momento = payload.momento
     if (payload.horasEstimadas !== undefined) row.horas_estimadas = payload.horasEstimadas
     if (payload.nombre !== undefined) row.nombre = payload.nombre
     if (payload.target !== undefined) row.target = payload.target

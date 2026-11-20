@@ -421,6 +421,8 @@ export type GoalTipo = 'contador' | 'toggle'
  * meta diaria, y sube solo. Por eso la UI sólo ofrece +/− en metas hoja
  * (`tieneHijas === false`).
  */
+export type MomentoDia = 'manana' | 'tarde' | 'noche'
+
 export interface Goal {
   id: string
   nombre: string
@@ -457,6 +459,8 @@ export interface Goal {
   valorDerivado?: number
   /** Horas que se calcula que llevará (metas libres, 0072). */
   horasEstimadas?: number
+  /** En qué parte del día se piensa hacer (plan de hoy, 0075). */
+  momento?: MomentoDia
   /** Derivado en el cliente: si tiene hijas, su valor no se edita a mano. */
   tieneHijas: boolean
   creado?: string
@@ -639,6 +643,8 @@ export type MetricaClave =
   | 'leads_contactados'
   | 'contactos_realizados'
   | 'touch_1' | 'touch_2' | 'touch_3' | 'touch_4' | 'touch_5'
+  // Llamadas y mensajes (0075): para que «20 llamadas» se cuente solo.
+  | 'llamadas_realizadas' | 'llamadas_contestadas' | 'minutos_llamada' | 'mensajes_enviados'
   // Actividad por canal (0038). Cuentan toques, no leads: al mismo lead se le
   // puede escribir por los dos canales y cada envío cuenta en el suyo.
   | 'contactos_whatsapp'

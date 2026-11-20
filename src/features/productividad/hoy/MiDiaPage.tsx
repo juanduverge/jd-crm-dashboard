@@ -4,25 +4,25 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import {
-  ArrowRight, CalendarDays, CalendarPlus, Check, CheckCircle2, Circle, ExternalLink, Plus, Target, Video, Zap,
+  ArrowRight, CalendarDays, CalendarPlus, CheckCircle2, Circle, ExternalLink, Plus, Video,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Card, CardHeader, CardTitle, Input, Skeleton } from '@/components/ui'
 import {
   useActualizarEvento, useCreateTarea, useEntradaAbierta, useEventos, useFollowUpsAgenda, useGoals,
-  useGoogleCalendarEstado, useMetricasCrm, useRegistrarAvance, useResumenTiempo, useSincronizarGoogle, useTareas, useUpdateTarea,
+  useGoogleCalendarEstado, useMetricasCrm, useResumenTiempo, useSincronizarGoogle, useTareas, useUpdateTarea,
 } from '@/hooks/useData'
 import { useAuthStore } from '@/store/authStore'
 import { CompletarFollowUpModal } from '@/features/followups/CompletarFollowUpModal'
 import { TIPO_META } from '@/lib/followUps'
-import { fmtMetrica } from '@/lib/metricas'
 import { cn } from '@/lib/utils'
-import type { Evento, FollowUpAgendaItem, Goal, Tarea } from '@/types'
+import type { Evento, FollowUpAgendaItem, Tarea } from '@/types'
 import { ItemModal } from '../calendario/ItemModal'
 import { Cronometro } from '../tiempo/RegistroTiempoView'
 import { fmtDuracion, segundosDesde } from '../tiempo/tiempoMeta'
 import { iso, rangoMes } from '../shared/goalMeta'
-import { libresParaHoy, metasDelMes, ritmoHoy } from '../shared/ritmoMeta'
+import { metasDelMes } from '../shared/ritmoMeta'
+import { PlanDelDia } from '../shared/PlanDelDia'
 
 /**
  * Mi día — todo lo de hoy en una pantalla, para ir tachándolo.
@@ -53,7 +53,6 @@ export default function MiDiaPage() {
   const [abrirEvento, setAbrirEvento] = useState<Evento | null>(null)
 
   const metas = useMemo(() => metasDelMes(goals.data, hoy), [goals.data, hoy])
-  const libres = useMemo(() => libresParaHoy(goals.data, hoy), [goals.data, hoy])
   const segHoy = (tiempo.data ?? []).reduce((s, t) => s + t.segundos, 0) + (abierta && !abierta.fin ? segundosDesde(abierta.inicio) : 0)
   const p = metricasHoy.data?.periodo
 
@@ -81,7 +80,13 @@ export default function MiDiaPage() {
           <Contactos items={agenda.data ?? []} cargando={agenda.isLoading} />
         </div>
         <div className="space-y-4">
-          <MetasHoy metas={metas} libres={libres} hoy={hoy} cargando={goals.isLoading} hoyPeriodo={p} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Plan de hoy</CardTitle>
+              <Enlace to="/productividad/metas">Metas</Enlace>
+            </CardHeader>
+            <PlanDelDia hoy={hoy} />
+          </Card>
           <TareasHoy tareas={tareas.data ?? []} cargando={tareas.isLoading} hoy={hoy} />
         </div>
       </div>
@@ -229,78 +234,6 @@ function Contactos({ items, cargando }: { items: FollowUpAgendaItem[]; cargando:
       )}
       {completando && (
         <CompletarFollowUpModal followUp={completando} leadEmpresa={completando.leadEmpresa} onClose={() => setCompletando(null)} />
-      )}
-    </Card>
-  )
-}
-
-// ---------------------------------------------------------------
-// Metas: lo que toca hoy de cada meta del mes
-// ---------------------------------------------------------------
-
-function MetasHoy({ metas, libres, hoy, cargando, hoyPeriodo }: {
-  metas: Goal[]; libres: Goal[]; hoy: string; cargando: boolean; hoyPeriodo?: Parameters<typeof ritmoHoy>[1]
-}) {
-  const avance = useRegistrarAvance()
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Metas de hoy</CardTitle>
-        <Enlace to="/productividad/metas">Metas</Enlace>
-      </CardHeader>
-      {!cargando && libres.length > 0 && (
-        <ul className="mb-4 space-y-1">
-          {libres.map((g) => (
-            <li key={g.id} className="flex items-start gap-2.5 rounded-xl px-1 py-1.5 row-hover">
-              <Casilla hecho={false} label="Marcar meta como hecha" onClick={() => avance.mutate({ id: g.id, delta: 1 }, { onSuccess: () => toast.success('¡Meta cumplida!') })} />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-fg">{g.nombre}</span>
-                <span className="block text-xs text-muted">
-                  {g.fechaFin < hoy ? <span className="font-semibold text-[rgb(var(--danger))]">atrasada</span> : 'para hoy'}
-                  {g.horasEstimadas ? ` · ${g.horasEstimadas} h` : ''}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {cargando ? <Lista n={3} /> : !metas.length && !libres.length ? (
-        <Link to="/productividad/metas" className="flex flex-col items-center gap-1.5 py-6 text-center text-sm text-muted hover:text-fg">
-          <Target className="h-5 w-5" />Sin metas para hoy. Pon una y aquí verás lo que te toca.
-        </Link>
-      ) : !metas.length ? null : (
-        <div className="space-y-3.5">
-          {metas.map((g) => {
-            const r = ritmoHoy(g, hoyPeriodo)
-            const fmt = (v: number) => fmtMetrica(g.metrica, v)
-            const cumplidaMes = r.falta === 0
-            const hechoHoy = r.hechoHoy
-            const pctHoy = r.tocaHoy > 0 && hechoHoy != null ? Math.min(100, Math.round((hechoHoy / r.tocaHoy) * 100)) : cumplidaMes ? 100 : 0
-            return (
-              <div key={g.id}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-[0.8125rem] text-fg" title={g.nombre}>
-                    {g.metrica && <Zap className="mr-1 inline h-3 w-3 text-muted" />}{g.nombre}
-                  </span>
-                  <span className="shrink-0 text-xs tabular-nums text-muted">
-                    {cumplidaMes ? <span className="font-semibold text-[rgb(var(--ok))]">mes cumplido</span>
-                      : !r.laborableHoy ? 'hoy libre'
-                        : hechoHoy != null ? <><span className="font-semibold text-fg">{fmt(hechoHoy)}</span> / {fmt(r.tocaHoy)} hoy</>
-                          : <>toca {fmt(r.tocaHoy)} hoy</>}
-                  </span>
-                </div>
-                <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-2">
-                  <div className="h-full rounded-full transition-all" style={{ width: `${pctHoy}%`, background: pctHoy >= 100 ? '#16a34a' : '#ff7448' }} />
-                </div>
-                {pctHoy >= 100 && !cumplidaMes && r.laborableHoy && <p className="mt-0.5 flex items-center gap-1 text-[0.6875rem] text-[rgb(var(--ok))]"><Check className="h-3 w-3" />Lo de hoy, hecho</p>}
-              </div>
-            )
-          })}
-          <p className="text-[0.6875rem] text-muted">
-            {metas.some((g) => g.metrica) ? 'Las metas con ⚡ se cuentan solas. ' : ''}
-            El objetivo de hoy reparte lo que falta entre los días laborables que quedan del mes.
-          </p>
-        </div>
       )}
     </Card>
   )

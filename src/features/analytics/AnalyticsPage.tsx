@@ -1,20 +1,22 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts'
 import {
   AlertTriangle, ArrowRight, Banknote, CalendarRange, Clock, Filter, Globe2, Handshake,
-  Languages, Map as MapIcon, MessageSquare, Search, Send, Tags, Trophy,
+  Languages, LayoutDashboard, Map as MapIcon, MessageSquare, Phone, Search, Send, Tags, Trophy, Users,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Skeleton } from '@/components/ui'
 import { BrandTooltip, ChartGradients, axisTick, gridProps } from '@/components/charts/chartTheme'
-import { useLeads, useMetricasCrm, useMetricasEmbudo, useMetricasRitmo, useNichos } from '@/hooks/useData'
+import { useContactosHechos, useLeads, useMetricasCrm, useMetricasEmbudo, useMetricasRitmo, useNichos } from '@/hooks/useData'
 import { IDIOMA_META } from '@/lib/origen'
 import { cn, formatCurrency, formatMontos } from '@/lib/utils'
 import { PorCanal, PorOrigen, Contratos } from '@/features/productividad/metricas/PanelEmbudo'
-import { Conclusiones, Ritmo } from './Conclusiones'
+import { Ritmo } from './Conclusiones'
+import { Hallazgos, calcularHallazgos } from './Hallazgos'
+import { LlamadasTab } from './LlamadasTab'
 import { Abrible, DetalleProvider, Explica } from './DetallePanel'
 import { GlosarioBoton } from './GlosarioBoton'
 import type { Agrupar, Consulta, Paso } from './detalle'
@@ -38,6 +40,18 @@ import type { Lead, LeadIdioma } from '@/types'
  */
 
 type Periodo = '30' | '90' | 'anio' | 'todo'
+type Pestana = 'resumen' | 'llamadas' | 'mensajes' | 'clientes'
+
+/**
+ * Pestañas (20-nov): antes todo iba en una sola página larguísima y Juan no
+ * encontraba ni entendía las cosas. Cada pestaña responde a una pregunta.
+ */
+const PESTANAS: { id: Pestana; label: string; icon: typeof Phone; pregunta: string }[] = [
+  { id: 'resumen', label: 'Resumen', icon: LayoutDashboard, pregunta: '¿Cómo voy y qué debería cambiar?' },
+  { id: 'llamadas', label: 'Llamadas', icon: Phone, pregunta: '¿Cuántas llamadas hago y qué funciona en ellas?' },
+  { id: 'mensajes', label: 'Mensajes', icon: MessageSquare, pregunta: '¿Por dónde responden, cuándo escribir y cuántas veces insistir?' },
+  { id: 'clientes', label: 'Clientes y ventas', icon: Users, pregunta: '¿De dónde vienen los clientes que compran y cuánto he vendido?' },
+]
 
 const PERIODOS: { id: Periodo; label: string }[] = [
   { id: '30', label: '30 días' },
@@ -63,6 +77,10 @@ const altaDe = (l: Lead) => l.fechaCaptura ?? ''
 
 export function AnalyticsPage() {
   const [periodo, setPeriodo] = useState<Periodo>('90')
+  // La pestaña va en la URL para que «atrás» en el móvil vuelva a la anterior.
+  const [params, setParams] = useSearchParams()
+  const pestana = (PESTANAS.some((x) => x.id === params.get('tab')) ? params.get('tab') : 'resumen') as Pestana
+  const irA = (t: Pestana) => setParams(t === 'resumen' ? {} : { tab: t })
   const rango = useMemo(() => rangoDe(periodo), [periodo])
 
   const { leads, isLoading: cargandoLeads } = useLeads()
@@ -138,12 +156,26 @@ export function AnalyticsPage() {
   const c = embudo.data?.contratos
   const falla = crm.isError || embudo.isError || ritmo.isError
 
+  // Misma consulta (y caché) que la pestaña Llamadas: aquí solo se cuenta.
+  const desdeIso = useMemo(() => new Date(`${rango.desde}T00:00:00`).toISOString(), [rango.desde])
+  const hastaIso = useMemo(() => new Date(`${rango.hasta}T23:59:59`).toISOString(), [rango.hasta])
+  const hechos = useContactosHechos(desdeIso, hastaIso)
+  const llamadas = useMemo(() => {
+    const ll = (hechos.data ?? []).filter((f) => ['llamada', 'llamada_whatsapp', 'videollamada'].includes(f.tipo))
+    return { total: ll.length, conEncuesta: ll.filter((f) => f.encuesta).length }
+  }, [hechos.data])
+  const conclusiones = useMemo(
+    () => calcularHallazgos({ periodo: p, embudo: embudo.data, ritmo: ritmo.data, porNicho, porCiudad, llamadas }),
+    [p, embudo.data, ritmo.data, porNicho, porCiudad, llamadas],
+  )
+  const actual = PESTANAS.find((x) => x.id === pestana) ?? PESTANAS[0]
+
   return (
     <DetalleProvider leads={leads} desde={rango.desde} hasta={rango.hasta} nombreNicho={nombreNicho}>
     <div className="space-y-4">
       <PageHeader
         title="Analíticas"
-        subtitle="Qué está funcionando: por qué canal responden, de dónde vienen los clientes, qué nichos y ciudades venden."
+        subtitle="Qué te está funcionando y qué no, explicado con tus datos."
         actions={<GlosarioBoton />}
       />
 
@@ -162,7 +194,7 @@ export function AnalyticsPage() {
           ))}
         </div>
         <span className="text-[11px] text-muted">{rango.desde.split('-').reverse().join('/')} – {rango.hasta.split('-').reverse().join('/')}</span>
-        <span className="ml-auto hidden text-[11px] text-muted sm:inline">Toca cualquier número subrayado para ver qué hay detrás · ⓘ explica cada término</span>
+        <span className="ml-auto hidden text-[11px] text-muted sm:inline">Toca un número subrayado para ver los leads · ⓘ explica qué significa</span>
       </div>
 
       {falla && (
@@ -172,139 +204,171 @@ export function AnalyticsPage() {
         </div>
       )}
 
-      {/* ------------------------------------------------ Resumen */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi icon={<Search className="h-4 w-4" />} label="Leads nuevos" t="leads_nuevos" valor={p?.leads_encontrados} q={{ k: 'cohorte', paso: 'leads' }} pie="entraron al CRM" />
-        <Kpi
-          icon={<Send className="h-4 w-4" />} label="Contactos hechos" t="contactos_hechos" valor={p?.contactos_realizados} q={{ k: 'toques' }}
-          pie={p && <Abrible q={p.leads_contactados ? { k: 'primer_contacto' } : undefined}>{p.leads_contactados} leads por primera vez</Abrible>}
-        />
-        <Kpi
-          icon={<MessageSquare className="h-4 w-4" />} label="Tasa de respuesta" t="tasa_respuesta"
-          valor={crm.data ? `${Math.round(crm.data.ratios.tasa_respuesta)}%` : undefined} q={{ k: 'respuestas' }}
-          pie={p && <Abrible q={p.respuestas_recibidas ? { k: 'respuestas' } : undefined}>{p.respuestas_recibidas} respuestas</Abrible>}
-        />
-        <Kpi
-          icon={<Handshake className="h-4 w-4" />} label="Reuniones" t="reuniones" valor={p?.reuniones_agendadas} q={{ k: 'etapa', etapa: 'reunion' }}
-          pie={p && <Abrible q={p.propuestas_enviadas ? { k: 'etapa', etapa: 'propuesta' } : undefined}>{p.propuestas_enviadas} propuestas enviadas</Abrible>}
-        />
-        <Kpi
-          icon={<Trophy className="h-4 w-4" />} label="Ventas" t="ventas" valor={c?.ganados} q={{ k: 'ganados' }} acento
-          pie={c && <Abrible q={c.perdidos ? { k: 'perdidos' } : undefined}>{c.perdidos} perdidas</Abrible>}
-        />
-        <Kpi
-          icon={<Banknote className="h-4 w-4" />} label="Dinero vendido" t="dinero_vendido" valor={c ? formatMontos(c.valor_total_mon, c.valor_total) : undefined} q={{ k: 'ganados', vista: 'valor' }} acento
-          pie={c && <Abrible q={c.cobrado ? { k: 'cobros', estado: 'cobrado' } : undefined}>{formatMontos(c.cobrado_mon, c.cobrado)} cobrado</Abrible>}
-        />
-        <Kpi icon={<Tags className="h-4 w-4" />} label="Ticket medio" t="ticket_medio" valor={c ? formatMontos(c.ticket_medio_mon, c.ticket_medio) : undefined} q={{ k: 'ganados', vista: 'ticket' }} pie="lo que paga de media cada cliente" />
-        <Kpi icon={<Clock className="h-4 w-4" />} label="Ciclo de venta" t="ciclo_venta" valor={c ? `${c.dias_ciclo} días` : undefined} q={{ k: 'ganados', vista: 'ciclo' }} pie="del primer contacto al cierre" />
+      {/* ------------------------------------------------ Pestañas */}
+      <div className="-mx-1 flex gap-1 overflow-x-auto border-b border-border px-1" role="tablist">
+        {PESTANAS.map((x) => (
+          <button
+            key={x.id}
+            type="button"
+            role="tab"
+            aria-selected={pestana === x.id}
+            onClick={() => irA(x.id)}
+            className={cn(
+              '-mb-px inline-flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
+              pestana === x.id ? 'border-primary-500 text-primary-700 dark:text-primary-300' : 'border-transparent text-muted hover:text-fg',
+            )}
+          >
+            <x.icon className="h-4 w-4" />{x.label}
+          </button>
+        ))}
       </div>
+      <p className="-mt-1 text-xs text-muted">{actual.pregunta}</p>
 
-      <Conclusiones
-        embudo={embudo.data}
-        ritmo={ritmo.data}
-        porNicho={porNicho}
-        porCiudad={porCiudad}
-        porIdioma={porIdioma}
-      />
-
-      {/* ------------------------------------------------ Embudo + ritmo */}
-      <div className="grid gap-4 lg:grid-cols-5">
-        <Bloque
-          className="lg:col-span-2"
-          icon={<Filter className="h-4 w-4 text-primary-400" />}
-          titulo="Embudo"
-          t="embudo"
-          pregunta="De los leads que entraron en el periodo, ¿hasta dónde llegaron? El % es sobre el paso anterior."
-        >
-          {cargandoLeads && leads.length === 0 ? <Skeleton className="h-56" /> : (
-            <ul className="space-y-2.5">
-              {pasos.map((s, i) => {
-                const ancho = pasos[0].n ? Math.max(2, (s.n / pasos[0].n) * 100) : 0
-                const conv = i > 0 ? tasa(s.n, pasos[i - 1].n) : null
-                return (
-                  <li key={s.label}>
-                    <Abrible q={s.n ? { k: 'cohorte', paso: s.paso } : undefined} className="block w-full !no-underline px-1 -mx-1 py-0.5">
-                      <div className="mb-1 flex items-baseline justify-between text-xs">
-                        <span className="font-medium text-fg">{s.label}</span>
-                        <span className="tabular-nums text-muted">
-                          <b className="text-fg underline decoration-dotted decoration-muted/50 underline-offset-4">{s.n}</b>{conv !== null && <> · {conv}%</>}
-                        </span>
-                      </div>
-                      <div className="h-2.5 overflow-hidden rounded-full bg-surface-2">
-                        <div className="h-full rounded-full" style={{ width: `${ancho}%`, background: s.color }} />
-                      </div>
-                    </Abrible>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </Bloque>
-
-        <Bloque
-          className="lg:col-span-3"
-          icon={<CalendarRange className="h-4 w-4 text-primary-400" />}
-          titulo="Ritmo semanal"
-          pregunta="Últimas 12 semanas: leads nuevos, leads contactados por primera vez y leads que respondieron."
-        >
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={semanal} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                <ChartGradients />
-                <CartesianGrid {...gridProps} vertical={false} />
-                <XAxis dataKey="semana" tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} minTickGap={16} />
-                <YAxis tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} allowDecimals={false} width={40} />
-                <Tooltip content={<BrandTooltip />} cursor={{ stroke: 'rgb(var(--muted))', strokeDasharray: '3 3' }} />
-                <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
-                <Area type="monotone" dataKey="nuevos" name="Nuevos" stroke="#94a3b8" strokeWidth={2} fill="transparent" />
-                <Area type="monotone" dataKey="contactados" name="Contactados" stroke="#ff7448" strokeWidth={2.5} fill="url(#gradCoralArea)" />
-                <Area type="monotone" dataKey="respondieron" name="Respondieron" stroke="#6248ff" strokeWidth={2.5} fill="url(#gradVioletArea)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </Bloque>
-      </div>
-
-      {/* ------------------------------------------------ Canal / origen / contratos */}
-      {embudo.isLoading ? <Skeleton className="h-64" /> : embudo.data && (
+      {pestana === 'resumen' && (
         <>
-          <PorCanal filas={embudo.data.por_canal} />
-          <div className="grid gap-4 lg:grid-cols-2">
-            <PorOrigen filas={embudo.data.por_origen} />
-            <Contratos m={embudo.data} />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Kpi
+              icon={<Send className="h-4 w-4" />} label="Contactos hechos" t="contactos_hechos" valor={p?.contactos_realizados} q={{ k: 'toques' }}
+              pie={p && <>{p.llamadas_realizadas ?? 0} llamadas · {p.mensajes_enviados ?? 0} mensajes</>}
+            />
+            <Kpi
+              icon={<MessageSquare className="h-4 w-4" />} label="Te responden" t="tasa_respuesta"
+              valor={crm.data ? `${Math.round(crm.data.ratios.tasa_respuesta)} de 100` : undefined} q={{ k: 'respuestas' }}
+              pie={p && <Abrible q={p.respuestas_recibidas ? { k: 'respuestas' } : undefined}>{p.respuestas_recibidas} respuestas en total</Abrible>}
+            />
+            <Kpi
+              icon={<Handshake className="h-4 w-4" />} label="Reuniones" t="reuniones" valor={p?.reuniones_agendadas} q={{ k: 'etapa', etapa: 'reunion' }}
+              pie={p && <Abrible q={p.propuestas_enviadas ? { k: 'etapa', etapa: 'propuesta' } : undefined}>{p.propuestas_enviadas} propuestas enviadas</Abrible>}
+            />
+            <Kpi
+              icon={<Trophy className="h-4 w-4" />} label="Ventas" t="ventas" valor={c?.ganados} q={{ k: 'ganados' }} acento
+              pie={c && (c.valor_total ? formatMontos(c.valor_total_mon, c.valor_total) : 'sin ventas aún')}
+            />
+          </div>
+
+          <Hallazgos hallazgos={conclusiones.hallazgos} faltan={conclusiones.faltan} />
+
+          <div className="grid gap-4 lg:grid-cols-5">
+            <Bloque
+              className="lg:col-span-2"
+              icon={<Filter className="h-4 w-4 text-primary-400" />}
+              titulo="Del lead a la venta"
+              t="embudo"
+              pregunta="De los leads que entraron en el periodo, cuántos llegaron a cada paso. El % es cuántos pasaron desde el paso anterior."
+            >
+              {cargandoLeads && leads.length === 0 ? <Skeleton className="h-56" /> : (
+                <ul className="space-y-2.5">
+                  {pasos.map((s, i) => {
+                    const ancho = pasos[0].n ? Math.max(2, (s.n / pasos[0].n) * 100) : 0
+                    const conv = i > 0 ? tasa(s.n, pasos[i - 1].n) : null
+                    return (
+                      <li key={s.label}>
+                        <Abrible q={s.n ? { k: 'cohorte', paso: s.paso } : undefined} className="block w-full !no-underline px-1 -mx-1 py-0.5">
+                          <div className="mb-1 flex items-baseline justify-between text-xs">
+                            <span className="font-medium text-fg">{s.label}</span>
+                            <span className="tabular-nums text-muted">
+                              <b className="text-fg">{s.n}</b>{conv !== null && <> · pasó el {conv}%</>}
+                            </span>
+                          </div>
+                          <div className="h-2.5 overflow-hidden rounded-full bg-surface-2">
+                            <div className="h-full rounded-full" style={{ width: `${ancho}%`, background: s.color }} />
+                          </div>
+                        </Abrible>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </Bloque>
+
+            <Bloque
+              className="lg:col-span-3"
+              icon={<CalendarRange className="h-4 w-4 text-primary-400" />}
+              titulo="Semana a semana"
+              pregunta="Últimas 12 semanas: leads nuevos, leads a los que escribiste por primera vez y leads que te respondieron."
+            >
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={semanal} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                    <ChartGradients />
+                    <CartesianGrid {...gridProps} vertical={false} />
+                    <XAxis dataKey="semana" tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} minTickGap={16} />
+                    <YAxis tick={axisTick} stroke="rgb(var(--border))" tickLine={false} axisLine={false} allowDecimals={false} width={40} />
+                    <Tooltip content={<BrandTooltip />} cursor={{ stroke: 'rgb(var(--muted))', strokeDasharray: '3 3' }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} iconType="circle" />
+                    <Area type="monotone" dataKey="nuevos" name="Nuevos" stroke="#94a3b8" strokeWidth={2} fill="transparent" />
+                    <Area type="monotone" dataKey="contactados" name="Contactados" stroke="#ff7448" strokeWidth={2.5} fill="url(#gradCoralArea)" />
+                    <Area type="monotone" dataKey="respondieron" name="Respondieron" stroke="#6248ff" strokeWidth={2.5} fill="url(#gradVioletArea)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </Bloque>
           </div>
         </>
       )}
 
-      {ritmo.data && <Ritmo ritmo={ritmo.data} />}
+      {pestana === 'llamadas' && <LlamadasTab desde={rango.desde} hasta={rango.hasta} leads={leads} />}
 
-      {/* ------------------------------------------------ Nicho / ciudad / idioma */}
-      <TablaReparto
-        por="nicho"
-        icon={<Tags className="h-4 w-4 text-primary-400" />}
-        titulo="Nichos: cuál funciona"
-        pregunta="Leads que entraron en el periodo por nicho. Ordenado por ventas y luego por % de respuesta."
-        filas={porNicho}
-      />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <TablaReparto
-          por="ciudad"
-          icon={<Globe2 className="h-4 w-4 text-primary-400" />}
-          titulo="Ciudades"
-          pregunta="Las 15 ciudades con más actividad del periodo."
-          filas={porCiudad}
-          limite={15}
-          accion={<Link to="/mapa" className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline"><MapIcon className="h-3.5 w-3.5" /> Ver en el mapa <ArrowRight className="h-3 w-3" /></Link>}
-        />
-        <TablaReparto
-          por="idioma"
-          icon={<Languages className="h-4 w-4 text-primary-400" />}
-          titulo="Idioma"
-          pregunta="Según el idioma que marcaste en cada lead."
-          filas={porIdioma}
-        />
-      </div>
+      {pestana === 'mensajes' && (
+        embudo.isLoading ? <Skeleton className="h-64" /> : (
+          <>
+            {embudo.data && <PorCanal filas={embudo.data.por_canal} />}
+            {ritmo.data && <Ritmo ritmo={ritmo.data} />}
+          </>
+        )
+      )}
+
+      {pestana === 'clientes' && (
+        <>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <Kpi
+              icon={<Trophy className="h-4 w-4" />} label="Ventas" t="ventas" valor={c?.ganados} q={{ k: 'ganados' }} acento
+              pie={c && <Abrible q={c.perdidos ? { k: 'perdidos' } : undefined}>{c.perdidos} perdidas</Abrible>}
+            />
+            <Kpi
+              icon={<Banknote className="h-4 w-4" />} label="Dinero vendido" t="dinero_vendido" valor={c ? formatMontos(c.valor_total_mon, c.valor_total) : undefined} q={{ k: 'ganados', vista: 'valor' }} acento
+              pie={c && <Abrible q={c.cobrado ? { k: 'cobros', estado: 'cobrado' } : undefined}>{formatMontos(c.cobrado_mon, c.cobrado)} ya cobrado</Abrible>}
+            />
+            <Kpi icon={<Tags className="h-4 w-4" />} label="Lo que paga cada cliente" t="ticket_medio" valor={c ? formatMontos(c.ticket_medio_mon, c.ticket_medio) : undefined} q={{ k: 'ganados', vista: 'ticket' }} pie="de media (ticket medio)" />
+            <Kpi icon={<Clock className="h-4 w-4" />} label="Tiempo hasta cerrar" t="ciclo_venta" valor={c ? `${c.dias_ciclo} días` : undefined} q={{ k: 'ganados', vista: 'ciclo' }} pie="del primer contacto a la venta" />
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted">
+            <Search className="h-3.5 w-3.5" />
+            <Abrible q={{ k: 'cohorte', paso: 'leads' }}>{p?.leads_encontrados ?? '…'} leads nuevos</Abrible> entraron en el periodo.
+          </div>
+          {embudo.isLoading ? <Skeleton className="h-64" /> : embudo.data && (
+            <div className="grid gap-4 lg:grid-cols-2">
+              <PorOrigen filas={embudo.data.por_origen} />
+              <Contratos m={embudo.data} />
+            </div>
+          )}
+          <TablaReparto
+            por="nicho"
+            icon={<Tags className="h-4 w-4 text-primary-400" />}
+            titulo="¿Qué tipo de negocio funciona?"
+            pregunta="Leads del periodo por nicho, ordenados por ventas y luego por cuántos responden."
+            filas={porNicho}
+          />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <TablaReparto
+              por="ciudad"
+              icon={<Globe2 className="h-4 w-4 text-primary-400" />}
+              titulo="¿En qué ciudades?"
+              pregunta="Las 15 ciudades con más actividad del periodo."
+              filas={porCiudad}
+              limite={15}
+              accion={<Link to="/mapa" className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline"><MapIcon className="h-3.5 w-3.5" /> Ver en el mapa <ArrowRight className="h-3 w-3" /></Link>}
+            />
+            <TablaReparto
+              por="idioma"
+              icon={<Languages className="h-4 w-4 text-primary-400" />}
+              titulo="¿En qué idioma?"
+              pregunta="Según el idioma que marcaste en cada lead."
+              filas={porIdioma}
+            />
+          </div>
+        </>
+      )}
     </div>
     </DetalleProvider>
   )
@@ -367,9 +431,9 @@ function TablaReparto({ icon, titulo, pregunta, filas, limite, accion, por }: {
               <tr>
                 <th className="py-2 pr-2 text-left font-medium"></th>
                 <th className="px-2 py-2 text-right font-medium">Leads</th>
-                <th className="px-2 py-2 text-right font-medium">Contact.</th>
-                <th className="px-2 py-2 text-left font-medium">% responde</th>
-                <th className="px-2 py-2 text-right font-medium">Reun.</th>
+                <th className="px-2 py-2 text-right font-medium">Contactados</th>
+                <th className="px-2 py-2 text-left font-medium">Responden</th>
+                <th className="px-2 py-2 text-right font-medium">Reuniones</th>
                 <th className="px-2 py-2 text-right font-medium">Ventas</th>
                 <th className="py-2 pl-2 text-right font-medium">Dinero</th>
               </tr>
