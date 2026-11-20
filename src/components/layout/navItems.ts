@@ -105,4 +105,8 @@ export const navDestinos: { to: string; label: string }[] = navItems.flatMap((it
     return item.children.map((c) => ({ to: c.to, label: `${item.label} · ${c.label}` }))
   }
   return []
-})
+}).concat(
+  // «Ver el servidor» vive en el menú del perfil, no en el lateral; aquí se
+  // añade para que también aparezca al buscar «servidor».
+  { to: '/servidor', label: 'Ver el servidor' },
+)

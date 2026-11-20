@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Search, Sun, Moon, LogOut, Menu } from 'lucide-react'
+import { Search, Sun, Moon, LogOut, Menu, Server } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useUiStore } from '@/store/uiStore'
 import { useAuthStore } from '@/store/authStore'
@@ -86,6 +86,15 @@ export function Topbar() {
                 <p className="mt-1 truncate text-[10px] uppercase text-primary-500">{user?.role}</p>
               </div>
               <hr className="my-1 border-border" />
+              <button
+                onClick={() => {
+                  setMenuOpen(false)
+                  navigate('/servidor')
+                }}
+                className="flex min-h-[44px] w-full items-center gap-2 rounded-lg px-2 text-sm text-fg hover:bg-surface-2"
+              >
+                <Server className="h-4 w-4" /> Ver el servidor
+              </button>
               <button
                 onClick={() => {
                   logout()
