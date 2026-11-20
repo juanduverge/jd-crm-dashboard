@@ -429,7 +429,15 @@ Deno.serve(async (req) => {
   if (!lead) return responder({ ok: false, error: 'Se guardó pero no lo encuentro. Recarga la lista.' }, 500)
 
   let buscandoContactos = false
-  if (lead.web) {
+  let leyendoFicha = false
+  if (!clave) {
+    // Sin Google Places, el robot de casa lee la ficha (teléfono, web,
+    // estrellas, reseñas) y, si hay web, sigue con los contactos (0071).
+    const { error: e3 } = await servicio.rpc('contactos_web_encolar_maps', { p_lead_id: lead.id, p_enlace: largo })
+    if (e3) console.error('importar-desde-maps: no se pudo encolar la ficha', e3.message)
+    else leyendoFicha = buscandoContactos = true
+  }
+  if (lead.web && !leyendoFicha) {
     const { error: e2 } = await servicio.rpc('contactos_web_encolar', { p_lead_id: lead.id })
     if (e2) console.error('importar-desde-maps: no se pudo encolar contactos', e2.message)
     else buscandoContactos = true
@@ -442,6 +450,7 @@ Deno.serve(async (req) => {
     nuevo: ((res as { insertados?: number })?.insertados ?? 0) > 0,
     web: lead.web ?? null,
     buscando_contactos: buscandoContactos,
+    leyendo_ficha: leyendoFicha,
     cerrado,
     fuente: clave ? 'google' : 'osm',
   })

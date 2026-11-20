@@ -31,6 +31,8 @@ function resumen(antes: Lead | null, despues: Lead): string {
   const redes = (['instagram', 'facebook', 'linkedin', 'youtube', 'tiktok', 'twitter', 'pinterest'] as const)
     .filter((k) => !antes?.[k] && despues[k]).length
   if (redes) partes.push(`${redes} red${redes > 1 ? 'es' : ''}`)
+  if (!antes?.web && despues.web) partes.unshift('web')
+  if (!antes?.ratingGoogle && despues.ratingGoogle) partes.push(`${despues.ratingGoogle}★`)
   return partes.join(', ')
 }
 
@@ -40,6 +42,7 @@ const MOTIVOS: Record<string, string> = {
   dominio_aparcado: 'su dominio no tiene web (página del hosting)',
   robots_prohibe: 'su web no permite que se lea',
   solo_redes: 'su «web» es una red social',
+  sin_web: 'no tiene web en Google',
   error: 'no se pudo leer su web',
 }
 
@@ -55,7 +58,7 @@ export async function esperarContactos(leadId: string, empresa: string, antes: L
       if (lead.lastEnrichedAt && lead.lastEnrichedAt !== marca) {
         ponerEnLista(lead)
         const r = resumen(antes, lead)
-        if (r) toast.success(`${empresa}: ${r} desde su web`)
+        if (r) toast.success(`${empresa}: ${r}`)
         else toast(`${empresa}: nada nuevo — ${MOTIVOS[lead.enrichmentStatus ?? ''] ?? 'ya tenía esos datos'}`)
         return
       }

@@ -364,6 +364,8 @@ export interface ImportacionMaps {
   web: string | null
   /** El robot de contactos está leyendo su web. */
   buscandoContactos: boolean
+  /** El robot está leyendo su ficha de Google (teléfono, web, estrellas) y después su web. */
+  leyendoFicha: boolean
   /** 'definitivamente' | 'temporalmente' si Google lo marca cerrado. */
   cerrado: string | null
 }
@@ -565,11 +567,11 @@ export const leadsService = {
     }
     const r = data as {
       lead_id: string; empresa: string; nuevo: boolean; web: string | null
-      buscando_contactos: boolean; cerrado: string | null
+      buscando_contactos: boolean; leyendo_ficha?: boolean; cerrado: string | null
     }
     return {
       leadId: r.lead_id, empresa: r.empresa, nuevo: r.nuevo, web: r.web,
-      buscandoContactos: r.buscando_contactos, cerrado: r.cerrado,
+      buscandoContactos: r.buscando_contactos, leyendoFicha: !!r.leyendo_ficha, cerrado: r.cerrado,
     }
   },
 

@@ -316,6 +316,9 @@ class Navegador:
             page.wait_for_timeout(2500)
             return page.content(), page.url
         finally:
+            # Sin esto, cerrar con peticiones a medias llenaba el registro de
+            # «CancelledError» que no significan nada.
+            ctx.unroute_all(behavior="ignoreErrors")
             ctx.close()
 
     def cerrar(self):
@@ -512,9 +515,106 @@ def a_datos(acc, estado):
     return datos
 
 
+# ---------------------------------------------------------------
+# Ficha de Google Maps (solo enlaces pegados a mano en el CRM)
+# ---------------------------------------------------------------
+# Sin la API de Google (pide facturación), la única forma de tener el
+# teléfono, la web, las estrellas y las reseñas es abrir la ficha como una
+# persona. Una ficha por enlace pegado, con pausa entre una y otra: nunca en
+# masa, que es lo que haría que Google bloquease la IP de casa.
+MAPS_PAUSA = float(os.environ.get("MAPS_PAUSA", "20"))
+_ultima_ficha = [0.0]
+
+
+def leer_ficha(enlace):
+    """Lo que muestra la ficha, en formato de item de Apify. None si no se pudo leer."""
+    from playwright.sync_api import sync_playwright
+
+    espera = MAPS_PAUSA - (time.time() - _ultima_ficha[0])
+    if espera > 0:
+        time.sleep(espera)
+    _ultima_ficha[0] = time.time()
+
+    # En inglés: la categoría («Architect») es la que entiende el catálogo de nichos.
+    url = enlace + ("&" if "?" in enlace else "?") + "hl=en" if "hl=" not in enlace else enlace
+    with sync_playwright() as pw:
+        b = pw.chromium.launch(args=["--disable-dev-shm-usage", "--no-sandbox"])
+        try:
+            ctx = b.new_context(locale="en-US", user_agent=UA)
+            ctx.route("**/*", lambda r: r.abort() if r.request.resource_type in ("image", "media", "font") else r.continue_())
+            p = ctx.new_page()
+            p.goto(url, wait_until="domcontentloaded", timeout=40000)
+            if "consent." in p.url:
+                # Página de cookies (si algún día sale): se rechaza lo opcional.
+                boton = p.query_selector('button[aria-label*="Reject"], form[action*="consent"] button')
+                if boton:
+                    boton.click()
+                    p.wait_for_load_state("domcontentloaded")
+            try:
+                p.wait_for_selector("h1", timeout=15000)
+            except Exception:
+                log("  ficha: no cargó (¿bloqueo o captcha?)")
+                return None
+            p.wait_for_timeout(2500)
+
+            def attr(sel, a):
+                e = p.query_selector(sel)
+                return e.get_attribute(a) if e else None
+
+            def texto(sel):
+                e = p.query_selector(sel)
+                return e.inner_text().strip() if e else None
+
+            tel = (attr('button[data-item-id^="phone:tel:"]', "data-item-id") or "").replace("phone:tel:", "") or None
+            web = attr('a[data-item-id="authority"]', "href")
+            direccion = (attr('button[data-item-id="address"]', "aria-label") or "").replace("Address:", "").strip() or None
+            # «G322+VR7, Santo Domingo» es un código plus, no una dirección: la
+            # calle que ya trajo OpenStreetMap es más útil.
+            if direccion and re.match(r"^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,}", direccion):
+                direccion = None
+            rating = texto('div.F7nice span[aria-hidden="true"]')
+            resenas = re.sub(r"\D", "", attr('div.F7nice span[aria-label*="review"]', "aria-label") or "")
+            cuerpo = (p.inner_text("body") or "")[:5000]
+            ficha = {
+                "categoryName": texto('button[jsaction*="category"]'),
+                "phone": tel,
+                "phoneUnformatted": tel,
+                "phones": [tel] if tel else [],
+                "website": web,
+                "address": direccion,
+                "totalScore": float(rating) if rating and re.fullmatch(r"\d(\.\d)?", rating) else None,
+                "reviewsCount": int(resenas) if resenas else None,
+                "permanentlyClosed": "Permanently closed" in cuerpo,
+            }
+            ctx.unroute_all(behavior="ignoreErrors")
+            return {k: v for k, v in ficha.items() if v not in (None, "", [])}
+        finally:
+            b.close()
+
+
 def trabajar(t):
     inicio = time.time()
-    log(f"#{t['id']} {t['empresa']} — {t['web']} (intento {t['intentos']})")
+    log(f"#{t['id']} {t['empresa']} — {t.get('web') or 'sin web'}{' + ficha' if t.get('maps') else ''} (intento {t['intentos']})")
+
+    if t.get("maps"):
+        try:
+            ficha = leer_ficha(t["maps"])
+        except Exception as e:
+            ficha = None
+            log(f"  ficha falló: {str(e)[:200]}")
+        if ficha:
+            r = rpc("ficha_maps_guardar", {"p_lead_id": t["lead_id"], "p_item": ficha})
+            log(f"  ficha: {', '.join(k for k in ficha)}")
+            t["web"] = t.get("web") or (r or {}).get("web")
+
+    if not t.get("web"):
+        # Ni en el CRM ni en Google: no hay web que leer. Se deja constancia
+        # para que la ficha del CRM no diga «pendiente» para siempre.
+        rpc("enriquecer_lead", {"p_id": t["lead_id"], "p_datos": {"status": "sin_web"}, "p_fuente": "web_propio"})
+        rpc("contactos_web_hecha", {"p_id": t["id"]})
+        log(f"  sin web en {time.time() - inicio:.1f}s")
+        return
+
     acc, estado = leer_web(t["web"])
     datos = a_datos(acc, estado)
     r = rpc("enriquecer_lead", {"p_id": t["lead_id"], "p_datos": datos, "p_fuente": "web_propio"})

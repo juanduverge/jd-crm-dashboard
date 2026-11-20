@@ -13,8 +13,13 @@ CRM (botón «Buscar contactos en su web» o «Desde Google Maps»)
   → guarda con enriquecer_lead (suma, nunca pisa)
 ```
 
-El enlace de Google Maps lo resuelve la Edge Function `importar-desde-maps`
-(API oficial de Google Places, secreto `GOOGLE_PLACES_KEY`).
+El enlace de Google Maps lo resuelve la Edge Function `importar-desde-maps`:
+crea el lead con la dirección de OpenStreetMap y encola un trabajo con `maps`.
+El robot abre entonces la ficha de Google (teléfono, web, estrellas, reseñas,
+categoría) y, si hay web, sigue con los contactos (0071). Solo enlaces pegados
+a mano, con `MAPS_PAUSA` (20 s) entre fichas: nunca en masa, o Google
+bloquearía la IP de casa. Si existiera `GOOGLE_PLACES_KEY`, la función usaría
+la API oficial en su lugar.
 
 ## Dónde vive
 
@@ -40,6 +45,7 @@ docker compose run --rm robot python robot.py prueba https://una-web.com
 | `web_caida` | La web no responde |
 | `dominio_aparcado` | Página de relleno del hosting: el negocio no tiene web real |
 | `robots_prohibe` | Su robots.txt no permite leerla |
+| `sin_web` | Ni el CRM ni la ficha de Google tienen web |
 | `error` | Falló 3 veces seguidas |
 
 ## Recuperar leads que Apify dejó a medias

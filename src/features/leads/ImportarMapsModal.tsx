@@ -11,10 +11,10 @@ import { esperarContactos } from '@/lib/contactosWeb'
 /**
  * «Añadir desde Google Maps»: pegas el enlace de una ficha y el lead se crea
  * con nombre, dirección, ciudad, país y ubicación (OpenStreetMap, gratis).
+ * Después el robot de casa lee la ficha de Google (teléfono, web, estrellas,
+ * reseñas) y, si hay web, sus correos, WhatsApp y redes (0071).
  *
- * Paso 2, solo si no se encontró la web: se pide (está en la ficha de Maps,
- * un toque para copiarla). Con la web, el robot de contactos busca correos,
- * teléfonos, WhatsApp y redes y la ficha se completa sola.
+ * Paso 2, solo si no hay robot de ficha y no se encontró la web: se pide.
  *
  * Desde el móvil: en la app de Maps, Compartir → Copiar, y aquí «Pegar».
  */
@@ -62,8 +62,13 @@ export function ImportarMapsModal({
       await qc.refetchQueries({ queryKey: ['leads'] })
       toast.success(r.nuevo ? `${r.empresa} añadido` : `${r.empresa} ya estaba: se completaron los datos que faltaban`)
       if (r.cerrado) toast(`Ojo: Google lo marca cerrado ${r.cerrado}`, { icon: '⚠️' })
-      if (r.buscandoContactos) void buscarContactos(r)
-      if (!r.web) {
+      if (r.leyendoFicha) {
+        // El robot trae teléfono, web, estrellas y reseñas de la ficha y, si
+        // hay web, los contactos: no hace falta pedir nada a mano.
+        toast('Leyendo su ficha de Google y su web…', { icon: '🔎' })
+        void esperarContactos(r.leadId, r.empresa, await leadsService.getLead(r.leadId).catch(() => null))
+      } else if (r.buscandoContactos) void buscarContactos(r)
+      if (!r.web && !r.leyendoFicha) {
         setCreado(r) // paso 2: pedir la web
         return
       }
