@@ -7,7 +7,7 @@ import {
 import {
   ArrowRight, CalendarClock, Inbox, MailCheck, ListTodo, Route, FolderKanban,
   TrendingUp, TrendingDown, Minus, CircleCheck, Mail, MessageCircle, Phone, PhoneCall,
-  Users, Video, Briefcase, Camera, MessageSquare, Circle, Target, CalendarDays, type LucideIcon,
+  Users, Video, Briefcase, Camera, MessageSquare, Circle, Target, type LucideIcon,
 } from 'lucide-react'
 import { startOfMonth, subMonths, format, getDate, endOfMonth, min as minFecha } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -20,10 +20,8 @@ import {
   useGoals, useEventos, useSincronizarGoogle,
 } from '@/hooks/useData'
 import { pctTranscurrido, progreso, valorProgreso } from '@/features/productividad/shared/goalMeta'
-import { COLORES, clasesPunto, type ColorItem } from '@/features/productividad/calendario/itemCalendario'
-
-const COLOR_OK = Object.fromEntries(COLORES.map((c) => [c.valor, true])) as Record<ColorItem, true>
 import { useProyectos } from '@/features/proyectos/useProyectos'
+import { PlanDeHoy } from './PlanDeHoy'
 import { analyticsService } from '@/services/analyticsService'
 import { secuenciasService } from '@/services/secuenciasService'
 import { today, TIPO_META } from '@/lib/followUps'
@@ -32,7 +30,7 @@ import {
   ETAPA_PROYECTO_META, resumenCobros, situacionEntrega, textoEntrega,
 } from '@/lib/proyectos'
 import { formatCurrency, formatMontos, formatNumber, cn, type Montos } from '@/lib/utils'
-import type { Evento, FollowUpTipo, Goal, Lead, LeadStatus, MetricasPeriodo } from '@/types'
+import type { FollowUpTipo, Goal, Lead, LeadStatus, MetricasPeriodo } from '@/types'
 
 /**
  * Resumen — la pantalla que se abre cada mañana.
@@ -169,7 +167,7 @@ export function DashboardPage() {
       </Seccion>
 
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        <CalendarioHoy eventos={eventosHoy.data ?? []} cargando={eventosHoy.isLoading} />
+        <PlanDeHoy hoy={hoy} eventos={eventosHoy.data ?? []} cargandoEventos={eventosHoy.isLoading} agenda={agenda.data ?? []} cargandoAgenda={agenda.isLoading} />
         <AgendaHoy items={agenda.data ?? []} cargando={agenda.isLoading} />
         <LeadsCalientes leads={leads} cargando={cargandoLeads} className="lg:col-span-2 xl:col-span-1" />
       </div>
@@ -389,55 +387,6 @@ function LeadsCalientes({ leads, cargando, className }: { leads: Lead[]; cargand
                   >
                     {daysInStage(l)} d
                   </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      )}
-    </Card>
-  )
-}
-
-/** Reuniones y bloques del calendario para hoy: lo que ya tiene hora fija. */
-function CalendarioHoy({ eventos, cargando }: { eventos: Evento[]; cargando: boolean }) {
-  const lista = eventos.filter((e) => e.estado !== 'cancelado')
-  const ahora = Date.now()
-  const hora = (valor: string) => format(new Date(valor), 'HH:mm')
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Agenda de hoy{lista.length ? <span className="ml-1.5 font-normal text-muted">· {lista.length}</span> : null}</CardTitle>
-        <Link to="/productividad/hoy" className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary-600 hover:underline">
-          Mi día <ArrowRight className="h-3 w-3" />
-        </Link>
-      </CardHeader>
-      {cargando ? <ListaSkeleton /> : !lista.length ? (
-        <Link to="/productividad/calendario" className="flex flex-col items-center gap-1.5 py-8 text-center text-sm text-muted hover:text-fg">
-          <CalendarDays className="h-5 w-5 text-muted/60" />Nada en el calendario hoy.
-        </Link>
-      ) : (
-        <ul className="-mx-1.5 space-y-0.5">
-          {lista.slice(0, 7).map((e) => {
-            const pasado = Date.parse(e.fin) < ahora || e.estado === 'hecho'
-            const enCurso = !pasado && Date.parse(e.inicio) <= ahora
-            return (
-              <li key={e.id}>
-                <Link
-                  to={e.leadId ? `/pipeline?lead=${e.leadId}` : '/productividad/calendario'}
-                  className={cn('flex items-center gap-3 rounded-lg px-1.5 py-2 row-hover', pasado && 'opacity-50')}
-                >
-                  <span className="w-[4.75rem] shrink-0 text-xs tabular-nums text-muted">
-                    {e.todoElDia ? 'Todo el día' : `${hora(e.inicio)}–${hora(e.fin)}`}
-                  </span>
-                  <span className={cn('h-7 w-1 shrink-0 rounded-full', clasesPunto((e.color as ColorItem) in COLOR_OK ? (e.color as ColorItem) : 'coral'))} />
-                  <div className="min-w-0 flex-1">
-                    <p className={cn('truncate text-sm font-medium text-fg', pasado && 'line-through')} title={e.titulo}>{e.titulo}</p>
-                    {e.ubicacion && <p className="truncate text-xs text-muted">{e.ubicacion}</p>}
-                  </div>
-                  {enCurso && (
-                    <span className="shrink-0 rounded-full bg-[rgb(var(--ok))]/15 px-2 py-0.5 text-[0.6875rem] font-semibold text-[rgb(var(--ok))]">ahora</span>
-                  )}
                 </Link>
               </li>
             )

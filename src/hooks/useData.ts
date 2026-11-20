@@ -350,6 +350,26 @@ export function useRegistrarContacto() {
   })
 }
 
+/** Encuesta al colgar (0074). Va después de `useRegistrarContacto`, con su id. */
+export function useGuardarEncuesta() {
+  const invalidate = useInvalidateFollowUps()
+  return useMutation({
+    mutationFn: ({ id, encuesta }: { id: string; encuesta: Parameters<typeof followUpsService.guardarEncuesta>[1] }) =>
+      followUpsService.guardarEncuesta(id, encuesta),
+    onSuccess: invalidate,
+  })
+}
+
+/** Contactos hechos en un rango (el objetivo del día del Resumen). */
+export function useContactosHechos(desdeIso: string, hastaIso: string) {
+  return useQuery({
+    queryKey: ['follow_ups', 'hechos', desdeIso, hastaIso],
+    queryFn: () => followUpsService.completadosEntre(desdeIso, hastaIso),
+    staleTime: 30_000,
+    retry: 1,
+  })
+}
+
 /** El lead contestó a un mensaje: se marca en el último toque. */
 export function useRegistrarRespuesta() {
   const invalidate = useInvalidateFollowUps()

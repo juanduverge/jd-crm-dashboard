@@ -13,7 +13,8 @@ import { pipelineService } from '@/services/pipelineService'
 import { STAGE_BY_ID } from '@/lib/pipeline'
 import { TIPO_META, today } from '@/lib/followUps'
 import { cn } from '@/lib/utils'
-import type { DetalleContacto, FollowUp, FollowUpTipo, LeadStatus } from '@/types'
+import { ANIMO, ATENDIO, ESTRATEGIA, INTERES, OBJECION, TIPO_PROYECTO, etiquetaDe } from '@/lib/encuestaLlamada'
+import type { DetalleContacto, EncuestaLlamada, FollowUp, FollowUpTipo, LeadStatus } from '@/types'
 
 /**
  * El historial del lead en una sola línea de tiempo: contactos (con su
@@ -143,10 +144,32 @@ function Fila({ it }: { it: Item }) {
           {d && <span className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-muted"><Clock className="h-3 w-3" />{d}</span>}
         </p>
         {(f.numeroUsado || f.orden) && <p className="text-[11px] text-muted">Contacto nº {f.orden}{f.numeroUsado ? ` · desde ${f.numeroUsado}` : ''}</p>}
+        {f.encuesta && <ChipsEncuesta e={f.encuesta} />}
         {f.nota && <p className="mt-1 whitespace-pre-line rounded-lg bg-surface-2 px-2.5 py-1.5 text-xs text-fg">{f.nota}</p>}
       </div>
       <span className="shrink-0 text-[11px] tabular-nums text-muted">{cuando}</span>
     </li>
+  )
+}
+
+/** Lo que Juan apuntó al colgar (0074), en chips cortos bajo la llamada. */
+function ChipsEncuesta({ e }: { e: EncuestaLlamada }) {
+  const animo = ANIMO.find((a) => a.v === e.animo)
+  const chips = [
+    animo && `${animo.emoji} ${animo.l}`,
+    e.interes && INTERES.find((i) => i.v === e.interes)?.l,
+    etiquetaDe(TIPO_PROYECTO, e.tipoProyecto),
+    e.estrategia && `Estrategia: ${etiquetaDe(ESTRATEGIA, e.estrategia)}`,
+    e.atendio && `Atendió: ${etiquetaDe(ATENDIO, e.atendio)}`,
+    e.objecion && e.objecion !== 'ninguna' && `Objeción: ${etiquetaDe(OBJECION, e.objecion)}`,
+  ].filter(Boolean) as string[]
+  return (
+    <div className="mt-1">
+      <div className="flex flex-wrap gap-1">
+        {chips.map((c) => <span key={c} className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-fg">{c}</span>)}
+      </div>
+      {e.aprendizaje && <p className="mt-1 text-xs italic text-muted">«{e.aprendizaje}»</p>}
+    </div>
   )
 }
 

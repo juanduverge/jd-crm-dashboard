@@ -12,8 +12,8 @@ import {
 import { Button, Input, Select, Textarea } from '@/components/ui'
 import { Modal } from '@/components/ui/Modal'
 import {
-  useActualizarFollowUp, useCreateNote, useEventos, useLeadFollowUps, useProgramarFollowUp, useRegistrarContacto,
-  useRegistrarRespuesta,
+  useActualizarFollowUp, useCreateNote, useEventos, useGuardarEncuesta, useLeadFollowUps, useProgramarFollowUp,
+  useRegistrarContacto, useRegistrarRespuesta,
 } from '@/hooks/useData'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
 import { ItemModal } from '@/features/productividad/calendario/ItemModal'
@@ -21,7 +21,8 @@ import { addDiasLaborales, today, TIPO_META } from '@/lib/followUps'
 import { digitos, textoNumero, usePerfilTrabajo, type MiNumero } from '@/lib/perfilTrabajo'
 import { cn } from '@/lib/utils'
 import { useLeadsStore } from '@/store/leadsStore'
-import type { DetalleContacto, FollowUpResultado, FollowUpTipo, Lead } from '@/types'
+import { ANIMO, ATENDIO, ESTRATEGIA, INTERES, OBJECION, TIPO_PROYECTO, type OpcionEncuesta } from '@/lib/encuestaLlamada'
+import type { DetalleContacto, EncuestaLlamada, FollowUpResultado, FollowUpTipo, Lead } from '@/types'
 import { calcularHuecos } from './huecos'
 
 /**
@@ -227,6 +228,7 @@ function telefonosDelLead(lead: Lead): string[] {
 function FlujoLlamada({ lead, onClose, onSiguiente }: { lead: Lead; onClose: () => void; onSiguiente: (p: Paso) => void }) {
   const perfil = usePerfilTrabajo()
   const registrar = useRegistrarContacto()
+  const guardarEncuesta = useGuardarEncuesta()
   const siguiente = useProgramarSiguiente(lead.id)
   const reflejar = useReflejarContacto(lead)
 
@@ -242,6 +244,7 @@ function FlujoLlamada({ lead, onClose, onSiguiente }: { lead: Lead; onClose: () 
   const [minutos, setMinutos] = useState('')
   const [nota, setNota] = useState('')
   const [fechaVuelta, setFechaVuelta] = useState(addDiasLaborales(1, today()))
+  const [encuesta, setEncuesta] = useState<EncuestaLlamada>({})
 
   const misNumeros = perfil.numeros.filter((n) => via === 'normal' || n.whatsapp)
   useEffect(() => { if (!desde && misNumeros.length) setDesde(misNumeros[0]) }, [misNumeros, desde])
@@ -280,12 +283,21 @@ function FlujoLlamada({ lead, onClose, onSiguiente }: { lead: Lead; onClose: () 
     const resultado: FollowUpResultado = contesto ? (como?.r ?? 'negativo') : 'sin_respuesta'
     const duracionSeg = contesto ? (minutos.trim() ? Math.round(Number(minutos) * 60) : seg) : seg
     try {
-      await registrar.mutateAsync({
+      const id = await registrar.mutateAsync({
         leadId: lead.id, tipo, resultado, detalle, nota: nota.trim() || undefined,
         duracionSeg: Number.isFinite(duracionSeg) ? duracionSeg : undefined,
         numero: desde ? textoNumero(desde) : undefined,
       })
       reflejar(tipo, resultado)
+      // La llamada ya está guardada: si la encuesta falla no se pierde nada
+      // más que la encuesta, y se avisa en vez de bloquear el flujo.
+      if (contesto && Object.values(encuesta).some((v) => v !== undefined && v !== '')) {
+        try {
+          await guardarEncuesta.mutateAsync({ id, encuesta })
+        } catch {
+          toast.error('La llamada se guardó, pero la encuesta no. Puedes repetirla más tarde.')
+        }
+      }
       // Sin respuesta (o «llámame luego»): se agenda el próximo intento aquí mismo.
       if ((!contesto && detalle !== 'numero_equivocado') || detalle === 'llamar_luego') {
         await siguiente.hacer(fechaVuelta, tipo, detalle === 'llamar_luego' ? 'Pidió que le llamemos' : undefined)
@@ -306,7 +318,7 @@ function FlujoLlamada({ lead, onClose, onSiguiente }: { lead: Lead; onClose: () 
   }
 
   const mmss = `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`
-  const guardando = registrar.isPending || siguiente.pendiente
+  const guardando = registrar.isPending || guardarEncuesta.isPending || siguiente.pendiente
 
   return (
     <Modal
@@ -320,7 +332,7 @@ function FlujoLlamada({ lead, onClose, onSiguiente }: { lead: Lead; onClose: () 
           <Button size="sm" onClick={() => llamar()}><Timer className="h-4 w-4" />Iniciar llamada</Button>
         </> : etapa === 'en_curso' ? <>
           <Button variant="ghost" size="sm" onClick={onClose}>No pude llamar</Button>
-          <Button size="sm" variant="danger" onClick={colgar}><PhoneOff className="h-4 w-4" />Ya colgué</Button>
+          <Button size="sm" variant="danger" onClick={colgar}><PhoneOff className="h-4 w-4" />Finalizar llamada</Button>
         </> : <>
           <Button variant="ghost" size="sm" onClick={onClose} disabled={guardando}>Cancelar</Button>
           <Button size="sm" onClick={guardar} disabled={guardando || !detalle}>{guardando ? 'Guardando…' : 'Guardar llamada'}</Button>
@@ -370,7 +382,7 @@ function FlujoLlamada({ lead, onClose, onSiguiente }: { lead: Lead; onClose: () 
             </div>
           )}
           <p className="text-xs text-muted">
-            Llama desde tu teléfono y pulsa <b>«Iniciar llamada»</b>: aquí empieza el contador. Al colgar pulsas «Ya colgué» y apuntas cómo fue.
+            Llama desde tu teléfono y pulsa <b>«Iniciar llamada»</b>: aquí empieza el contador. Al colgar pulsas «Finalizar llamada» y apuntas cómo fue.
           </p>
         </div>
       )}
@@ -382,7 +394,7 @@ function FlujoLlamada({ lead, onClose, onSiguiente }: { lead: Lead; onClose: () 
           <p className="mt-3 text-sm font-medium text-fg">{lead.empresa}</p>
           <p className="t-num text-lg tabular-nums text-fg">{aQuien}</p>
           <p className="mt-1 text-xs text-muted">{via === 'whatsapp' ? 'Por WhatsApp' : 'Llamada normal'}{desde ? ` · desde ${desde.etiqueta}` : ''}</p>
-          <p className="mt-4 text-xs text-muted">Cuando termines, pulsa «Ya colgué». Si no contestan, también.</p>
+          <p className="mt-4 text-xs text-muted">Cuando termines, pulsa «Finalizar llamada». Si no contestan, también.</p>
         </div>
       )}
 
@@ -416,6 +428,7 @@ function FlujoLlamada({ lead, onClose, onSiguiente }: { lead: Lead; onClose: () 
                 </div>
                 <p className="pb-2 text-xs text-muted">El cronómetro marcó {mmss}.</p>
               </div>
+              <EncuestaCampos valor={encuesta} onChange={setEncuesta} />
             </>
           )}
 
@@ -442,6 +455,55 @@ function FlujoLlamada({ lead, onClose, onSiguiente }: { lead: Lead; onClose: () 
         </div>
       )}
     </Modal>
+  )
+}
+
+/**
+ * La encuesta al colgar (0074). Un toque por respuesta y todo opcional: si
+ * hay prisa se guarda solo lo de arriba. Tocar la opción ya elegida la quita.
+ */
+function EncuestaCampos({ valor, onChange }: { valor: EncuestaLlamada; onChange: (e: EncuestaLlamada) => void }) {
+  const poner = <K extends keyof EncuestaLlamada>(k: K, v: EncuestaLlamada[K]) =>
+    onChange({ ...valor, [k]: valor[k] === v ? undefined : v })
+  const grupo = (titulo: string, k: 'tipoProyecto' | 'estrategia' | 'atendio' | 'objecion', lista: OpcionEncuesta[]) => (
+    <div>
+      <Etiqueta>{titulo}</Etiqueta>
+      <div className="flex flex-wrap gap-1.5">
+        {lista.map((o) => <Opcion key={o.v} activo={valor[k] === o.v} onClick={() => poner(k, o.v)}>{o.l}</Opcion>)}
+      </div>
+    </div>
+  )
+  return (
+    <div className="space-y-4 rounded-xl border border-border bg-surface-2/50 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Encuesta rápida · opcional</p>
+      <div>
+        <Etiqueta>¿Cómo te sentiste en la llamada?</Etiqueta>
+        <div className="flex gap-1.5">
+          {ANIMO.map((a) => (
+            <button key={a.v} type="button" title={a.l} onClick={() => poner('animo', a.v)}
+              className={cn('flex h-11 w-11 items-center justify-center rounded-xl border text-xl transition-colors',
+                valor.animo === a.v ? 'border-primary-400 bg-primary-50 dark:bg-primary-500/15' : 'border-border hover:bg-surface-2')}>
+              {a.emoji}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <Etiqueta>¿Qué tan interesado está el cliente?</Etiqueta>
+        <div className="flex flex-wrap gap-1.5">
+          {INTERES.map((o) => <Opcion key={o.v} tono={o.tono} activo={valor.interes === o.v} onClick={() => poner('interes', o.v)}>{o.l}</Opcion>)}
+        </div>
+      </div>
+      {grupo('Tipo de proyecto', 'tipoProyecto', TIPO_PROYECTO)}
+      {grupo('¿Qué estrategia usaste?', 'estrategia', ESTRATEGIA)}
+      {grupo('¿Quién atendió?', 'atendio', ATENDIO)}
+      {grupo('Objeción principal', 'objecion', OBJECION)}
+      <div>
+        <Etiqueta>¿Qué funcionó y qué no?</Etiqueta>
+        <Input value={valor.aprendizaje ?? ''} onChange={(e) => onChange({ ...valor, aprendizaje: e.target.value })}
+          placeholder="Ej.: mencionar su competencia le hizo escuchar" maxLength={300} />
+      </div>
+    </div>
   )
 }
 

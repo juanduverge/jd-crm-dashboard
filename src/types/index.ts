@@ -303,6 +303,20 @@ export type FollowUpResultado = 'positivo' | 'negativo' | 'sin_respuesta'
 export type DetalleContacto =
   | 'enviado' | 'no_contesto' | 'buzon' | 'ocupado' | 'numero_equivocado'
   | 'interesado' | 'pidio_info' | 'llamar_luego' | 'no_interesa'
+/**
+ * Lo que Juan apunta al colgar (0074). Todo opcional: las opciones viven en
+ * `lib/encuestaLlamada.ts` y pueden crecer sin migración.
+ */
+export interface EncuestaLlamada {
+  animo?: number              // 1–5
+  interes?: 'frio' | 'tibio' | 'caliente'
+  tipoProyecto?: string
+  estrategia?: string
+  atendio?: string
+  objecion?: string
+  aprendizaje?: string
+}
+
 /** Urgencia derivada en SQL por la vista `follow_ups_agenda`. */
 export type FollowUpUrgencia = 'vencido' | 'hoy' | 'proximo'
 
@@ -331,6 +345,8 @@ export interface FollowUp {
   numeroUsado?: string
   detalle?: DetalleContacto
   respondidoEn?: string
+  // --- Migración 0074: encuesta al terminar la llamada ---
+  encuesta?: EncuestaLlamada
 
   // --- Migración 0020 ---
   /** HH:MM. Opcional a propósito: "mañana, cuando pueda" es un toque válido. */

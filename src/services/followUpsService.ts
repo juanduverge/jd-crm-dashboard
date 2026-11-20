@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabaseClient'
 import { traerTodas } from '@/lib/traerTodas'
 import type {
   FollowUp, FollowUpAgendaItem, FollowUpResultado, FollowUpTipo, LeadStatus,
-  DetalleContacto,
+  DetalleContacto, EncuestaLlamada,
 } from '@/types'
 
 /**
@@ -44,6 +44,14 @@ interface FollowUpRow {
   numero_usado?: string | null
   detalle?: string | null
   respondido_en?: string | null
+  // Migración 0074
+  animo?: number | null
+  interes?: string | null
+  tipo_proyecto?: string | null
+  estrategia?: string | null
+  atendio?: string | null
+  objecion?: string | null
+  aprendizaje?: string | null
 }
 
 interface AgendaRow extends Omit<FollowUpRow, 'resultado' | 'completed_at'> {
@@ -74,6 +82,7 @@ function rowToFollowUp(row: FollowUpRow): FollowUp {
     numeroUsado: row.numero_usado ?? undefined,
     detalle: (row.detalle as FollowUp['detalle']) ?? undefined,
     respondidoEn: row.respondido_en ?? undefined,
+    encuesta: encuestaDe(row),
     ...camposEditables(row),
   }
 }
@@ -90,6 +99,19 @@ function camposEditables(row: Pick<FollowUpRow, 'hora' | 'prioridad' | 'resultad
     resultadoEsperado: row.resultado_esperado ?? undefined,
     comentariosInternos: row.comentarios_internos ?? undefined,
   }
+}
+
+function encuestaDe(row: FollowUpRow): EncuestaLlamada | undefined {
+  const e: EncuestaLlamada = {
+    animo: row.animo ?? undefined,
+    interes: (row.interes as EncuestaLlamada['interes']) ?? undefined,
+    tipoProyecto: row.tipo_proyecto ?? undefined,
+    estrategia: row.estrategia ?? undefined,
+    atendio: row.atendio ?? undefined,
+    objecion: row.objecion ?? undefined,
+    aprendizaje: row.aprendizaje ?? undefined,
+  }
+  return Object.values(e).some((v) => v !== undefined) ? e : undefined
 }
 
 function rowToAgendaItem(row: AgendaRow): FollowUpAgendaItem {
@@ -232,6 +254,34 @@ export const followUpsService = {
     })
     if (error) throw error
     return data as string
+  },
+
+  /** Encuesta de la llamada recién registrada (0074). */
+  async guardarEncuesta(id: string, e: EncuestaLlamada): Promise<void> {
+    const { error } = await supabase.rpc('guardar_encuesta_llamada', {
+      p_id: id,
+      p_animo: e.animo ?? null,
+      p_interes: e.interes ?? null,
+      p_tipo_proyecto: e.tipoProyecto ?? null,
+      p_estrategia: e.estrategia ?? null,
+      p_atendio: e.atendio ?? null,
+      p_objecion: e.objecion ?? null,
+      p_aprendizaje: e.aprendizaje ?? null,
+    })
+    if (error) throw error
+  },
+
+  /** Contactos completados en un rango: lo que alimenta el objetivo del día. */
+  async completadosEntre(desdeIso: string, hastaIso: string): Promise<FollowUp[]> {
+    const { data, error } = await supabase
+      .from('follow_ups')
+      .select('*')
+      .eq('estado', 'completado')
+      .is('deleted_at', null)
+      .gte('completed_at', desdeIso)
+      .lte('completed_at', hastaIso)
+    if (error) throw error
+    return ((data ?? []) as FollowUpRow[]).map(rowToFollowUp)
   },
 
   /** El lead contestó a un mensaje ya enviado (0073). */
