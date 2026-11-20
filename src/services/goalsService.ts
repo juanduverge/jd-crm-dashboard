@@ -31,6 +31,7 @@ interface GoalRow {
   prioridad: Priority | null
   estado: GoalEstado | null
   metrica: string | null
+  horas_estimadas?: string | number | null
   created_at: string
   updated_at: string
 }
@@ -70,6 +71,7 @@ function rowToGoal(row: GoalRow, conHijas: Set<string>): Goal {
     // mismo default que pone la BD, así la UI no se rompe entre despliegues.
     estado: row.estado ?? 'activa',
     metrica: (row.metrica as MetricaClave) ?? undefined,
+    horasEstimadas: row.horas_estimadas != null ? num(row.horas_estimadas) : undefined,
     tieneHijas: conHijas.has(row.id),
     creado: row.created_at,
     actualizado: row.updated_at,
@@ -185,6 +187,50 @@ export const goalsService = {
     if (error) throw error
   },
 
+  /**
+   * Meta suelta con fechas libres (formulario nuevo de Metas). El `periodo`
+   * se deduce de lo que dura: un día, hasta una semana o más.
+   *
+   * `horas_estimadas` es de la 0072. Si la columna aún no existe en la base,
+   * se reintenta sin ella para no bloquear la creación de la meta.
+   */
+  async crearMeta(payload: {
+    nombre: string
+    descripcion?: string
+    tipo: GoalTipo
+    target: number
+    unidad?: string
+    fechaInicio: string
+    fechaFin: string
+    prioridad?: Priority
+    metrica?: MetricaClave
+    horasEstimadas?: number
+  }): Promise<{ sinHoras: boolean }> {
+    const dias = Math.round((Date.parse(payload.fechaFin) - Date.parse(payload.fechaInicio)) / 86_400_000) + 1
+    const row: Record<string, unknown> = {
+      nombre: payload.nombre,
+      descripcion: payload.descripcion || null,
+      periodo: dias <= 1 ? 'dia' : dias <= 7 ? 'semana' : 'mes',
+      tipo: payload.tipo,
+      target: payload.tipo === 'toggle' ? 1 : payload.target,
+      unidad: payload.unidad || null,
+      fecha_inicio: payload.fechaInicio,
+      fecha_fin: payload.fechaFin,
+      prioridad: payload.prioridad || null,
+      metrica: payload.metrica || null,
+    }
+    if (payload.horasEstimadas) row.horas_estimadas = payload.horasEstimadas
+    let { error } = await supabase.from('goals').insert(row)
+    let sinHoras = false
+    if (error && row.horas_estimadas !== undefined && /horas_estimadas/.test(error.message)) {
+      delete row.horas_estimadas
+      sinHoras = true
+      ;({ error } = await supabase.from('goals').insert(row))
+    }
+    if (error) throw error
+    return { sinHoras }
+  },
+
   /** Meta suelta de una semana o un día, sin madre (fuera de la cascada). */
   async crearMetaSuelta(payload: {
     nombre: string
@@ -233,8 +279,11 @@ export const goalsService = {
     /** `null` desengancha la meta y la devuelve a contar a mano. */
     metrica?: MetricaClave | null
     redistribuir?: boolean
+    /** 0072. null la borra. */
+    horasEstimadas?: number | null
   }): Promise<void> {
     const row: Record<string, unknown> = {}
+    if (payload.horasEstimadas !== undefined) row.horas_estimadas = payload.horasEstimadas
     if (payload.nombre !== undefined) row.nombre = payload.nombre
     if (payload.target !== undefined) row.target = payload.target
     if (payload.unidad !== undefined) row.unidad = payload.unidad || null
@@ -245,7 +294,12 @@ export const goalsService = {
     if (payload.estado !== undefined) row.estado = payload.estado
 
     if (Object.keys(row).length) {
-      const { error } = await supabase.from('goals').update(row).eq('id', payload.id)
+      let { error } = await supabase.from('goals').update(row).eq('id', payload.id)
+      // Sin la 0072 aplicada, se guarda todo menos las horas.
+      if (error && 'horas_estimadas' in row && /horas_estimadas/.test(error.message)) {
+        delete row.horas_estimadas
+        ;({ error } = Object.keys(row).length ? await supabase.from('goals').update(row).eq('id', payload.id) : { error: null })
+      }
       // `goal_check_jerarquia` puede rechazar el cambio de fechas. El mensaje
       // de Postgres es críptico, así que se traduce antes de subirlo a la UI.
       if (error) {

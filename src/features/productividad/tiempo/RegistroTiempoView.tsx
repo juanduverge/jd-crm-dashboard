@@ -171,7 +171,7 @@ export function RegistroTiempoView() {
  * un contador local: así sobrevive a un refresco de la página y no se
  * desincroniza si la pestaña queda en segundo plano.
  */
-function Cronometro({
+export function Cronometro({
   fecha, abierta, metasMes, responsable,
 }: {
   fecha: string

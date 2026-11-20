@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
-import { useEventos, useFollowUpsAgenda, useGoals, usePlanDelRango, useTareas } from '@/hooks/useData'
+import {
+  useEventos, useFollowUpsAgenda, useGoals, useGoogleCalendarEstado, usePlanDelRango, useSincronizarGoogle, useTareas,
+} from '@/hooks/useData'
 import { diasDelRango } from '../shared/goalMeta'
 import { construirItems, indexarPorFecha, type ItemCalendario } from './itemCalendario'
 
@@ -15,6 +17,15 @@ import { construirItems, indexarPorFecha, type ItemCalendario } from './itemCale
  * red: `tareas` y `seguimientos` no dependen del rango, y `goals` y `eventos`
  * se cachean por sus fechas.
  */
+/** Se calcula una vez por carga de la app: la clave de la consulta no cambia al navegar. */
+const VENTANA = (() => {
+  const d = new Date()
+  return {
+    desde: new Date(d.getFullYear(), d.getMonth() - 1, d.getDate()).toISOString(),
+    hasta: new Date(d.getFullYear(), d.getMonth() + 3, d.getDate()).toISOString(),
+  }
+})()
+
 export function useCalendario(desde: string, hasta: string) {
   // Los eventos se piden por instante, no por día: `inicio`/`fin` son
   // timestamptz. Se cubre el día entero de los bordes.
@@ -22,6 +33,12 @@ export function useCalendario(desde: string, hasta: string) {
   const hastaIso = new Date(`${hasta}T23:59:59`).toISOString()
 
   const eventos = useEventos(desdeIso, hastaIso)
+  // Trae lo cambiado en Google para el rango a la vista (no hace nada si no está conectado).
+  const google = useGoogleCalendarEstado()
+  const sync = useSincronizarGoogle(desdeIso, hastaIso)
+  // Y una ventana ancha (un mes atrás, tres adelante) para que lo pasado y lo
+  // próximo esté en el CRM sin tener que navegar semana a semana.
+  useSincronizarGoogle(VENTANA.desde, VENTANA.hasta)
   const goals = useGoals(desde, hasta)
   const plan = usePlanDelRango(desde, hasta)
   const tareas = useTareas()
@@ -51,6 +68,7 @@ export function useCalendario(desde: string, hasta: string) {
     porFecha,
     /** Sólo cuenta la carga inicial: refrescar en segundo plano no debe vaciar la rejilla. */
     cargando: eventos.isLoading || goals.isLoading || plan.isLoading,
+    google: { conectado: google.data?.conectado === true, calendario: google.data?.calendario, sincronizando: sync.isFetching },
   }
 }
 

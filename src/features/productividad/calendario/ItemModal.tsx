@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { addMinutes, differenceInMinutes, format } from 'date-fns'
 import toast from 'react-hot-toast'
 import {
-  Bell, CalendarDays, CheckSquare, Clock, Copy, Flag, Trash2, Users,
+  Bell, CalendarDays, CheckSquare, Clock, Copy, Flag, Trash2, Users, Video,
 } from 'lucide-react'
 import { Button, Input, Select } from '@/components/ui'
 import { AutoTextarea } from '@/components/ui/AutoTextarea'
@@ -10,11 +10,14 @@ import { Modal } from '@/components/ui/Modal'
 import { cn } from '@/lib/utils'
 import {
   useActualizarEvento, useCrearBloque, useCrearEvento, useCrearMetaSuelta, useCreateTarea,
-  useDuplicarEvento, useEliminarEvento,
+  useDuplicarEvento, useEliminarEvento, useGoogleCalendarEstado,
 } from '@/hooks/useData'
 import type { Evento, EventoEstado, EventoPrioridad, EventoTipo } from '@/types'
 import { DIAS_SEMANA, iso, isoDow } from '../shared/goalMeta'
 import { COLORES, fechaConHora, type ColorItem } from './itemCalendario'
+import { ElegirLead, useLeadPorId, type LeadElegido } from './ElegirLead'
+import { useQueryClient } from '@tanstack/react-query'
+import { pipelineService } from '@/services/pipelineService'
 
 /**
  * El panel de crear y editar del calendario.
@@ -71,9 +74,14 @@ export interface ItemModalProps {
   hora?: string
   /** Presente = se está editando. Ausente = se está creando. */
   evento?: Evento
+  /**
+   * Para «Agendar reunión» desde otra pantalla (un lead, Mi día): llega el
+   * formulario ya rellenado con el título, el lead y su correo de invitado.
+   */
+  prefill?: { titulo?: string; tipo?: EventoTipo; leadId?: string; invitados?: string[] }
 }
 
-export function ItemModal({ open, onClose, fecha, hora, evento }: ItemModalProps) {
+export function ItemModal({ open, onClose, fecha, hora, evento, prefill }: ItemModalProps) {
   const editando = !!evento
 
   const [tipo, setTipo] = useState<TipoCreable>('evento')
@@ -93,6 +101,19 @@ export function ItemModal({ open, onClose, fecha, hora, evento }: ItemModalProps
   const [etiquetas, setEtiquetas] = useState('')
   const [enlace, setEnlace] = useState('')
   const [ubicacion, setUbicacion] = useState('')
+  // Google Calendar (vía n8n)
+  const [meet, setMeet] = useState(false)
+  const [invitados, setInvitados] = useState('')
+  const [invitar, setInvitar] = useState(false)
+  const [leadId, setLeadId] = useState<string | undefined>(undefined)
+  const [lead, setLead] = useState<LeadElegido | undefined>(undefined)
+  const [moverEtapa, setMoverEtapa] = useState(true)
+  const qc = useQueryClient()
+  // Al abrir una reunión ya guardada, se carga el lead al que está ligada.
+  const leadGuardado = useLeadPorId(open && !lead ? leadId : undefined)
+  useEffect(() => { if (leadGuardado.data && leadGuardado.data.id === leadId) setLead(leadGuardado.data) }, [leadGuardado.data, leadId])
+  const google = useGoogleCalendarEstado()
+  const googleOk = google.data?.conectado === true
 
   // Sólo meta
   const [periodoMeta, setPeriodoMeta] = useState<'dia' | 'semana'>('dia')
@@ -138,11 +159,25 @@ export function ItemModal({ open, onClose, fecha, hora, evento }: ItemModalProps
       setEtiquetas(evento.etiquetas.join(', '))
       setEnlace(evento.enlace ?? '')
       setUbicacion(evento.ubicacion ?? '')
+      setMeet(false)
+      setInvitados('')
+      setInvitar(false)
+      setLeadId(evento.leadId)
+      setLead(undefined)
+      setMoverEtapa(false)
       return
     }
     const inicio = hora ?? '09:00'
-    setTipo('evento')
-    setTitulo('')
+    const tipoInicial = prefill?.tipo ?? 'evento'
+    setTipo(tipoInicial)
+    setTitulo(prefill?.titulo ?? '')
+    setLeadId(prefill?.leadId)
+    setLead(undefined)
+    setMoverEtapa(true)
+    // Una reunión nace con Meet: es lo que se hace casi siempre.
+    setMeet(tipoInicial === 'reunion')
+    setInvitados((prefill?.invitados ?? []).join(', '))
+    setInvitar((prefill?.invitados ?? []).length > 0)
     setDescripcion('')
     setNotas('')
     setDia(fecha)
@@ -160,7 +195,37 @@ export function ItemModal({ open, onClose, fecha, hora, evento }: ItemModalProps
     setTarget('1')
     setUnidad('')
     setDiasSemana([isoDow(new Date(`${fecha}T00:00:00`))])
-  }, [open, evento, fecha, hora])
+  }, [open, evento, fecha, hora, prefill])
+
+  /** Al cambiar a «Reunión» se propone Meet; a otro tipo, se quita. */
+  const elegirTipo = (t: TipoCreable) => {
+    setTipo(t)
+    if (!editando) setMeet(t === 'reunion')
+  }
+
+  const anadirInvitado = (email: string) => {
+    setInvitados((prev) => {
+      const lista = prev.split(/[,;\s]+/).filter(Boolean)
+      return lista.includes(email) ? prev : [...lista, email].join(', ')
+    })
+    setInvitar(true)
+  }
+
+  /** Elegir con quién rellena todo lo demás: título, invitado, Meet y el enlace al lead. */
+  const elegirLead = (l: LeadElegido) => {
+    setLead(l)
+    setLeadId(l.id)
+    if (!titulo.trim() || titulo.startsWith('Reunión con ')) setTitulo(`Reunión con ${l.empresa}`)
+    if (l.email) anadirInvitado(l.email)
+    if (!enlace.trim()) setMeet(true)
+    setMoverEtapa(['nuevo', 'contactado', 'seguimiento', 'respondio'].includes(l.estado))
+  }
+
+  const quitarLead = () => {
+    if (lead?.email) setInvitados((prev) => prev.split(/[,;\s]+/).filter((x) => x && x !== lead.email).join(', '))
+    setLead(undefined)
+    setLeadId(undefined)
+  }
 
   /** Duración en minutos, derivada de las dos horas. Nunca se guarda aparte. */
   const duracion = useMemo(() => {
@@ -207,14 +272,31 @@ export function ItemModal({ open, onClose, fecha, hora, evento }: ItemModalProps
           etiquetas: etiquetas.split(',').map((e) => e.trim()).filter(Boolean),
           enlace: enlace.trim(),
           ubicacion: ubicacion.trim(),
+          leadId,
         }
-        if (evento) {
-          await actualizarEvento.mutateAsync({ id: evento.id, ...payload })
-          toast.success('Guardado')
-        } else {
-          await crearEvento.mutateAsync(payload)
-          toast.success('Creado en el calendario')
+        const listaInvitados = invitados.split(/[,;\s]+/).map((x) => x.trim()).filter((x) => x.includes('@'))
+        const opGoogle = {
+          meet: meet && !enlace.trim(),
+          // Al editar sin tocar invitados no se reescriben los de Google.
+          ...(listaInvitados.length || !editando ? { invitados: listaInvitados } : {}),
+          invitar: invitar && listaInvitados.length > 0,
         }
+        const r = evento
+          ? await actualizarEvento.mutateAsync({ id: evento.id, ...payload, google: opGoogle })
+          : await crearEvento.mutateAsync({ ...payload, google: opGoogle })
+        // Agendar una reunión con un lead es pasarlo a «Reunión agendada».
+        if (tipo === 'reunion' && lead && moverEtapa && lead.estado !== 'reunion') {
+          try {
+            await pipelineService.updatePipeline(lead.id, { estado: 'reunion' })
+            qc.invalidateQueries({ queryKey: ['leads'] })
+            toast.success(`${lead.empresa} pasa a «Reunión agendada»`)
+          } catch { toast.error('La reunión se guardó, pero no se pudo mover el lead de etapa') }
+        }
+        if (r.avisoGoogle) toast(`Guardado en el CRM, pero Google dio error: ${r.avisoGoogle}`, { icon: '⚠️', duration: 6000 })
+        else if (r.enlace && opGoogle.meet) {
+          toast.success(opGoogle.invitar ? 'Reunión creada con Meet. Invitación enviada.' : 'Reunión creada con enlace de Meet')
+          try { await navigator.clipboard.writeText(r.enlace) } catch { /* sin permiso de portapapeles */ }
+        } else toast.success(evento ? 'Guardado' : googleOk ? 'Creado en el CRM y en Google Calendar' : 'Creado en el calendario')
       } else if (tipo === 'tarea') {
         await crearTarea.mutateAsync({
           titulo: t,
@@ -325,7 +407,7 @@ export function ItemModal({ open, onClose, fecha, hora, evento }: ItemModalProps
                   <button
                     key={x.valor}
                     type="button"
-                    onClick={() => setTipo(x.valor)}
+                    onClick={() => elegirTipo(x.valor)}
                     className={cn(
                       'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors',
                       tipo === x.valor
@@ -344,6 +426,19 @@ export function ItemModal({ open, onClose, fecha, hora, evento }: ItemModalProps
                 Se guarda en <span className="font-medium text-fg">{elegido.destino}</span> y el
                 calendario lo pinta desde ahí. No se duplica nada.
               </p>
+            )}
+          </div>
+        )}
+
+        {tipo === 'reunion' && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted">¿Con quién es la reunión?</label>
+            <ElegirLead elegido={lead} onElegir={elegirLead} onCorreoSuelto={anadirInvitado} onQuitar={quitarLead} />
+            {lead && lead.estado !== 'reunion' && !['propuesta', 'negociacion', 'ganado'].includes(lead.estado) && (
+              <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-fg">
+                <input type="checkbox" className="h-4 w-4 accent-primary-500" checked={moverEtapa} onChange={(e) => setMoverEtapa(e.target.checked)} />
+                Pasar a «Reunión agendada» en el pipeline
+              </label>
             )}
           </div>
         )}
@@ -482,6 +577,54 @@ export function ItemModal({ open, onClose, fecha, hora, evento }: ItemModalProps
             </div>
           )}
         </div>
+
+        {/* ---------- Google Calendar: Meet e invitados ---------- */}
+        {esEvento(tipo) && tipo !== 'recordatorio' && (
+          <div className="rounded-xl border border-border bg-surface-2/60 p-3">
+            {!googleOk ? (
+              <p className="flex items-start gap-2 text-xs text-muted">
+                <Video className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  {google.isLoading
+                    ? 'Comprobando Google Calendar…'
+                    : 'Google Calendar aún no está conectado: el evento se guarda solo en el CRM. Al conectarlo se crearán aquí los enlaces de Meet y las invitaciones.'}
+                </span>
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {enlace.trim() ? (
+                  <p className="flex items-center gap-2 text-xs text-muted">
+                    <Video className="h-4 w-4 shrink-0" />
+                    Ya tiene enlace:{' '}
+                    <a href={enlace} target="_blank" rel="noreferrer" className="truncate font-medium text-primary-600 hover:underline">{enlace}</a>
+                  </p>
+                ) : (
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-fg">
+                    <input type="checkbox" className="h-4 w-4 accent-primary-500" checked={meet} onChange={(e) => setMeet(e.target.checked)} />
+                    <Video className="h-4 w-4 text-muted" />
+                    Crear videollamada de Google Meet
+                  </label>
+                )}
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted">Invitados</label>
+                  <Input
+                    value={invitados}
+                    onChange={(e) => { setInvitados(e.target.value); if (e.target.value.includes('@') && !invitados) setInvitar(true) }}
+                    placeholder="correo@cliente.com, otro@…"
+                    inputMode="email"
+                  />
+                </div>
+                {invitados.includes('@') && (
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-fg">
+                    <input type="checkbox" className="h-4 w-4 accent-primary-500" checked={invitar} onChange={(e) => setInvitar(e.target.checked)} />
+                    Enviar invitación por correo{meet && !enlace.trim() ? ' con el enlace de Meet' : ''}
+                  </label>
+                )}
+                <p className="text-[0.6875rem] text-muted">Se guarda también en {google.data?.calendario ?? 'tu Google Calendar'}.</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ---------- Sólo eventos: lo que sólo `eventos` sabe guardar ---------- */}
         {esEvento(tipo) && (

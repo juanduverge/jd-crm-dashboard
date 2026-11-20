@@ -5,7 +5,6 @@ import {
   startOfMonth, startOfWeek, startOfYear,
 } from 'date-fns'
 import toast from 'react-hot-toast'
-import { Info } from 'lucide-react'
 import { Skeleton } from '@/components/ui'
 import { useMoverEvento } from '@/hooks/useData'
 import { fmtDia, fmtMes, fmtRangoSemana, iso } from '../shared/goalMeta'
@@ -14,7 +13,8 @@ import { ItemModal } from './ItemModal'
 import { RejillaHoras } from './RejillaHoras'
 import { VistaAnio } from './VistaAnio'
 import { VistaMes } from './VistaMes'
-import { ETIQUETA_FUENTE, type ItemCalendario } from './itemCalendario'
+import { type FuenteItem, type ItemCalendario } from './itemCalendario'
+import { PanelLateral } from './PanelLateral'
 import { useCalendario } from './useCalendario'
 
 /**
@@ -40,7 +40,7 @@ import { useCalendario } from './useCalendario'
 /** A dónde lleva cada fuente cuando se pulsa algo que no es un evento. */
 const DESTINO: Record<ItemCalendario['fuente'], string> = {
   evento: '/productividad/calendario',
-  meta: '/productividad/metas/dia',
+  meta: '/productividad/metas',
   bloque: '/productividad/horario',
   tarea: '/productividad/tareas',
   seguimiento: '/seguimientos',
@@ -51,6 +51,15 @@ export function CalendarioView() {
   const moverEvento = useMoverEvento()
   const [vista, setVista] = useState<VistaCalendario>('semana')
   const [refFecha, setRefFecha] = useState(() => new Date())
+
+  // Capas ocultas (metas, tareas…). Es una preferencia de este navegador.
+  const [ocultas, setOcultasState] = useState<Set<FuenteItem>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('calendario-ocultas') ?? '[]') as FuenteItem[]) } catch { return new Set() }
+  })
+  const setOcultas = (s: Set<FuenteItem>) => {
+    setOcultasState(s)
+    try { localStorage.setItem('calendario-ocultas', JSON.stringify([...s])) } catch { /* sin almacenamiento */ }
+  }
 
   const [modal, setModal] = useState<{ fecha: string; hora?: string; evento?: ItemCalendario['evento'] } | null>(null)
 
@@ -79,7 +88,13 @@ export function CalendarioView() {
     }
   }, [vista, refFecha])
 
-  const { dias, porFecha, cargando } = useCalendario(desde, hasta)
+  const { dias, items, porFecha: porFechaTodo, cargando, google } = useCalendario(desde, hasta)
+  const porFecha = useMemo(() => {
+    if (!ocultas.size) return porFechaTodo
+    const m = new Map<string, ItemCalendario[]>()
+    for (const [f, lista] of porFechaTodo) m.set(f, lista.filter((i) => !ocultas.has(i.fuente)))
+    return m
+  }, [porFechaTodo, ocultas])
 
   /** Adelante/atrás salta lo que dura la vista. */
   const paso = useCallback((dir: -1 | 1) => {
@@ -151,7 +166,21 @@ export function CalendarioView() {
   }, [])
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-5 lg:grid-cols-[16rem_minmax(0,1fr)]">
+      <PanelLateral
+        refFecha={refFecha}
+        desde={desde}
+        hasta={hasta}
+        items={items}
+        ocultas={ocultas}
+        onOcultas={setOcultas}
+        onDia={(d) => { setRefFecha(d); if (vista === 'anio') setVista('dia') }}
+        onNuevo={() => setModal({ fecha: iso(refFecha), hora: format(new Date(), 'HH:00') })}
+        onItem={abrirItem}
+        google={google}
+      />
+
+      <div className="min-w-0 space-y-4">
       <CabeceraCalendario
         fecha={refFecha}
         vista={vista}
@@ -180,39 +209,18 @@ export function CalendarioView() {
         <RejillaHoras
           dias={dias}
           porFecha={porFecha}
-          conCabecera={vista === 'semana'}
+          conCabecera
           onHueco={(fecha, hora) => setModal({ fecha, hora })}
           onItem={abrirItem}
           onMover={mover}
         />
       )}
 
-      {/* Leyenda: sin ella los colores son decoración. */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted">
-        {(Object.keys(ETIQUETA_FUENTE) as ItemCalendario['fuente'][]).map((f) => (
-          <span key={f} className="inline-flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-full ${
-              f === 'evento' ? 'bg-primary-500'
-                : f === 'meta' ? 'bg-violet-500'
-                  : f === 'bloque' ? 'bg-sky-500'
-                    : f === 'tarea' ? 'bg-slate-500' : 'bg-amber-500'
-            }`} />
-            {ETIQUETA_FUENTE[f]}
-          </span>
-        ))}
-        <span className="ml-auto hidden sm:inline">D · S · M · A cambian de vista · T vuelve a hoy</span>
-      </div>
-
-      <p className="flex items-start gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-xs text-muted">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        <span>
-          Metas, bloques del horario, tareas y seguimientos se pintan aquí leyéndolos de su módulo:
-          al pulsarlos se abren allí, que es donde se editan. Los eventos y reuniones sí se crean y
-          se editan desde el propio calendario: en las vistas de día y semana se arrastran para
-          cambiarlos de hora o de día, y se estiran por el borde de abajo para cambiar lo que duran.
-          La sincronización con Google Calendar es el paso que queda.
-        </span>
+      <p className="hidden text-[11px] text-muted sm:block">
+        Arrastra un evento para moverlo y estíralo por abajo para cambiar lo que dura. Metas, tareas y seguimientos se abren en su pantalla.
+        Atajos: D · S · M · A cambian de vista, T vuelve a hoy, ← → avanzan.
       </p>
+      </div>
 
       {modal && (
         <ItemModal

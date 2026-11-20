@@ -17,12 +17,13 @@ const ContenidoGrupoPage = lazy(() => import('./features/contenido/GrupoPage'))
 const ContenidoEditorPage = lazy(() => import('./features/contenido/EditorPage'))
 // Productividad: cada módulo es su propio chunk. Antes las seis vistas
 // compartían uno solo de ~50KB que se cargaba entero para ver una.
-const MetasPage = lazy(() => import('./features/productividad/metas/MetasPage'))
+const MiDiaPage = lazy(() => import('./features/productividad/hoy/MiDiaPage'))
+const MetasPage = lazy(() => import('./features/productividad/metas/MetasMesPage'))
 const HorarioPage = lazy(() => import('./features/productividad/horario/HorarioPage'))
 const CalendarioPage = lazy(() => import('./features/productividad/calendario/CalendarioPage'))
 const TareasPage = lazy(() => import('./features/productividad/tareas/TareasPage'))
 const TiempoPage = lazy(() => import('./features/productividad/tiempo/TiempoPage'))
-const MetricasPage = lazy(() => import('./features/productividad/metricas/MetricasPage'))
+const RendimientoPage = lazy(() => import('./features/productividad/rendimiento/RendimientoPage'))
 const FollowUpsPage = lazy(() => import('./features/followups/FollowUpsPage').then((m) => ({ default: m.FollowUpsPage })))
 const ProyectosPage = lazy(() => import('./features/proyectos/ProyectosPage').then((m) => ({ default: m.ProyectosPage })))
 const ProyectoPage = lazy(() => import('./features/proyectos/ProyectoPage').then((m) => ({ default: m.ProyectoPage })))
@@ -78,14 +79,17 @@ export default function App() {
           <Route path="contenido/item/:itemId" element={<Suspense fallback={<RouteFallback />}><ContenidoEditorPage /></Suspense>} />
 
           {/* Productividad */}
-          <Route path="productividad" element={<Navigate to="/productividad/metas/dia" replace />} />
-          <Route path="productividad/metas" element={<Navigate to="/productividad/metas/dia" replace />} />
-          <Route path="productividad/metas/:periodo" element={<Suspense fallback={<RouteFallback />}><MetasPage /></Suspense>} />
+          <Route path="productividad" element={<Navigate to="/productividad/hoy" replace />} />
+          <Route path="productividad/hoy" element={<Suspense fallback={<RouteFallback />}><MiDiaPage /></Suspense>} />
+          <Route path="productividad/metas" element={<Suspense fallback={<RouteFallback />}><MetasPage /></Suspense>} />
+          {/* Las metas de semana y día en cascada se retiraron (20-nov); los enlaces viejos van a Metas. */}
+          <Route path="productividad/metas/:periodo" element={<Navigate to="/productividad/metas" replace />} />
           <Route path="productividad/horario" element={<Suspense fallback={<RouteFallback />}><HorarioPage /></Suspense>} />
           <Route path="productividad/calendario" element={<Suspense fallback={<RouteFallback />}><CalendarioPage /></Suspense>} />
           <Route path="productividad/tareas" element={<Suspense fallback={<RouteFallback />}><TareasPage /></Suspense>} />
           <Route path="productividad/tiempo" element={<Suspense fallback={<RouteFallback />}><TiempoPage /></Suspense>} />
-          <Route path="productividad/metricas" element={<Suspense fallback={<RouteFallback />}><MetricasPage /></Suspense>} />
+          <Route path="productividad/rendimiento" element={<Suspense fallback={<RouteFallback />}><RendimientoPage /></Suspense>} />
+          <Route path="productividad/metricas" element={<Navigate to="/productividad/rendimiento" replace />} />
           {/* La ruta antigua sigue viva para no romper enlaces ya guardados. */}
           <Route path="tareas" element={<Navigate to="/productividad/tareas" replace />} />
 

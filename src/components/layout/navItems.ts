@@ -1,7 +1,7 @@
 import {
   Home, Users, Target, KanbanSquare, Inbox, MessageSquare,
   BarChart3, Settings, Globe, CheckSquare, Trash2, CalendarClock, Archive,
-  Clock, CalendarDays, Gauge, Flag, Timer, Rocket, Send, FileText, Briefcase, Map as MapIcon,
+  CalendarDays, Gauge, Flag, Sun, Rocket, Send, FileText, Briefcase, Map as MapIcon,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -60,9 +60,9 @@ export const navItems: NavItem[] = [
   { kind: 'link', to: '/web-leads', label: 'Inbox de Leads', icon: Globe },
   { kind: 'link', to: '/seguimientos', label: 'Seguimientos', icon: CalendarClock },
 
-  // Productividad es UN módulo con seis pantallas, no seis módulos sueltos: por
-  // eso es un grupo y no un rótulo. El día/semana/mes de Metas baja a la propia
-  // página (es una forma de mirar lo mismo), que es la regla de arriba.
+  // Productividad: cuatro pantallas desde el 20-nov (antes seis que se pisaban).
+  // Horario, Tareas y Registro de tiempo siguen existiendo, pero se llega desde
+  // Mi día y Rendimiento: como pantallas sueltas nadie las usaba.
   {
     kind: 'group',
     id: 'productividad',
@@ -70,12 +70,10 @@ export const navItems: NavItem[] = [
     icon: Rocket,
     base: '/productividad',
     children: [
-      { to: '/productividad/metas/dia', label: 'Metas', icon: Flag, match: '/productividad/metas' },
-      { to: '/productividad/horario', label: 'Horario del día', icon: Clock },
+      { to: '/productividad/hoy', label: 'Mi día', icon: Sun },
       { to: '/productividad/calendario', label: 'Calendario', icon: CalendarDays },
-      { to: '/productividad/tareas', label: 'Tareas', icon: CheckSquare },
-      { to: '/productividad/tiempo', label: 'Registro de tiempo', icon: Timer },
-      { to: '/productividad/metricas', label: 'Métricas y rendimiento', icon: Gauge },
+      { to: '/productividad/metas', label: 'Metas', icon: Flag },
+      { to: '/productividad/rendimiento', label: 'Rendimiento', icon: Gauge },
     ],
   },
 

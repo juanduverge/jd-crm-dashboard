@@ -427,6 +427,8 @@ export interface Goal {
    * debe pintar la UI, nunca `valorActual` a secas.
    */
   valorDerivado?: number
+  /** Horas que se calcula que llevará (metas libres, 0072). */
+  horasEstimadas?: number
   /** Derivado en el cliente: si tiene hijas, su valor no se edita a mano. */
   tieneHijas: boolean
   creado?: string

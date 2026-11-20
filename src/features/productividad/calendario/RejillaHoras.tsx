@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
-import { format, isToday } from 'date-fns'
+import { format, isToday, isWeekend } from 'date-fns'
+import { Video } from 'lucide-react'
 import { es } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { iso } from '../shared/goalMeta'
 import {
-  HORA_PX, MIN_DURACION, aMinutos, aPx, clasesBloque, clasesPunto, colocar, deltaMinutos,
+  HORA_PX, MIN_DURACION, aMinutos, aPx, clasesBloque, colocar, deltaMinutos,
   fechaEnMinuto, fmtTramo, minutosDelDia,
   type ItemCalendario,
 } from './itemCalendario'
@@ -223,24 +224,27 @@ export function RejillaHoras({
   const claveArrastrada = arr.current?.movido ? arr.current.item.clave : null
 
   return (
-    <div className={cn('card overflow-hidden p-0', claveArrastrada && 'select-none')}>
+    <div className={cn('card overflow-hidden rounded-2xl p-0', claveArrastrada && 'select-none')}>
       {/* ---------- Cabecera de días ---------- */}
       {conCabecera && (
-        <div className="flex border-b border-border">
+        <div className="flex border-b border-border bg-surface">
           <div className="w-14 shrink-0" />
-          {columnas.map((c) => (
-            <div key={c.fecha} className="min-w-0 flex-1 border-l border-border px-1 py-2 text-center">
-              <p className="text-[11px] uppercase tracking-wide text-muted">
-                {format(c.d, 'EEE', { locale: es })}
-              </p>
-              <p className={cn(
-                'mx-auto mt-0.5 flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold',
-                isToday(c.d) ? 'bg-primary-500 text-white' : 'text-fg',
-              )}>
-                {format(c.d, 'd')}
-              </p>
-            </div>
-          ))}
+          {columnas.map((c) => {
+            const hoy = isToday(c.d)
+            return (
+              <div key={c.fecha} className={cn('min-w-0 flex-1 border-l border-border/70 px-1 pb-2.5 pt-2 text-center', hoy && 'bg-primary-500/[0.06]')}>
+                <p className={cn('text-[11px] font-semibold uppercase tracking-wider', hoy ? 'text-primary-600' : isWeekend(c.d) ? 'text-muted/60' : 'text-muted')}>
+                  {format(c.d, 'EEE', { locale: es })}
+                </p>
+                <p className={cn(
+                  'mx-auto mt-1 flex h-9 w-9 items-center justify-center rounded-full text-lg font-semibold tabular-nums',
+                  hoy ? 'bg-primary-500 text-white shadow-sm' : isWeekend(c.d) ? 'text-muted' : 'text-fg',
+                )}>
+                  {format(c.d, 'd')}
+                </p>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -257,9 +261,8 @@ export function RejillaHoras({
                   key={i.clave}
                   onClick={() => onItem(i)}
                   title={`${i.titulo}${i.subtitulo ? ` · ${i.subtitulo}` : ''}`}
-                  className="flex w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-left text-[11px] text-fg transition hover:bg-surface"
+                  className={cn('flex w-full items-center gap-1 rounded-md border-l-2 px-1.5 py-0.5 text-left text-[11px] font-medium transition hover:shadow-sm', clasesBloque(i.color))}
                 >
-                  <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', clasesPunto(i.color))} />
                   <span className="truncate">{i.titulo}</span>
                 </button>
               ))}
@@ -269,17 +272,17 @@ export function RejillaHoras({
       )}
 
       {/* ---------- Cuerpo con horas ---------- */}
-      <div ref={cuerpoRef} className="relative max-h-[62vh] overflow-y-auto">
+      <div ref={cuerpoRef} className="relative max-h-[68vh] overflow-y-auto">
         <div className="flex" style={{ height: HORA_PX * 24 }}>
           {/* Regla de horas */}
           <div className="relative w-14 shrink-0">
             {HORAS.map((h) => (
               <div
                 key={h}
-                className="absolute right-2 -translate-y-1/2 text-[10px] tabular-nums text-muted"
+                className="absolute right-2 -translate-y-1/2 text-[10px] font-medium tabular-nums text-muted/80"
                 style={{ top: aPx(h * 60) }}
               >
-                {h === 0 ? '' : `${h}:00`}
+                {h === 0 ? '' : `${String(h).padStart(2, '0')}:00`}
               </div>
             ))}
           </div>
@@ -291,17 +294,19 @@ export function RejillaHoras({
                 if (el) carriles.current.set(c.fecha, el)
                 else carriles.current.delete(c.fecha)
               }}
-              className="relative min-w-0 flex-1 border-l border-border"
+              className={cn(
+                'relative min-w-0 flex-1 border-l border-border/70',
+                isToday(c.d) ? 'bg-primary-500/[0.04]' : isWeekend(c.d) && 'bg-surface-2/40',
+              )}
             >
               {/* Las líneas de hora van detrás y no capturan el clic: el que
                   recibe el clic es el carril entero, que sabe convertir la
                   posición del ratón en una hora. */}
               {HORAS.map((h) => (
-                <div
-                  key={h}
-                  className="pointer-events-none absolute inset-x-0 border-t border-border/60"
-                  style={{ top: aPx(h * 60) }}
-                />
+                <div key={h}>
+                  <div className="pointer-events-none absolute inset-x-0 border-t border-border/60" style={{ top: aPx(h * 60) }} />
+                  <div className="pointer-events-none absolute inset-x-0 border-t border-dashed border-border/30" style={{ top: aPx(h * 60 + 30) }} />
+                </div>
               ))}
 
               <button
@@ -322,7 +327,7 @@ export function RejillaHoras({
                   className="pointer-events-none absolute inset-x-0 z-20 border-t-2 border-red-500"
                   style={{ top: aPx(minutosDelDia(ahora)) }}
                 >
-                  <span className="absolute -left-1 -top-1 h-2 w-2 rounded-full bg-red-500" />
+                  <span className="absolute -left-1.5 -top-[7px] h-3 w-3 rounded-full bg-red-500 ring-2 ring-surface" />
                 </div>
               )}
 
@@ -339,14 +344,15 @@ export function RejillaHoras({
                       width: `calc(${ancho}% - 4px)`,
                     }}
                     className={cn(
-                      'absolute overflow-hidden rounded-md border-l-[3px] transition-shadow',
+                      'absolute overflow-hidden rounded-lg border-l-4 shadow-sm transition-shadow',
                       clasesBloque(item.color),
+                      item.evento?.estado === 'hecho' && 'opacity-60',
                       // Lo que no es editable se marca punteado: se ve, se abre,
                       // pero no se arrastra desde aquí.
                       !item.editable && 'border-dashed',
                       enMovimiento
                         ? 'z-30 shadow-lg ring-2 ring-primary-500/60'
-                        : 'z-10 hover:brightness-105',
+                        : 'z-10 hover:z-20 hover:shadow-md',
                     )}
                   >
                     <button
@@ -355,13 +361,26 @@ export function RejillaHoras({
                       onClick={() => { if (!trasArrastre.current) onItem(item) }}
                       title={`${item.titulo}${item.inicio && item.fin ? ` · ${fmtTramo(item.inicio, item.fin)}` : ''}`}
                       className={cn(
-                        'h-full w-full overflow-hidden px-1.5 py-0.5 text-left',
+                        'h-full w-full overflow-hidden px-2 py-1 text-left',
                         arrastrable && (enMovimiento ? 'cursor-grabbing' : 'cursor-grab'),
                       )}
                     >
-                      <p className="truncate text-[11px] font-medium leading-tight">{item.titulo}</p>
-                      {altoPx > 32 && item.subtitulo && (
-                        <p className="truncate text-[10px] opacity-80">{item.subtitulo}</p>
+                      {/* Bloque corto: título y hora en una línea. Alto: tramo arriba,
+                          título en negrita y, si hay sitio, dónde. */}
+                      {altoPx < 34 ? (
+                        <p className="truncate text-[11px] leading-tight">
+                          <span className="font-semibold">{item.titulo}</span>
+                          {item.inicio && <span className="opacity-75"> · {format(item.inicio, 'HH:mm')}</span>}
+                        </p>
+                      ) : (
+                        <>
+                          <p className="flex items-center gap-1 text-[10px] font-medium tabular-nums opacity-80">
+                            {item.inicio && item.fin ? fmtTramo(item.inicio, item.fin) : item.subtitulo}
+                            {item.evento?.enlace?.includes('meet.google') && <Video className="h-3 w-3 shrink-0" />}
+                          </p>
+                          <p className={cn('text-xs font-semibold leading-snug', altoPx < 56 ? 'truncate' : 'line-clamp-2', item.evento?.estado === 'hecho' && 'line-through')}>{item.titulo}</p>
+                          {altoPx >= 72 && item.evento?.ubicacion && <p className="truncate text-[10px] opacity-75">{item.evento.ubicacion}</p>}
+                        </>
                       )}
                     </button>
 

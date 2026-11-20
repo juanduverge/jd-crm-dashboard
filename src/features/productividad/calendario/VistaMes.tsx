@@ -1,7 +1,7 @@
-import { format, isSameMonth, isToday } from 'date-fns'
+import { format, isSameMonth, isToday, isWeekend } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { DIAS_SEMANA, iso } from '../shared/goalMeta'
-import { clasesPunto, type ItemCalendario } from './itemCalendario'
+import { clasesBloque, type ItemCalendario } from './itemCalendario'
 
 /**
  * La vista de mes: la panorámica. No intenta enseñar horas —para eso están
@@ -27,10 +27,10 @@ export function VistaMes({
   onItem: (item: ItemCalendario) => void
 }) {
   return (
-    <div className="card overflow-hidden p-0">
-      <div className="grid grid-cols-7 border-b border-border">
+    <div className="card overflow-hidden rounded-2xl p-0">
+      <div className="grid grid-cols-7 border-b border-border bg-surface">
         {DIAS_SEMANA.map((d) => (
-          <div key={d.iso} className="px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-muted">
+          <div key={d.iso} className={cn('px-2 py-2.5 text-center text-[11px] font-semibold uppercase tracking-wider', d.iso >= 6 ? 'text-muted/60' : 'text-muted')}>
             {d.label.slice(0, 3)}
           </div>
         ))}
@@ -46,8 +46,8 @@ export function VistaMes({
             <div
               key={fecha}
               className={cn(
-                'group relative min-h-[104px] border-b border-r border-border p-1.5',
-                !delMes && 'bg-surface-2/30',
+                'group relative min-h-[118px] border-b border-r border-border/70 p-1.5 transition-colors hover:bg-surface-2/40',
+                !delMes ? 'bg-surface-2/40' : isToday(d) ? 'bg-primary-500/[0.05]' : isWeekend(d) && 'bg-surface-2/20',
               )}
             >
               {/* El fondo de la celda es el que crea; los items van encima. */}
@@ -62,9 +62,9 @@ export function VistaMes({
                 type="button"
                 onClick={() => onDia(fecha)}
                 className={cn(
-                  'relative inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs transition',
-                  isToday(d) ? 'bg-primary-500 font-semibold text-white' : 'text-fg hover:bg-surface-2',
-                  !delMes && 'text-muted',
+                  'relative inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 text-xs font-semibold tabular-nums transition',
+                  isToday(d) ? 'bg-primary-500 text-white shadow-sm' : 'text-fg hover:bg-surface-2',
+                  !delMes && 'font-normal text-muted/60',
                 )}
               >
                 {format(d, 'd')}
@@ -76,11 +76,14 @@ export function VistaMes({
                     key={i.clave}
                     onClick={() => onItem(i)}
                     title={`${i.titulo}${i.subtitulo ? ` · ${i.subtitulo}` : ''}`}
-                    className="flex w-full items-center gap-1 rounded px-1 py-px text-left text-[11px] text-fg transition hover:bg-surface-2"
+                    className={cn(
+                      'flex w-full items-center gap-1 rounded-md border-l-2 px-1.5 py-0.5 text-left text-[11px] font-medium transition hover:shadow-sm',
+                      clasesBloque(i.color),
+                      i.evento?.estado === 'hecho' && 'line-through opacity-60',
+                    )}
                   >
-                    <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', clasesPunto(i.color))} />
                     {i.inicio && (
-                      <span className="shrink-0 tabular-nums text-[10px] text-muted">
+                      <span className="shrink-0 tabular-nums text-[10px] opacity-75">
                         {format(i.inicio, 'H:mm')}
                       </span>
                     )}
@@ -91,7 +94,7 @@ export function VistaMes({
                 {items.length > MAX_POR_DIA && (
                   <button
                     onClick={() => onDia(fecha)}
-                    className="px-1 text-[10px] font-medium text-muted hover:text-fg"
+                    className="rounded px-1.5 text-[10px] font-semibold text-muted hover:bg-surface-2 hover:text-fg"
                   >
                     +{items.length - MAX_POR_DIA} más
                   </button>

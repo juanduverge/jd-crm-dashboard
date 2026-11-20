@@ -13,6 +13,7 @@ import { goalsService } from '@/services/goalsService'
 import { metricsService } from '@/services/metricsService'
 import { timeService } from '@/services/timeService'
 import { eventosService, type EventoPayload } from '@/services/eventosService'
+import { googleCalendarService, type OpcionesGoogle } from '@/services/googleCalendarService'
 import { followUpsService } from '@/services/followUpsService'
 import { colaService } from '@/services/colaService'
 import { supabase } from '@/lib/supabaseClient'
@@ -536,6 +537,15 @@ export function useCrearMetaMensual() {
   return useMutation({
     mutationFn: (p: Parameters<typeof goalsService.crearMetaMensual>[0]) =>
       goalsService.crearMetaMensual(p),
+    onSuccess: invalidate,
+  })
+}
+
+/** Meta con fechas libres (formulario nuevo de Metas: de número o libre). */
+export function useCrearMeta() {
+  const invalidate = useInvalidateGoals()
+  return useMutation({
+    mutationFn: (p: Parameters<typeof goalsService.crearMeta>[0]) => goalsService.crearMeta(p),
     onSuccess: invalidate,
   })
 }
@@ -1255,10 +1265,87 @@ function useInvalidateEventos() {
   }
 }
 
+/**
+ * Estado de la conexión con Google Calendar (workflow de n8n). Mientras no
+ * esté conectado, el calendario funciona igual, solo en el CRM.
+ */
+export function useGoogleCalendarEstado() {
+  return useQuery({
+    queryKey: ['google-calendar', 'estado'],
+    queryFn: () => googleCalendarService.estado(),
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
+}
+
+/**
+ * Trae a `eventos` lo que haya cambiado en Google dentro del rango a la vista
+ * (lo creado desde el móvil, lo movido en Google…). Corre al abrir y cada
+ * cinco minutos mientras la pantalla está abierta.
+ */
+/**
+ * El botón «Sincronizar»: vuelve a comprobar la conexión (sin la caché de 5
+ * minutos) y trae de Google del último mes a los próximos tres. Devuelve
+ * cuántos eventos cambiaron en el CRM.
+ */
+export function useSincronizarAhora() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const estado = await googleCalendarService.estado(true)
+      qc.setQueryData(['google-calendar', 'estado'], estado)
+      if (!estado.conectado) throw new Error(estado.motivo || 'Google Calendar no responde')
+      const d = new Date()
+      const desde = new Date(d.getFullYear(), d.getMonth() - 1, d.getDate()).toISOString()
+      const hasta = new Date(d.getFullYear(), d.getMonth() + 3, d.getDate()).toISOString()
+      return googleCalendarService.sincronizar(desde, hasta)
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['eventos'] })
+      qc.invalidateQueries({ queryKey: ['google-calendar', 'sync'] })
+    },
+  })
+}
+
+export function useSincronizarGoogle(desdeIso: string, hastaIso: string) {
+  const qc = useQueryClient()
+  const estado = useGoogleCalendarEstado()
+  return useQuery({
+    queryKey: ['google-calendar', 'sync', desdeIso, hastaIso],
+    queryFn: async () => {
+      const n = await googleCalendarService.sincronizar(desdeIso, hastaIso)
+      if (n > 0) qc.invalidateQueries({ queryKey: ['eventos'] })
+      return n
+    },
+    enabled: estado.data?.conectado === true,
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+    retry: false,
+  })
+}
+
+/**
+ * Sube a Google sin que un fallo de Google tumbe lo ya guardado en el CRM:
+ * el evento existe aunque n8n esté caído, y se avisa de qué pasó.
+ */
+async function subirAGoogle(id: string, op?: OpcionesGoogle): Promise<{ enlace?: string; avisoGoogle?: string }> {
+  if (!(await googleCalendarService.conectado())) return {}
+  try {
+    return await googleCalendarService.subir(id, op)
+  } catch (e) {
+    return { avisoGoogle: e instanceof Error ? e.message : 'No se pudo subir a Google Calendar' }
+  }
+}
+
+export type CrearEventoInput = EventoPayload & { google?: OpcionesGoogle }
+
 export function useCrearEvento() {
   const invalidar = useInvalidateEventos()
   return useMutation({
-    mutationFn: (p: EventoPayload) => eventosService.crear(p),
+    mutationFn: async ({ google, ...p }: CrearEventoInput) => {
+      const id = await eventosService.crear(p)
+      return { id, ...(await subirAGoogle(id, google)) }
+    },
     onSuccess: invalidar,
   })
 }
@@ -1266,8 +1353,10 @@ export function useCrearEvento() {
 export function useActualizarEvento() {
   const invalidar = useInvalidateEventos()
   return useMutation({
-    mutationFn: ({ id, ...p }: Partial<EventoPayload> & { id: string }) =>
-      eventosService.actualizar(id, p),
+    mutationFn: async ({ id, google, ...p }: Partial<EventoPayload> & { id: string; google?: OpcionesGoogle }) => {
+      await eventosService.actualizar(id, p)
+      return subirAGoogle(id, google)
+    },
     onSuccess: invalidar,
   })
 }
@@ -1276,8 +1365,10 @@ export function useActualizarEvento() {
 export function useMoverEvento() {
   const invalidar = useInvalidateEventos()
   return useMutation({
-    mutationFn: ({ id, inicio, fin }: { id: string; inicio: string; fin?: string }) =>
-      eventosService.mover(id, inicio, fin),
+    mutationFn: async ({ id, inicio, fin }: { id: string; inicio: string; fin?: string }) => {
+      await eventosService.mover(id, inicio, fin)
+      return subirAGoogle(id)
+    },
     onSuccess: invalidar,
   })
 }
@@ -1285,8 +1376,11 @@ export function useMoverEvento() {
 export function useDuplicarEvento() {
   const invalidar = useInvalidateEventos()
   return useMutation({
-    mutationFn: ({ id, inicio }: { id: string; inicio?: string }) =>
-      eventosService.duplicar(id, inicio),
+    mutationFn: async ({ id, inicio }: { id: string; inicio?: string }) => {
+      const nuevo = await eventosService.duplicar(id, inicio)
+      await subirAGoogle(nuevo)
+      return nuevo
+    },
     onSuccess: invalidar,
   })
 }
@@ -1294,7 +1388,13 @@ export function useDuplicarEvento() {
 export function useEliminarEvento() {
   const invalidar = useInvalidateEventos()
   return useMutation({
-    mutationFn: (id: string) => eventosService.eliminar(id),
+    mutationFn: async (id: string) => {
+      const googleId = await eventosService.googleId(id)
+      await eventosService.eliminar(id)
+      if (googleId && (await googleCalendarService.conectado())) {
+        try { await googleCalendarService.borrar(googleId) } catch { /* queda borrado en el CRM; Google se limpia a mano */ }
+      }
+    },
     onSuccess: invalidar,
   })
 }

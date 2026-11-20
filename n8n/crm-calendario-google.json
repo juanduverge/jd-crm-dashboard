@@ -1,0 +1,301 @@
+{
+  "name": "CRM API - Calendario Google",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crm-calendario",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c4f0a001-0000-4000-8000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "crm-calendario"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Traduce la petición del CRM a una llamada a la API de Google Calendar.\n// El CRM manda: { accion, calendarId?, desde?, hasta?, googleEventId?, evento?, meet?, invitar? }\nconst b = $input.first().json.body || {};\nconst accion = String(b.accion || '');\nconst CAL = encodeURIComponent(b.calendarId || 'primary');\nconst raiz = 'https://www.googleapis.com/calendar/v3/calendars/' + CAL;\nconst base = raiz + '/events';\nconst tz = b.zonaHoraria || 'America/Santo_Domingo';\nconst qs = (o) => Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');\n\n// Todo el día: Google quiere fechas sueltas y el fin EXCLUSIVO (el CRM ya lo manda así).\nconst cuando = (valor, todo) => todo ? { date: String(valor).slice(0, 10) } : { dateTime: valor, timeZone: tz };\n\nfunction cuerpo(e) {\n  e = e || {};\n  const out = {};\n  if (e.titulo !== undefined) out.summary = e.titulo;\n  if (e.descripcion !== undefined) out.description = e.descripcion || '';\n  if (e.ubicacion !== undefined) out.location = e.ubicacion || '';\n  if (e.inicio) out.start = cuando(e.inicio, e.todoElDia);\n  if (e.fin) out.end = cuando(e.fin, e.todoElDia);\n  if (Array.isArray(e.invitados)) out.attendees = e.invitados.filter(Boolean).map((email) => ({ email }));\n  // Esto es lo que genera el enlace de Meet: Google crea la sala al guardar el evento.\n  if (b.meet) {\n    out.conferenceData = {\n      createRequest: {\n        requestId: 'crm-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8),\n        conferenceSolutionKey: { type: 'hangoutsMeet' },\n      },\n    };\n  }\n  return out;\n}\n\nconst envio = b.invitar ? 'all' : 'none';\nconst id = encodeURIComponent(String(b.googleEventId || ''));\nlet r = null;\n\nif (accion === 'estado') {\n  r = { method: 'GET', url: raiz, body: null };\n} else if (accion === 'listar' && b.desde && b.hasta) {\n  r = { method: 'GET', url: base + '?' + qs({ timeMin: b.desde, timeMax: b.hasta, singleEvents: 'true', showDeleted: 'true', maxResults: 2500 }), body: null };\n} else if (accion === 'crear') {\n  r = { method: 'POST', url: base + '?' + qs({ conferenceDataVersion: 1, sendUpdates: envio }), body: cuerpo(b.evento) };\n} else if (accion === 'actualizar' && id) {\n  r = { method: 'PATCH', url: base + '/' + id + '?' + qs({ conferenceDataVersion: 1, sendUpdates: envio }), body: cuerpo(b.evento) };\n} else if (accion === 'borrar' && id) {\n  r = { method: 'DELETE', url: base + '/' + id + '?' + qs({ sendUpdates: envio }), body: null };\n}\n\nif (!r) return [{ json: { valido: false, accion, error: 'Petición incompleta o acción desconocida: ' + accion } }];\nreturn [{ json: { valido: true, accion, ...r, conCuerpo: r.body !== null } }];"
+      },
+      "id": "c4f0a001-0000-4000-8000-000000000002",
+      "name": "Preparar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valido }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c4f0a001-0000-4000-8000-000000000003",
+      "name": "¿Válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.conCuerpo }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c4f0a001-0000-4000-8000-000000000004",
+      "name": "¿Lleva cuerpo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        660,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "c4f0a001-0000-4000-8000-000000000005",
+      "name": "Google (con cuerpo)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        140
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.method }}",
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleCalendarOAuth2Api",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "c4f0a001-0000-4000-8000-000000000006",
+      "name": "Google (sin cuerpo)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        300
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Devuelve al CRM siempre la misma forma, sea cual sea la acción.\nconst prep = $('Preparar').first().json;\nconst r = $input.first().json || {};\nconst status = Number(r.statusCode || 0);\nlet body = r.body || {};\nif (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }\n\n// Borrar algo que ya no existe en Google también es «borrado».\nconst ok = (status >= 200 && status < 300) || (prep.accion === 'borrar' && (status === 404 || status === 410));\nif (!ok) {\n  return [{ json: { ok: false, status, error: (body.error && body.error.message) || ('Google respondió ' + status) } }];\n}\n\nfunction evento(g) {\n  g = g || {};\n  const start = g.start || {};\n  const end = g.end || {};\n  const video = ((g.conferenceData && g.conferenceData.entryPoints) || []).find((p) => p.entryPointType === 'video');\n  return {\n    googleEventId: g.id,\n    etag: g.etag || null,\n    estado: g.status || 'confirmed',\n    titulo: g.summary || '(sin título)',\n    descripcion: g.description || null,\n    ubicacion: g.location || null,\n    inicio: start.dateTime || start.date || null,\n    fin: end.dateTime || end.date || null,\n    todoElDia: !!start.date,\n    enlace: g.hangoutLink || (video && video.uri) || null,\n    htmlLink: g.htmlLink || null,\n    actualizado: g.updated || null,\n    invitados: (g.attendees || []).map((a) => a.email),\n  };\n}\n\nif (prep.accion === 'estado') return [{ json: { ok: true, calendario: body.summary || null, zonaHoraria: body.timeZone || null } }];\nif (prep.accion === 'listar') return [{ json: { ok: true, eventos: (body.items || []).map(evento) } }];\nif (prep.accion === 'borrar') return [{ json: { ok: true } }];\nreturn [{ json: { ok: true, evento: evento(body) } }];"
+      },
+      "id": "c4f0a001-0000-4000-8000-000000000007",
+      "name": "Responder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "c4f0a001-0000-4000-8000-000000000008",
+      "name": "OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1340,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, error: $json.error } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "c4f0a001-0000-4000-8000-000000000009",
+      "name": "Petición inválida",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        440
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Preparar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar": {
+      "main": [
+        [
+          {
+            "node": "¿Válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Válido?": {
+      "main": [
+        [
+          {
+            "node": "¿Lleva cuerpo?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Petición inválida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Lleva cuerpo?": {
+      "main": [
+        [
+          {
+            "node": "Google (con cuerpo)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Google (sin cuerpo)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google (con cuerpo)": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google (sin cuerpo)": {
+      "main": [
+        [
+          {
+            "node": "Responder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder": {
+      "main": [
+        [
+          {
+            "node": "OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

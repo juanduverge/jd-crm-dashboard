@@ -169,6 +169,13 @@ export const eventosService = {
     return data as string
   },
 
+  /** Id del evento en Google, si está sincronizado. Se lee antes de borrar. */
+  async googleId(id: string): Promise<string | null> {
+    const { data, error } = await supabase.from('eventos').select('google_event_id').eq('id', id).single()
+    if (error) throw error
+    return (data as { google_event_id: string | null }).google_event_id
+  },
+
   /** Soft delete, como el resto del CRM. */
   async eliminar(id: string): Promise<void> {
     const { error } = await supabase
