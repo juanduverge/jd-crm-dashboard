@@ -1,7 +1,7 @@
 import {
   Home, Users, Target, KanbanSquare, Inbox, MessageSquare,
   BarChart3, Settings, Globe, CheckSquare, Trash2, CalendarClock, Archive,
-  CalendarDays, Gauge, Flag, Sun, Rocket, Send, FileText, Briefcase, Map as MapIcon,
+  CalendarDays, Gauge, Flag, Sun, Rocket, Send, FileText, Briefcase, Map as MapIcon, Server,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -92,6 +92,7 @@ export const navItems: NavItem[] = [
   { kind: 'link', to: '/archivo', label: 'Archivo', icon: Archive },
   { kind: 'link', to: '/papelera', label: 'Papelera', icon: Trash2 },
   { kind: 'link', to: '/settings', label: 'Configuración', icon: Settings },
+  { kind: 'link', to: '/servidor', label: 'Ver el servidor', icon: Server },
 ]
 
 /**
@@ -105,8 +106,4 @@ export const navDestinos: { to: string; label: string }[] = navItems.flatMap((it
     return item.children.map((c) => ({ to: c.to, label: `${item.label} · ${c.label}` }))
   }
   return []
-}).concat(
-  // «Ver el servidor» vive en el menú del perfil, no en el lateral; aquí se
-  // añade para que también aparezca al buscar «servidor».
-  { to: '/servidor', label: 'Ver el servidor' },
-)
+})
