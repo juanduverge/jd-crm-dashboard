@@ -4,7 +4,7 @@ import { formatDistanceToNow, format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
   Server, Cpu, MemoryStick, HardDrive, Thermometer, BatteryCharging, Battery, Power,
-  RefreshCw, AlertTriangle, CheckCircle2, Boxes, FolderOpen, DatabaseBackup, Workflow,
+  RefreshCw, AlertTriangle, ExternalLink, CheckCircle2, Boxes, FolderOpen, DatabaseBackup, Workflow,
 } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button, Skeleton } from '@/components/ui'
@@ -13,6 +13,8 @@ import {
   obtenerEstadoServidor, SinDatosServidor,
   type ContenedorEstado, type EstadoServidor,
 } from '@/services/servidorService'
+
+export const URL_PORTAINER = 'https://servidor.jddeveloper.com'
 
 // ── Nombres en cristiano ────────────────────────────────────────────────
 // Docker habla de «jd-prod-postgres-1»; Juan necesita leer «Base de datos».
@@ -198,9 +200,17 @@ export function ServidorPage() {
   }, [data])
 
   const actualizar = (
-    <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
-      <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} /> Actualizar
-    </Button>
+    <>
+      {/* Portainer: el programa para manejar Docker (parar, reiniciar, ver
+          registros). Sale por el túnel de Cloudflare con Access delante. */}
+      <a href={URL_PORTAINER} target="_blank" rel="noopener noreferrer"
+        className="inline-flex h-9 items-center gap-2 rounded-xl bg-primary-400 px-4 text-sm font-medium text-white hover:bg-primary-600">
+        <ExternalLink className="h-4 w-4" /> Manejar Docker (Portainer)
+      </a>
+      <Button variant="outline" onClick={() => refetch()} disabled={isFetching}>
+        <RefreshCw className={cn('h-4 w-4', isFetching && 'animate-spin')} /> Actualizar
+      </Button>
+    </>
   )
 
   if (isLoading) {
