@@ -180,7 +180,19 @@ export function LeadDrawer({
             </div>
             <div className="min-w-0">
               <h3 className="truncate font-semibold text-fg">{lead.empresa}</h3>
-              <p className="truncate text-xs text-muted">{lead.ciudad} · {lead.nicho}</p>
+              <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted">
+                {lead.codigo && (
+                  <button
+                    type="button"
+                    onClick={() => copiarAlPortapapeles(lead.codigo!).then((ok) => ok && toast.success(`${lead.codigo} copiado`))}
+                    className="shrink-0 rounded-md bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-semibold tracking-wide text-fg hover:bg-primary-50 hover:text-primary-700 dark:hover:bg-primary-500/15"
+                    title="Código del lead: nicho · zona · número · origen. Toca para copiarlo."
+                  >
+                    {lead.codigo}
+                  </button>
+                )}
+                <span className="truncate">{lead.ciudad} · {lead.nicho}</span>
+              </p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-0.5">

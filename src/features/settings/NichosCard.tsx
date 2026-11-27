@@ -169,6 +169,7 @@ function FilaNicho({
 }) {
   const [emoji, setEmoji] = useState(nicho.emoji)
   const [nombre, setNombre] = useState(nicho.nombre)
+  const [codigo, setCodigo] = useState(nicho.codigo ?? '')
   const [fusionando, setFusionando] = useState(false)
 
   return (
@@ -188,6 +189,18 @@ function FilaNicho({
         onChange={(e) => setNombre(e.target.value)}
         onBlur={() => nombre.trim() && nombre !== nicho.nombre && onGuardar(nicho, { nombre: nombre.trim() })}
         className="min-w-[10rem] flex-1"
+      />
+      <Input
+        value={codigo}
+        onChange={(e) => setCodigo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4))}
+        onBlur={() => {
+          if (codigo === (nicho.codigo ?? '')) return
+          if (codigo.length < 2) { setCodigo(nicho.codigo ?? ''); return }
+          onGuardar(nicho, { codigo })
+        }}
+        className="w-16 text-center font-mono"
+        title="Clave del nicho: es como empieza el código de sus leads (DEN-UT-0042). De 2 a 4 letras."
+        aria-label="Clave del nicho"
       />
       <Select
         value={nicho.grupo}

@@ -4,6 +4,7 @@ import { Sidebar, MobileNav } from './Sidebar'
 import { Topbar } from './Topbar'
 import { CommandPalette } from './CommandPalette'
 import { FollowUpsBanner } from './FollowUpsBanner'
+import { AvisosAgenda } from './AvisosAgenda'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export function AppLayout() {
@@ -37,6 +38,7 @@ export function AppLayout() {
       </div>
       <MobileNav />
       <CommandPalette />
+      <AvisosAgenda />
     </div>
   )
 }

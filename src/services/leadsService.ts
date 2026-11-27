@@ -21,6 +21,8 @@ import { traerTodas } from '@/lib/traerTodas'
 
 interface LeadRow {
   id: string
+  numero?: number | null
+  codigo?: string | null
   empresa: string
   nicho: string | null
   ciudad: string | null
@@ -135,6 +137,8 @@ function rowToLead(row: LeadRow): Lead {
   const score = Math.min(100, (scoreIA ?? 0) + (scoreManual ?? 0))
   return {
     id: row.id,
+    numero: row.numero ?? undefined,
+    codigo: row.codigo ?? undefined,
     fechaCaptura: row.created_at?.slice(0, 10),
     empresa: row.empresa,
     cargo: row.cargo ?? undefined,

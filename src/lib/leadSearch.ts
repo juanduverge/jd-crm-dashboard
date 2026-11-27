@@ -88,6 +88,7 @@ interface CampoBusqueda {
 export const CAMPOS_BUSQUEDA: CampoBusqueda[] = [
   // --- Identidad ---
   { claves: ['id'], etiqueta: 'ID', tipo: 'texto', valor: (l) => l.id },
+  { claves: ['codigo', 'cod'], etiqueta: 'Código (DEN-UT-0042)', tipo: 'texto', valor: (l) => l.codigo },
   { claves: ['empresa', 'nombre', 'negocio'], etiqueta: 'Empresa', tipo: 'texto', valor: (l) => l.empresa },
   { claves: ['cargo', 'puesto'], etiqueta: 'Cargo', tipo: 'texto', valor: (l) => l.cargo },
   { claves: ['nicho', 'sector'], etiqueta: 'Nicho', tipo: 'texto', valor: (l) => l.nicho },
@@ -454,6 +455,12 @@ export function relevanciaLead(lead: Lead, consulta: string): number {
   if (!q) return 0
   const heno = henoDe(lead)
   const digitos = soloDigitos(q)
+
+  // «DEN-UT-0042», «0042», «#42» o «42» a secas: el código va primero porque
+  // es lo que llega en el aviso de Telegram.
+  if (lead.codigo && normalizar(lead.codigo) === normalizar(q)) return 100
+  const numero = /^#?\d{1,5}$/.test(q) ? Number(q.replace('#', '')) : NaN
+  if (lead.numero !== undefined && lead.numero === numero) return 100
 
   if (digitos.length >= 6) {
     const tels = heno.digitos.split(' ')

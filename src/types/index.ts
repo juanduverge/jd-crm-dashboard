@@ -30,6 +30,10 @@ export type Priority = 'alta' | 'media' | 'baja'
 /** Lead = fila de la hoja "prospects" enriquecida con pipeline */
 export interface Lead {
   id: string                  // ID Lead
+  /** Número fijo del lead (0076). La parte 0042 del código. */
+  numero?: number
+  /** DEN-UT-0042-R: nicho, zona, número y origen especial. Lo calcula la BD. */
+  codigo?: string
   fechaCaptura?: string
   empresa: string             // Nombre empresa
   cargo?: string              // Cargo del contacto principal (col Cargo)
@@ -543,9 +547,17 @@ export interface Evento {
   responsable?: string
   /** Presente sólo si el evento vino de (o se subió a) Google Calendar. */
   googleEventId?: string
+  /** Lo agendado desde la ficha del lead (0076). */
+  accion?: EventoAccion
+  /** Texto preparado del WhatsApp o del correo. */
+  mensaje?: string
+  /** Minutos de antelación del aviso por Telegram. */
+  avisoMin?: number
   creado: string
   actualizado: string
 }
+
+export type EventoAccion = 'llamada' | 'whatsapp' | 'correo' | 'otro'
 
 export interface TimeEntry {
   id: string

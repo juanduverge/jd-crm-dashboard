@@ -12,17 +12,18 @@ import {
 import { Button, Input, Select, Textarea } from '@/components/ui'
 import { Modal } from '@/components/ui/Modal'
 import {
-  useActualizarFollowUp, useCreateNote, useEventos, useGuardarEncuesta, useLeadFollowUps, useProgramarFollowUp,
+  useActualizarFollowUp, useCreateNote, useCrearEvento, useEventos, useGuardarEncuesta, useLeadFollowUps, useProgramarFollowUp,
   useRegistrarContacto, useRegistrarRespuesta,
 } from '@/hooks/useData'
 import { NewMessageModal } from '@/features/messages/NewMessageModal'
 import { ItemModal } from '@/features/productividad/calendario/ItemModal'
-import { addDiasLaborales, today, TIPO_META } from '@/lib/followUps'
+import { addDiasLaborales, today } from '@/lib/followUps'
 import { digitos, textoNumero, usePerfilTrabajo, type MiNumero } from '@/lib/perfilTrabajo'
 import { cn } from '@/lib/utils'
 import { useLeadsStore } from '@/store/leadsStore'
 import { ANIMO, ATENDIO, ESTRATEGIA, INTERES, OBJECION, TIPO_PROYECTO, type OpcionEncuesta } from '@/lib/encuestaLlamada'
-import type { DetalleContacto, EncuestaLlamada, FollowUpResultado, FollowUpTipo, Lead } from '@/types'
+import type { DetalleContacto, EncuestaLlamada, EventoAccion, FollowUpResultado, FollowUpTipo, Lead } from '@/types'
+import { ACCIONES, metaAccion, MOTIVOS, motivoSugerido, numeroWhatsApp, plantillaMensaje, TIPO_SEGUIMIENTO, type Motivo } from '@/lib/agenda'
 import { calcularHuecos } from './huecos'
 
 /**
@@ -58,7 +59,7 @@ export function AccionesLead({ lead }: { lead: Lead }) {
     { k: 'llamar', label: 'Llamar', icon: Phone },
     { k: 'mensaje', label: 'Mensaje', icon: MessageCircle },
     { k: 'reunion', label: 'Reunión', icon: CalendarPlus },
-    { k: 'recordar', label: 'Recordarme', icon: BellRing },
+    { k: 'recordar', label: 'Agendar', icon: BellRing },
     { k: 'nota', label: 'Nota', icon: StickyNote },
   ]
 
@@ -96,7 +97,7 @@ export function AccionesLead({ lead }: { lead: Lead }) {
       {paso?.k === 'reunion' && (
         <ElegirHueco lead={lead} onClose={cerrar} onElegir={(fecha, hora, modo) => { setPaso(null); setCita({ fecha, hora, ...modo }) }} />
       )}
-      {paso?.k === 'recordar' && <Recordatorio lead={lead} tipoInicial={paso.tipo} titulo={paso.titulo} onClose={cerrar} />}
+      {paso?.k === 'recordar' && <Agendar lead={lead} tipoInicial={paso.tipo} titulo={paso.titulo} onClose={cerrar} />}
       {paso?.k === 'nota' && <NotaRapida lead={lead} onClose={cerrar} />}
       {paso?.k === 'correo' && (
         <NewMessageModal
@@ -695,8 +696,8 @@ function QueSigue({ lead, sugerir, tipo, onClose, onSiguiente }: {
       <div className="grid gap-2.5">
         <GranOpcion icon={CalendarCheck} destacado={sugerir === 'reunion'} titulo="Agendar una reunión"
           texto="Te enseño tus huecos libres de esta semana y la próxima. Con Meet e invitación." onClick={() => onSiguiente({ k: 'reunion' })} />
-        <GranOpcion icon={BellRing} destacado={sugerir === 'contacto'} titulo="Programar el próximo contacto"
-          texto="Elige el día y por dónde. Te saldrá en Mi día y en Seguimientos." onClick={() => onSiguiente({ k: 'recordar', tipo })} />
+        <GranOpcion icon={BellRing} destacado={sugerir === 'contacto'} titulo="Agendar el próximo contacto"
+          texto="Llamada, WhatsApp o correo con día y hora. Te aviso en el CRM y por Telegram." onClick={() => onSiguiente({ k: 'recordar', tipo })} />
         <button type="button" onClick={onClose} className="py-2 text-sm text-muted hover:text-fg">Nada por ahora</button>
       </div>
     </Modal>
@@ -889,43 +890,177 @@ function CitaConLead({ lead, fecha, hora, virtual, ubicacion, onClose }: { lead:
 }
 
 // =====================================================================
-// Recordarme y nota
+// Agendar (0076) y nota
 // =====================================================================
 
-const CANALES_RECORDAR: FollowUpTipo[] = ['llamada', 'whatsapp', 'email', 'llamada_whatsapp', 'reunion', 'instagram', 'linkedin', 'otro']
+/** Del canal del seguimiento a lo que se agenda: la llamada por WhatsApp sigue siendo una llamada. */
+function accionDesdeTipo(t?: FollowUpTipo): EventoAccion {
+  if (t === 'whatsapp') return 'whatsapp'
+  if (t === 'email') return 'correo'
+  if (t === 'llamada' || t === 'llamada_whatsapp' || t === 'videollamada' || t === undefined) return 'llamada'
+  return 'otro'
+}
 
-function Recordatorio({ lead, tipoInicial, titulo, onClose }: { lead: Lead; tipoInicial?: FollowUpTipo; titulo?: string; onClose: () => void }) {
+const ICONO_ACCION: Record<EventoAccion, typeof Phone> = { llamada: Phone, whatsapp: MessageCircle, correo: Mail, otro: BellRing }
+
+const AVISOS: [number, string][] = [[0, 'A la hora'], [5, '5 min antes'], [10, '10 min antes'], [30, '30 min antes']]
+
+/** Primera media hora a partir de ahora, sin empezar antes del horario de trabajo. */
+function siguienteMediaHora(desde: string): string {
+  const d = new Date()
+  d.setMinutes(d.getMinutes() < 30 ? 30 : 60, 0, 0)
+  const h = format(d, 'HH:mm')
+  return h < desde ? desde : h
+}
+
+/**
+ * «Agendar»: llamada, WhatsApp o correo con día y hora exacta. Crea un evento
+ * en el calendario (y en Google), con el mensaje ya preparado, y programa el
+ * seguimiento de ese día para que salga en Mi día y cuente en las métricas.
+ * A la hora salta el aviso en el CRM y, unos minutos antes, el de Telegram.
+ */
+function Agendar({ lead, tipoInicial, titulo, onClose }: { lead: Lead; tipoInicial?: FollowUpTipo; titulo?: string; onClose: () => void }) {
+  const { horario } = usePerfilTrabajo()
   const siguiente = useProgramarSiguiente(lead.id)
-  const [fecha, setFecha] = useState(addDiasLaborales(2, today()))
-  const [tipo, setTipo] = useState<FollowUpTipo>(tipoInicial ?? lead.ultimoContactoTipo ?? 'llamada')
+  const crearEvento = useCrearEvento()
+  const hoy = today()
+
+  const [accion, setAccion] = useState<EventoAccion>(accionDesdeTipo(tipoInicial ?? lead.ultimoContactoTipo))
+  const [motivo, setMotivo] = useState<Motivo>(() => motivoSugerido(lead))
+  const [fecha, setFecha] = useState(addDiasLaborales(1, hoy))
+  const [hora, setHora] = useState(horario.desde)
+  const [sinHora, setSinHora] = useState(false)
   const [nota, setNota] = useState('')
+  const [mensaje, setMensaje] = useState('')
+  const [mensajeTocado, setMensajeTocado] = useState(false)
+  const [avisoMin, setAvisoMin] = useState(10)
+
+  // Mientras no lo hayas editado, el texto sigue al motivo y al canal.
+  useEffect(() => {
+    if (!mensajeTocado && (accion === 'whatsapp' || accion === 'correo')) setMensaje(plantillaMensaje(lead, motivo, accion))
+  }, [accion, motivo]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const elegirDia = (f: string) => {
+    setFecha(f)
+    if (f === hoy) setHora(siguienteMediaHora(horario.desde))
+  }
+  const dias: [string, string][] = [
+    ['Hoy', hoy],
+    ['Mañana', addDiasLaborales(1, hoy)],
+    ['En 2 días', addDiasLaborales(2, hoy)],
+    ['Semana que viene', addDiasLaborales(5, hoy)],
+  ]
+
+  const meta = metaAccion(accion)
+  const sinNumero = accion === 'whatsapp' && !numeroWhatsApp(lead)
+  const sinCorreo = accion === 'correo' && !lead.email
+  const conMensaje = accion === 'whatsapp' || accion === 'correo'
+  const pendiente = siguiente.pendiente || crearEvento.isPending
 
   async function guardar() {
+    const nombreMotivo = MOTIVOS.find((m) => m.m === motivo)?.label
+    const notaFinal = nota.trim() || undefined
     try {
-      await siguiente.hacer(fecha, tipo, nota.trim() || undefined)
-      toast.success(`Te lo recuerdo el ${fechaLarga(fecha)}`)
+      if (!sinHora) {
+        const inicio = new Date(`${fecha}T${hora}:00`)
+        if (Number.isNaN(inicio.getTime())) { toast.error('Revisa la hora'); return }
+        if (inicio.getTime() < Date.now() - 60_000) { toast.error('Esa hora ya pasó'); return }
+        const fin = new Date(inicio.getTime() + meta.duracionMin * 60_000)
+        const r = await crearEvento.mutateAsync({
+          titulo: `${meta.verbo} ${lead.empresa}`,
+          descripcion: [lead.codigo, nombreMotivo, notaFinal].filter(Boolean).join(' · '),
+          tipo: 'recordatorio',
+          estado: 'pendiente',
+          inicio: inicio.toISOString(),
+          fin: fin.toISOString(),
+          leadId: lead.id,
+          accion,
+          mensaje: conMensaje ? mensaje.trim() || undefined : undefined,
+          avisoMin,
+        })
+        if (r.avisoGoogle) toast(`Guardado en el CRM. Google Calendar: ${r.avisoGoogle}`, { icon: '⚠️' })
+      }
+      await siguiente.hacer(fecha, TIPO_SEGUIMIENTO[accion], [nombreMotivo, notaFinal].filter(Boolean).join(' · ') || undefined)
+      // El permiso del aviso del navegador se pide aquí, cuando hay algo que avisar.
+      if (!sinHora && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {})
+      toast.success(sinHora
+        ? `Te lo recuerdo el ${fechaLarga(fecha)}`
+        : `Agendado: ${fechaLarga(fecha)} a las ${hora}${avisoMin ? `. Telegram te avisa ${avisoMin} min antes` : ''}`)
       onClose()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo programar')
+      toast.error(e instanceof Error ? e.message : 'No se pudo agendar')
     }
   }
 
   return (
-    <Modal open onClose={onClose} title={titulo ?? `¿Cuándo contactamos a ${lead.empresa}?`}
+    <Modal open onClose={onClose} size="lg" title={titulo ?? `Agendar con ${lead.empresa}`}
       footer={<>
         <Button variant="ghost" size="sm" onClick={onClose}>Cancelar</Button>
-        <Button size="sm" onClick={guardar} disabled={siguiente.pendiente}>Programar</Button>
+        <Button size="sm" onClick={guardar} disabled={pendiente}>{pendiente ? 'Guardando…' : 'Agendar'}</Button>
       </>}>
       <div className="space-y-4">
-        <div><Etiqueta>¿Qué día?</Etiqueta><CuandoVolvemos fecha={fecha} setFecha={setFecha} /></div>
         <div>
-          <Etiqueta>¿Por dónde?</Etiqueta>
-          <div className="flex flex-wrap gap-1.5">
-            {CANALES_RECORDAR.map((t) => <Opcion key={t} activo={tipo === t} onClick={() => setTipo(t)}>{TIPO_META[t]?.label ?? t}</Opcion>)}
+          <Etiqueta>¿Qué vas a hacer?</Etiqueta>
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+            {ACCIONES.map((x) => (
+              <Opcion key={x.a} icon={ICONO_ACCION[x.a]} activo={accion === x.a} onClick={() => setAccion(x.a)}>{x.label}</Opcion>
+            ))}
           </div>
+          {sinNumero && <p className="mt-1.5 text-xs text-amber-600">Este lead no tiene teléfono ni WhatsApp guardado.</p>}
+          {sinCorreo && <p className="mt-1.5 text-xs text-amber-600">Este lead no tiene correo guardado.</p>}
         </div>
-        <div><Etiqueta>¿Para qué? (opcional)</Etiqueta><Input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Ej. enviarle la propuesta, preguntar si la vio" /></div>
-        <p className="text-xs text-muted"><AtSign className="mr-1 inline h-3 w-3" />Saldrá en Mi día, en Seguimientos y en el Resumen ese día.</p>
+
+        <div>
+          <Etiqueta>¿En qué punto está?</Etiqueta>
+          <div className="flex flex-wrap gap-1.5">
+            {MOTIVOS.map((m) => <Opcion key={m.m} activo={motivo === m.m} onClick={() => setMotivo(m.m)}>{m.label}</Opcion>)}
+          </div>
+          <p className="mt-1 text-[11px] text-muted">{MOTIVOS.find((m) => m.m === motivo)?.ayuda}</p>
+        </div>
+
+        <div>
+          <Etiqueta>¿Cuándo?</Etiqueta>
+          <div className="flex flex-wrap gap-1.5">
+            {dias.map(([l, f]) => <Opcion key={l} activo={fecha === f} onClick={() => elegirDia(f)}>{l}</Opcion>)}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Input type="date" value={fecha} min={hoy} onChange={(e) => elegirDia(e.target.value)} className="w-40" />
+            {!sinHora && <Input type="time" value={hora} onChange={(e) => setHora(e.target.value)} className="w-28" aria-label="Hora" />}
+            <span className="text-xs text-muted">{fecha ? mayus(fechaLarga(fecha)) : ''}</span>
+          </div>
+          <label className="mt-2 flex items-center gap-2 text-xs text-muted">
+            <input type="checkbox" checked={sinHora} onChange={(e) => setSinHora(e.target.checked)} />
+            Solo el día, sin hora (sale en Mi día, sin aviso)
+          </label>
+        </div>
+
+        {conMensaje && (
+          <div>
+            <Etiqueta>{accion === 'whatsapp' ? 'Mensaje de WhatsApp (te lo dejo listo para enviar)' : 'Lo que le vas a escribir'}</Etiqueta>
+            <Textarea rows={accion === 'correo' ? 6 : 4} value={mensaje}
+              onChange={(e) => { setMensaje(e.target.value); setMensajeTocado(true) }} />
+            {mensajeTocado && (
+              <button type="button" className="mt-1 text-[11px] text-primary-600 hover:underline"
+                onClick={() => { setMensaje(plantillaMensaje(lead, motivo, accion)); setMensajeTocado(false) }}>
+                Volver al texto propuesto
+              </button>
+            )}
+          </div>
+        )}
+
+        <div><Etiqueta>¿Para qué? (opcional)</Etiqueta><Input value={nota} onChange={(e) => setNota(e.target.value)} placeholder="Ej. preguntar si vio la propuesta" /></div>
+
+        {!sinHora && (
+          <div>
+            <Etiqueta>Aviso por Telegram</Etiqueta>
+            <div className="flex flex-wrap gap-1.5">
+              {AVISOS.map(([m, l]) => <Opcion key={m} activo={avisoMin === m} onClick={() => setAvisoMin(m)}>{l}</Opcion>)}
+            </div>
+          </div>
+        )}
+        <p className="text-xs text-muted"><AtSign className="mr-1 inline h-3 w-3" />
+          {sinHora ? 'Saldrá en Mi día, en Seguimientos y en el Resumen ese día.' : 'Saldrá en el Calendario y en Mi día. A la hora te salta un aviso en el CRM con el botón para hacerlo.'}
+        </p>
       </div>
     </Modal>
   )

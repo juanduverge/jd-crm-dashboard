@@ -26,6 +26,7 @@ export interface NichoRow {
   orden: number
   origen: 'fabrica' | 'usuario' | 'auto'
   pendiente: boolean
+  codigo?: string | null
 }
 
 function rowToNiche(r: NichoRow): Niche {
@@ -38,6 +39,7 @@ function rowToNiche(r: NichoRow): Niche {
     orden: r.orden,
     origen: r.origen,
     pendiente: r.pendiente,
+    codigo: r.codigo ?? undefined,
   }
 }
 
@@ -50,7 +52,7 @@ export const nichosService = {
   async listar(): Promise<Niche[]> {
     const { data, error } = await supabase
       .from('nichos')
-      .select('id, nombre, emoji, color, grupo, orden, origen, pendiente')
+      .select('id, nombre, emoji, color, grupo, orden, origen, pendiente, codigo')
       .order('orden', { ascending: true })
       .order('nombre', { ascending: true })
     if (error) throw error
@@ -72,6 +74,8 @@ export const nichosService = {
       ...(n.orden !== undefined ? { orden: n.orden } : {}),
       ...(n.origen !== undefined ? { origen: n.origen } : {}),
       ...(n.pendiente !== undefined ? { pendiente: n.pendiente } : {}),
+      // Vacío = que la BD invente una (trigger de la 0076).
+      ...(n.codigo !== undefined ? { codigo: n.codigo.trim().toUpperCase() || null } : {}),
     })
     if (error) throw error
   },

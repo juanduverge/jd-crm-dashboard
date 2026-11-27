@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabaseClient'
-import type { Evento, EventoEstado, EventoPrioridad, EventoTipo } from '@/types'
+import type { Evento, EventoAccion, EventoEstado, EventoPrioridad, EventoTipo } from '@/types'
 
 /**
  * eventosService — el calendario. Ver `supabase/migrations/0018_eventos_calendario.sql`.
@@ -34,6 +34,9 @@ interface EventoRow {
   lead_id: string | null
   responsable: string | null
   google_event_id: string | null
+  accion: EventoAccion | null
+  mensaje: string | null
+  aviso_min: number | null
   created_at: string
   updated_at: string
 }
@@ -41,7 +44,7 @@ interface EventoRow {
 const SELECT =
   'id, titulo, descripcion, notas, tipo, estado, inicio, fin, todo_el_dia, color, prioridad, ' +
   'categoria, etiquetas, enlace, ubicacion, goal_id, task_id, lead_id, responsable, ' +
-  'google_event_id, created_at, updated_at'
+  'google_event_id, accion, mensaje, aviso_min, created_at, updated_at'
 
 function rowToEvento(row: EventoRow): Evento {
   return {
@@ -65,6 +68,9 @@ function rowToEvento(row: EventoRow): Evento {
     leadId: row.lead_id ?? undefined,
     responsable: row.responsable ?? undefined,
     googleEventId: row.google_event_id ?? undefined,
+    accion: row.accion ?? undefined,
+    mensaje: row.mensaje ?? undefined,
+    avisoMin: row.aviso_min ?? undefined,
     creado: row.created_at,
     actualizado: row.updated_at,
   }
@@ -90,6 +96,9 @@ export interface EventoPayload {
   taskId?: string
   leadId?: string
   responsable?: string
+  accion?: EventoAccion
+  mensaje?: string
+  avisoMin?: number
 }
 
 /** Sólo las claves presentes se mandan: un update parcial no debe borrar campos. */
@@ -113,6 +122,9 @@ function payloadToRow(p: Partial<EventoPayload>): Record<string, unknown> {
   if (p.taskId !== undefined) row.task_id = p.taskId || null
   if (p.leadId !== undefined) row.lead_id = p.leadId || null
   if (p.responsable !== undefined) row.responsable = p.responsable || null
+  if (p.accion !== undefined) row.accion = p.accion || null
+  if (p.mensaje !== undefined) row.mensaje = p.mensaje || null
+  if (p.avisoMin !== undefined) row.aviso_min = p.avisoMin
   return row
 }
 

@@ -86,6 +86,8 @@ export interface Niche {
   origen?: 'fabrica' | 'usuario' | 'auto'
   /** Creado automáticamente y aún sin revisar: sale en la bandeja de nichos nuevos. */
   pendiente?: boolean
+  /** Clave de 2–4 letras con la que empieza el código de sus leads (0076). */
+  codigo?: string
 }
 
 export const DEFAULT_NICHES: Niche[] = [
