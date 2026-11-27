@@ -88,7 +88,9 @@ export function EditorPanel(p: PanelProps) {
         allowIncomplete={item.status === 'idea'} onChange={fields => set('fields', fields)} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
         <Field label="Autor"><Input value={draft.author} disabled={p.disabled} onChange={e => set('author', e.target.value)} /></Field>
-        <Field label="Fecha"><Input type="date" value={draft.fecha ?? ''} disabled={p.disabled} onChange={e => set('fecha', e.target.value || null)} /></Field>
+        {item.published_at
+          ? <Field label="Fecha de publicación" hint="Es el día en que se publicó por primera vez. Editar y volver a publicar no la cambia."><Input type="date" value={draft.fecha ?? ''} disabled readOnly /></Field>
+          : <Field label="Fecha" hint="Se pone sola al publicar o programar."><Input type="date" value={draft.fecha ?? ''} disabled={p.disabled} onChange={e => set('fecha', e.target.value || null)} /></Field>}
       </div>
       <Field label="URL de la portada" hint="O súbela desde el editor.">
         <Input type="url" value={draft.og_image ?? ''} disabled={p.disabled} onChange={e => set('og_image', e.target.value || null)} placeholder="https://…" />

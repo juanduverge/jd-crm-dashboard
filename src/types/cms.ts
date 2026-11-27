@@ -29,6 +29,8 @@ export interface CmsItem {
   author: string
   fecha: string | null
   programado_para: string | null
+  /** Primera publicación. Desde ahí la fecha queda fija (0077). */
+  published_at: string | null
   sources: string[]
   og_image: string | null
   fields: Record<string, CmsValue>

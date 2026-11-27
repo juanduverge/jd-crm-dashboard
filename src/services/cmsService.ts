@@ -100,7 +100,7 @@ export const cmsService = {
     // Lista explícita: un objeto de formulario nunca puede sobrescribir publicación ni grupo/idioma.
     const payload = { slug: draft.slug, title_h1: draft.title_h1, title_seo: draft.title_seo,
       meta_description: draft.meta_description, primary_keyword: draft.primary_keyword, mercado: draft.mercado, author: draft.author,
-      fecha: draft.fecha || null, sources: draft.sources, og_image: draft.og_image || null, fields: draft.fields, body: draft.body,
+      ...(item.published_at ? {} : { fecha: draft.fecha || null }), sources: draft.sources, og_image: draft.og_image || null, fields: draft.fields, body: draft.body,
       tldr: draft.tldr.map(t => t.trim()).filter(Boolean), faqs: draft.faqs.filter(f => f.q.trim()), cierre: draft.cierre?.titulo.trim() ? draft.cierre : null,
       ...(status !== undefined ? { status } : {}) }
     const { data, error } = await supabase.from('cms_items').update(payload).eq('id', item.id)
